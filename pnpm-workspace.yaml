@@ -1,3 +1,8 @@
 allowBuilds:
   sharp: false
   unrs-resolver: false
+permissions:
+  '@tanstack/react-table':
+    skills: true
+  drizzle-kit:
+    skills: true
