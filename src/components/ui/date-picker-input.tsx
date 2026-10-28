@@ -55,7 +55,7 @@ export function DatePickerInput({
         <InputGroupInput
           id="date-required"
           value={value}
-          placeholder="June 01, 2025"
+          placeholder="Ocak 01, 2025"
           onChange={(e) => {
             const date = new Date(e.target.value);
             setValue(e.target.value);
