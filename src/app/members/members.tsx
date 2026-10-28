@@ -32,7 +32,7 @@ export function Members() {
       return await res.json();
     },
     onSuccess: async () => {
-      getQueryClient().invalidateQueries({ queryKey: ["members"] });
+      await getQueryClient().invalidateQueries({ queryKey: ["members"] });
     },
   });
 
