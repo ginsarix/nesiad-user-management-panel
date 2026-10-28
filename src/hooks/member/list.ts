@@ -1,19 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
+import type { InferRequestType } from "hono";
 import { rpcClient } from "@/lib/rpc-client";
-import type { Pagination } from "@/types/pagination";
 import { memberQueryKeys } from "./keys";
 
-export function useMemberList(pagination: Pagination) {
+type MembersGetRequestType = InferRequestType<
+  typeof rpcClient.api.members.$get
+>["query"];
+
+export function useMemberList(query: MembersGetRequestType) {
   const { data: members } = useQuery({
-    queryKey: [
-      memberQueryKeys.all,
-      { limit: pagination.limit, skip: pagination.skip },
-    ],
+    queryKey: [memberQueryKeys.all, { limit: query.limit, skip: query.skip }],
     queryFn: async () => {
       const res = await rpcClient.api.members.$get({
         query: {
-          limit: String(pagination.limit),
-          skip: String(pagination.skip),
+          limit: String(query.limit),
+          skip: String(query.skip),
         },
       });
 
