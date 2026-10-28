@@ -24,7 +24,7 @@ function formatDate(date: Date | undefined) {
 
   return date.toLocaleDateString("tr-TR", {
     day: "2-digit",
-    month: "long",
+    month: "2-digit",
     year: "numeric",
   });
 }
