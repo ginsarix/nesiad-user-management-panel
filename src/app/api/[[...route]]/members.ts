@@ -44,14 +44,23 @@ export const membersRoute = new Hono()
       const { logo, authorizedRepresentativeIds, ...form } =
         c.req.valid("form");
 
-      let createdMember: typeof memberTable.$inferSelect;
+      let createdMember: Pick<
+        typeof memberTable.$inferSelect,
+        "id" | "createdAt" | "updatedAt"
+      >;
+
+      const memberInsertReturnColumns = {
+        id: memberTable.id,
+        createdAt: memberTable.createdAt,
+        updatedAt: memberTable.updatedAt,
+      };
 
       if (authorizedRepresentativeIds?.length) {
         createdMember = await db.transaction(async (tx) => {
           const [member] = await tx
             .insert(memberTable)
             .values(form)
-            .returning();
+            .returning(memberInsertReturnColumns);
 
           const relations = authorizedRepresentativeIds.map((arId) => ({
             authorizedRepresentativeId: arId,
@@ -65,7 +74,10 @@ export const membersRoute = new Hono()
           return member;
         });
       } else {
-        [createdMember] = await db.insert(memberTable).values(form).returning();
+        [createdMember] = await db
+          .insert(memberTable)
+          .values(form)
+          .returning(memberInsertReturnColumns);
       }
 
       let savedFilename: string | undefined;
