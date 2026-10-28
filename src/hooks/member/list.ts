@@ -12,10 +12,7 @@ export function useMemberList(query: MembersGetRequestType) {
     queryKey: [memberQueryKeys.all, { limit: query.limit, skip: query.skip }],
     queryFn: async () => {
       const res = await rpcClient.api.members.$get({
-        query: {
-          limit: String(query.limit),
-          skip: String(query.skip),
-        },
+        query,
       });
 
       if (!res.ok) throw new Error("Failed to fetch members");
