@@ -44,22 +44,28 @@ export const membersRoute = new Hono()
       const { logo, authorizedRepresentativeIds, ...form } =
         c.req.valid("form");
 
+      let createdMember: typeof memberTable.$inferSelect;
+
       if (authorizedRepresentativeIds?.length) {
-        await db.transaction(async (tx) => {
-          const [{ id: memberId }] = await tx
+        createdMember = await db.transaction(async (tx) => {
+          const [member] = await tx
             .insert(memberTable)
             .values(form)
             .returning();
 
           const relations = authorizedRepresentativeIds.map((arId) => ({
             authorizedRepresentativeId: arId,
-            memberId,
+            memberId: member.id,
           }));
 
-          await tx.insert(membersRepresentativesTable).values(relations);
+          await tx
+            .insert(membersRepresentativesTable)
+            .values(relations)
+            .returning();
+          return member;
         });
       } else {
-        await db.insert(memberTable).values(form);
+        [createdMember] = await db.insert(memberTable).values(form).returning();
       }
 
       let savedFilename: string | undefined;
@@ -79,7 +85,7 @@ export const membersRoute = new Hono()
       }
 
       return c.json(
-        { savedFilename, message: "Üye başarıyla kaydedildi" },
+        { createdMember, savedFilename, message: "Üye başarıyla kaydedildi" },
         200,
       );
     },
