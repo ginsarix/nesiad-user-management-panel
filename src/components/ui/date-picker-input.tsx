@@ -1,6 +1,6 @@
 "use client";
 
-import { parse as parseDate } from "date-fns";
+import { isValid, parse as parseDate } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
@@ -29,13 +29,6 @@ function formatDate(date: Date | undefined) {
   });
 }
 
-function isValidDate(date: Date | undefined) {
-  if (!date) {
-    return false;
-  }
-  return !Number.isNaN(date.getTime());
-}
-
 export function DatePickerInput({
   fieldLabelText,
 }: {
@@ -60,7 +53,7 @@ export function DatePickerInput({
             const value = e.target.value;
             const date = parseDate(value, "dd.MM.yyyy", new Date());
             setValue(value);
-            if (isValidDate(date)) {
+            if (isValid(date)) {
               setDate(date);
               setMonth(date);
             }
