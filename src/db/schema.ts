@@ -20,6 +20,14 @@ export const memberTable = pgTable("member", {
   foundingDate: text("founding_date"),
 
   seniorityDate: text("seniority_date"),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
 });
 
 export const authorizedRepresentativeTable = pgTable(
@@ -29,12 +37,24 @@ export const authorizedRepresentativeTable = pgTable(
     name: text().notNull(),
 
     dateOfBirth: text("date_of_birth"),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
 );
 
 export const membersRepresentativesTable = pgTable("members_representatives", {
   memberId: integer("member_id").notNull(),
   authorizedRepresentativeId: integer("authorized_representative_id").notNull(),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const userTable = pgTable("user", {
