@@ -1,8 +1,8 @@
 "use client";
 
+import { parse as parseDate } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
-
 import { Calendar } from "@/components/ui/calendar";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
@@ -57,8 +57,9 @@ export function DatePickerInput({
           value={value}
           placeholder="Ocak 01, 2025"
           onChange={(e) => {
-            const date = new Date(e.target.value);
-            setValue(e.target.value);
+            const value = e.target.value;
+            const date = parseDate(value, "dd.MM.yyyy", new Date());
+            setValue(value);
             if (isValidDate(date)) {
               setDate(date);
               setMonth(date);
