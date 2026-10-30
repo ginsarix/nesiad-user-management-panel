@@ -16,6 +16,7 @@ describe("session check on /api", () => {
     ["PATCH", "/api/members/1"],
     ["DELETE", "/api/members/1"],
     ["GET", "/api/files/logo_abc.png"],
+    ["GET", "/api/audit-logs"],
   ])("%s %s returns 401 without a session", async (method, path) => {
     getSession.mockResolvedValueOnce(null);
 

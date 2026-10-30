@@ -123,7 +123,8 @@ export const auditLog = () =>
                     actor: null,
                     action: "login_failed",
                     entityType: "auth",
-                    entityLabel: String(ctx.body?.email ?? ""),
+                    // whatever was typed; capped at an e-posta's max length
+                    entityLabel: String(ctx.body?.email ?? "").slice(0, 254),
                     details: [
                       {
                         label: "Neden",

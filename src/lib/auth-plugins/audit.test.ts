@@ -110,6 +110,60 @@ describe("audit log of better-auth events", () => {
     });
   });
 
+  it("records password changes by the user", async () => {
+    const { email, userId } = await newUser();
+    const headers = cookieHeaders(await signIn(email));
+    await auth.api.changePassword({
+      body: {
+        currentPassword: "verilen-sifre",
+        newPassword: "yeni-sifre-123",
+        revokeOtherSessions: true,
+      },
+      headers,
+    });
+    expect(await lastEntry("password_change", userId)).toMatchObject({
+      actorId: userId,
+    });
+  });
+
+  it("records the initial password set after the email link", async () => {
+    const { email, userId } = await newUser(undefined, { verified: false });
+    const { secret } = await auth.$context;
+    const token = await createEmailVerificationToken(secret, email);
+    const headers = cookieHeaders(
+      await auth.api.verifyEmail({
+        query: { token, callbackURL: "/welcome" },
+        asResponse: true,
+      }),
+    );
+    await auth.api.setInitialPassword({
+      body: { newPassword: "ilk-sifre-123" },
+      headers,
+    });
+    expect(await lastEntry("initial_password_set", userId)).toMatchObject({
+      actorId: userId,
+    });
+  });
+
+  it("records a password reset by email as the user", async () => {
+    const { email, userId } = await newUser();
+    const { sendEmail } = await import("@/lib/mail");
+    vi.mocked(sendEmail).mockClear();
+    await auth.api.requestPasswordReset({
+      body: { email, redirectTo: "/reset-password" },
+    });
+    // the token is in the link of the (mocked) email
+    await vi.waitFor(() => expect(sendEmail).toHaveBeenCalled());
+    const { text } = vi.mocked(sendEmail).mock.calls[0][0];
+    const token = text.match(/reset-password\/([^?\s]+)/)?.[1] ?? "";
+    await auth.api.resetPassword({
+      body: { newPassword: "sifirlanmis-123", token },
+    });
+    expect(await lastEntry("password_reset", userId)).toMatchObject({
+      actorId: userId,
+    });
+  });
+
   it("records panel-user changes with who made them", async () => {
     const admin = await newUser();
     const headers = cookieHeaders(await signIn(admin.email));
