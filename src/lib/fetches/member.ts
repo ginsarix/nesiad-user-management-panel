@@ -79,6 +79,25 @@ export async function setMemberActive(id: number, active: boolean) {
   if (!res.ok) await throwResponseError(res, "Üye durumu değiştirilemedi");
 }
 
+/** Replaces the logo; the API deletes the old file */
+export async function setMemberLogo(id: number, logo: File) {
+  const res = await rpcClient.api.members[":id"].$patch({
+    param: { id: String(id) },
+    form: { logo },
+  });
+
+  if (!res.ok) await throwResponseError(res, "Logo kaydedilemedi");
+}
+
+export async function removeMemberLogo(id: number) {
+  const res = await rpcClient.api.members[":id"].$patch({
+    param: { id: String(id) },
+    form: { removeLogo: "true" },
+  });
+
+  if (!res.ok) await throwResponseError(res, "Logo silinemedi");
+}
+
 export async function deleteMember(id: number) {
   const res = await rpcClient.api.members[":id"].$delete({
     param: { id: String(id) },

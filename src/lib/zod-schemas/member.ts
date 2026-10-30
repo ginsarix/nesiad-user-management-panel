@@ -67,3 +67,10 @@ export const memberFormSchema = z.object({
 });
 
 export type MemberFormValues = z.infer<typeof memberFormSchema>;
+
+/** Logo Değiştir dialog on the member page; a new file is required */
+export const memberLogoFormSchema = z.object({
+  logo: logoFileSchema
+    .nullable()
+    .refine((logo) => logo !== null, "Yeni bir logo seçin"),
+});

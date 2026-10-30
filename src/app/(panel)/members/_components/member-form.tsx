@@ -2,11 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ImageIcon } from "lucide-react";
-import Image from "next/image";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type DragEvent, useEffect, useState } from "react";
 import {
   type Control,
   Controller,
@@ -27,11 +25,11 @@ import {
   updateMember,
 } from "@/lib/fetches/member";
 import { listHref } from "@/lib/list-href";
-import { cn } from "@/lib/utils";
 import {
   type MemberFormValues,
   memberFormSchema,
 } from "@/lib/zod-schemas/member";
+import { LogoDropZone } from "./logo-drop-zone";
 import { SectorCombobox } from "./sector-combobox";
 
 type DateFieldName = "memberLoginDate" | "foundingDate";
@@ -232,23 +230,6 @@ function DateField({
   );
 }
 
-/** Blob URL for previewing a picked file; revoked when it changes */
-function useObjectUrl(file: File | null) {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!file) {
-      setUrl(null);
-      return;
-    }
-    const objectUrl = URL.createObjectURL(file);
-    setUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
-
-  return url;
-}
-
 function LogoField({
   control,
   trigger,
@@ -261,106 +242,26 @@ function LogoField({
   const logo = useController({ control, name: "logo" });
   const removeLogo = useController({ control, name: "removeLogo" });
 
-  const pickedUrl = useObjectUrl(logo.field.value);
-  const previewUrl =
-    pickedUrl ??
-    (currentLogo && !removeLogo.field.value ? logoUrl(currentLogo) : null);
-  const [dragging, setDragging] = useState(false);
-
   const pick = (file: File | null) => {
     logo.field.onChange(file);
     void trigger("logo");
   };
 
-  const hasFiles = (event: DragEvent) =>
-    event.dataTransfer.types.includes("Files");
-
   return (
     <Field data-invalid={!!logo.fieldState.error}>
       <FieldLabel htmlFor="logo">Logo</FieldLabel>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: drop target only; the file input stays the keyboard path */}
-      <div
-        className={cn(
-          "flex items-center gap-3 rounded-lg border border-dashed p-2 transition-colors",
-          dragging && "border-primary bg-primary/5",
-        )}
-        onDragEnter={(event) => {
-          if (!hasFiles(event)) return;
-          event.preventDefault();
-          setDragging(true);
+      <LogoDropZone
+        id="logo"
+        file={logo.field.value}
+        currentUrl={
+          currentLogo && !removeLogo.field.value ? logoUrl(currentLogo) : null
+        }
+        onPick={pick}
+        onRemove={() => {
+          removeLogo.field.onChange(true);
+          pick(null);
         }}
-        onDragOver={(event) => {
-          if (!hasFiles(event)) return;
-          // required for the drop event to fire
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "copy";
-        }}
-        onDragLeave={(event) => {
-          // ignore leaving into a child element
-          if (event.currentTarget.contains(event.relatedTarget as Node | null))
-            return;
-          setDragging(false);
-        }}
-        onDrop={(event) => {
-          if (!hasFiles(event)) return;
-          event.preventDefault();
-          setDragging(false);
-          pick(event.dataTransfer.files[0] ?? null);
-        }}
-      >
-        <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white">
-          {previewUrl ? (
-            <Image
-              src={previewUrl}
-              alt="Logo önizleme"
-              width={56}
-              height={56}
-              unoptimized
-              className="size-full object-contain"
-            />
-          ) : (
-            <ImageIcon className="size-5 text-muted-foreground" />
-          )}
-        </div>
-        <div className="flex flex-col gap-1">
-          <div className="flex gap-1">
-            <label
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              {previewUrl ? "Değiştir" : "Logo seç"}
-              <input
-                id="logo"
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(event) => {
-                  pick(event.target.files?.[0] ?? null);
-                  // allow picking the same file again after removing it
-                  event.target.value = "";
-                }}
-              />
-            </label>
-            {previewUrl && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  removeLogo.field.onChange(true);
-                  pick(null);
-                }}
-              >
-                Kaldır
-              </Button>
-            )}
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {dragging
-              ? "Bırakın"
-              : "veya buraya sürükleyin · resim, en fazla 5 MB"}
-          </span>
-        </div>
-      </div>
+      />
       <FieldError errors={[logo.fieldState.error]} />
     </Field>
   );

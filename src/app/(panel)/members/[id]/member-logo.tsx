@@ -1,28 +1,29 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { logoUrl } from "@/lib/fetches/member";
+import { logoUrl, type MemberDetails } from "@/lib/fetches/member";
 import { MemberAvatar } from "../_components/member-info";
+import { ChangeLogoButton } from "./change-logo-button";
+import { DeleteLogoButton } from "./delete-logo-button";
 
 /** The member's avatar; a logo opens full size in a dialog when clicked */
-export function MemberLogo({
-  title,
-  logo,
-}: {
-  title: string;
-  logo: string | null;
-}) {
+export function MemberLogo({ member }: { member: MemberDetails }) {
+  const [open, setOpen] = useState(false);
+  const { title, logo } = member;
+
   if (!logo) return <MemberAvatar title={title} size="lg" />;
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         aria-label="Logoyu büyüt"
         render={
@@ -45,8 +46,12 @@ export function MemberLogo({
           width={0}
           height={0}
           unoptimized
-          className="mx-auto h-auto max-h-[75vh] w-auto max-w-full rounded-md border bg-white object-contain"
+          className="mx-auto h-auto max-h-[65vh] w-auto max-w-full rounded-md border bg-white object-contain"
         />
+        <DialogFooter>
+          <DeleteLogoButton member={member} onDeleted={() => setOpen(false)} />
+          <ChangeLogoButton member={{ ...member, logo }} />
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

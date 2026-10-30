@@ -37,7 +37,7 @@ export function MemberDetails({ id }: { id: number }) {
       {member && (
         <>
           <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-card p-4">
-            <MemberLogo title={member.title} logo={member.logo} />
+            <MemberLogo member={member} />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-medium">{member.title}</h2>
