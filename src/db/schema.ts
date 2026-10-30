@@ -59,6 +59,11 @@ export const authorizedRepresentativeTable = pgTable(
     name: text().notNull(),
 
     dateOfBirth: date("date_of_birth", { mode: "string" }),
+    phone: text(),
+    email: text(),
+    notes: text(),
+
+    active: boolean().default(true).notNull(),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -81,6 +86,9 @@ export const membersRepresentativesTable = pgTable(
       .references(() => authorizedRepresentativeTable.id, {
         onDelete: "cascade",
       }),
+
+    // görev: the yetkili's role at this member, e.g. "Genel Müdür"
+    role: text(),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

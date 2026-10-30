@@ -3,6 +3,7 @@ import { createMiddleware } from "hono/factory";
 import { auth } from "@/lib/auth";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
+import { representativesRoute } from "./representatives";
 import { sectorsRoute } from "./sectors";
 
 /** Every panel API route needs a logged-in user (/api/auth is not routed here) */
@@ -17,6 +18,7 @@ export const app = new Hono()
   .use(requireSession)
   .route("/members", membersRoute)
   .route("/sectors", sectorsRoute)
+  .route("/representatives", representativesRoute)
   .route("/files", filesRoute);
 
 export type AppType = typeof app;

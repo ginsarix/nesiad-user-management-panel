@@ -26,11 +26,11 @@ import {
   type MemberDetails,
   updateMember,
 } from "@/lib/fetches/member";
+import { listHref } from "@/lib/list-href";
 import {
   type MemberFormValues,
   memberFormSchema,
 } from "@/lib/zod-schemas/member";
-import { membersListHref } from "../_lib/list-href";
 import { SectorCombobox } from "./sector-combobox";
 
 type DateFieldName = "memberLoginDate" | "foundingDate";
@@ -68,12 +68,14 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
         queryClient.invalidateQueries({ queryKey: ["members"] }),
         // member counts per sector
         queryClient.invalidateQueries({ queryKey: ["sectors"] }),
+        // yetkili pages show member titles
+        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
       ]);
       router.push(`/members/${id}`);
     },
   });
 
-  const backHref = member ? `/members/${member.id}` : membersListHref();
+  const backHref = member ? `/members/${member.id}` : listHref("/members");
 
   return (
     <div className="flex flex-col gap-4">

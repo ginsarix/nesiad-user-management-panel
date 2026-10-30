@@ -1,19 +1,17 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
+import { formatDate, InfoFields, PassiveTag } from "@/components/info-fields";
 import { buttonVariants } from "@/components/ui/button";
 import { getMember } from "@/lib/fetches/member";
+import { listHref } from "@/lib/list-href";
 import {
-  formatDate,
   MemberAvatar,
-  MemberFields,
-  PassiveTag,
   RepresentativeList,
   SeniorityBadge,
 } from "../_components/member-info";
-import { membersListHref } from "../_lib/list-href";
 import { DeleteMemberButton } from "./delete-member-button";
 import { ToggleActiveButton } from "./toggle-active-button";
 
@@ -26,7 +24,7 @@ export function MemberDetails({ id }: { id: number }) {
   return (
     <div className="flex flex-col gap-4">
       <Link
-        href={membersListHref()}
+        href={listHref("/members")}
         className="inline-flex w-fit items-center gap-1.5 text-sm text-primary hover:underline"
       >
         <ArrowLeft className="size-4" />
@@ -72,7 +70,7 @@ export function MemberDetails({ id }: { id: number }) {
                 Bilgiler
               </h3>
               <div className="p-4">
-                <MemberFields
+                <InfoFields
                   fields={[
                     {
                       label: "Durum",
@@ -95,9 +93,18 @@ export function MemberDetails({ id }: { id: number }) {
             </section>
 
             <section className="rounded-lg border bg-card">
-              <h3 className="border-b px-4 py-2.5 text-sm font-medium">
-                Yetkililer ({member.representatives.length})
-              </h3>
+              <div className="flex items-center justify-between border-b px-4 py-1.5">
+                <h3 className="text-sm font-medium">
+                  Yetkililer ({member.representatives.length})
+                </h3>
+                <Link
+                  href={`/representatives/new?member=${member.id}`}
+                  className={buttonVariants({ variant: "ghost", size: "sm" })}
+                >
+                  <Plus />
+                  Yetkili ekle
+                </Link>
+              </div>
               <div className="p-4">
                 <RepresentativeList representatives={member.representatives} />
               </div>

@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import { deleteMember, type MemberDetails } from "@/lib/fetches/member";
-import { membersListHref } from "../_lib/list-href";
+import { listHref } from "@/lib/list-href";
 
 export function DeleteMemberButton({ member }: { member: MemberDetails }) {
   const router = useRouter();
@@ -32,8 +32,9 @@ export function DeleteMemberButton({ member }: { member: MemberDetails }) {
         // only the list: refetching this member now would just 404
         queryClient.invalidateQueries({ queryKey: ["members"], exact: true }),
         queryClient.invalidateQueries({ queryKey: ["sectors"] }),
+        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
       ]);
-      router.push(membersListHref());
+      router.push(listHref("/members"));
     },
   });
 

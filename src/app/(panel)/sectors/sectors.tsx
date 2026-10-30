@@ -11,20 +11,14 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, Pencil, Plus, SearchIcon } from "lucide-react";
+import { Pencil, Plus, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ColumnToggle } from "@/components/column-toggle";
+import { SortableTableHeader } from "@/components/sortable-table-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
 import { getSectors, type Sector } from "@/lib/fetches/sector";
 import { compareTr, foldTr } from "@/lib/turkish";
@@ -165,44 +159,7 @@ export function Sectors() {
 
       <div className="overflow-hidden rounded-lg border bg-card [&_[data-slot=table-container]]:max-h-[calc(100svh-9.5rem)]">
         <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent">
-                {headerGroup.headers.map((header) => {
-                  const sorted = header.column.getIsSorted();
-                  return (
-                    <TableHead
-                      key={header.id}
-                      aria-sort={
-                        sorted
-                          ? sorted === "asc"
-                            ? "ascending"
-                            : "descending"
-                          : undefined
-                      }
-                      className="text-xs text-muted-foreground"
-                    >
-                      {header.column.getCanSort() ? (
-                        <button
-                          type="button"
-                          onClick={header.column.getToggleSortingHandler()}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
-                        >
-                          <table.FlexRender header={header} />
-                          {sorted === "asc" && <ArrowUp className="size-3.5" />}
-                          {sorted === "desc" && (
-                            <ArrowDown className="size-3.5" />
-                          )}
-                        </button>
-                      ) : (
-                        <table.FlexRender header={header} />
-                      )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
+          <SortableTableHeader headerGroups={table.getHeaderGroups()} />
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.id}>

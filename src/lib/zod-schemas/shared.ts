@@ -14,6 +14,13 @@ export const safeNumSchema = <T extends z.ZodType = z.ZodNumber>(
     return undefined;
   }, someType);
 
+/** Free-text field; a blank value is stored as null */
+export const optionalTextSchema = z
+  .string()
+  .trim()
+  .transform((value) => value || null)
+  .optional();
+
 export const INVALID_DATE_MESSAGE = "Geçerli bir tarih girin (gg.aa.yyyy)";
 export const FUTURE_DATE_MESSAGE = "Tarih gelecekte olamaz";
 

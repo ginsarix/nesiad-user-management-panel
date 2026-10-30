@@ -36,7 +36,9 @@ function selectRepresentatives(memberId?: number) {
       memberId: membersRepresentativesTable.memberId,
       id: authorizedRepresentativeTable.id,
       name: authorizedRepresentativeTable.name,
-      dateOfBirth: authorizedRepresentativeTable.dateOfBirth,
+      phone: authorizedRepresentativeTable.phone,
+      active: authorizedRepresentativeTable.active,
+      role: membersRepresentativesTable.role,
     })
     .from(membersRepresentativesTable)
     .innerJoin(

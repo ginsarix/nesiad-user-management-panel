@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { optionalDisplayDateSchema, optionalIsoDateSchema } from "./shared";
+import {
+  optionalDisplayDateSchema,
+  optionalIsoDateSchema,
+  optionalTextSchema,
+} from "./shared";
 
 export const MAX_LOGO_SIZE = 5 * 1024 * 1024; // 5 MiB
 
@@ -12,13 +16,6 @@ export const logoFileSchema = z
   );
 
 const titleSchema = z.string().trim().min(1, "Ünvan boş olamaz");
-
-/** Free-text field; a blank value is stored as null */
-const optionalTextSchema = z
-  .string()
-  .trim()
-  .transform((value) => value || null)
-  .optional();
 
 /** A sector id sent as form text; blank clears the sector */
 const optionalSectorIdSchema = z

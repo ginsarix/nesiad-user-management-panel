@@ -1,20 +1,12 @@
 import Image from "next/image";
-import { isoToDisplay, seniorityBadge } from "@/lib/dates";
+import Link from "next/link";
+import { orDash, PassiveTag } from "@/components/info-fields";
+import { seniorityBadge } from "@/lib/dates";
 import { logoUrl, type MemberListItem } from "@/lib/fetches/member";
 import { initialsTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
 
 type MemberRepresentative = MemberListItem["representatives"][number];
-
-/** Free-text fields can be null or blank; show a dash instead */
-export function orDash(value: string | null | undefined) {
-  return value?.trim() ? value : "—";
-}
-
-/** yyyy-aa-gg from the API shown as gg.aa.yyyy, or a dash */
-export function formatDate(iso: string | null | undefined) {
-  return orDash(isoToDisplay(iso));
-}
 
 /** "5 Yıl", "10 Yıl"… from Üye Giriş Tarihi; nothing under 5 years */
 export function SeniorityBadge({
@@ -32,14 +24,6 @@ export function SeniorityBadge({
       className="inline-flex shrink-0 items-center rounded-full border border-sidebar-primary/50 bg-sidebar-primary/15 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-[#6f5618]"
     >
       {badge}
-    </span>
-  );
-}
-
-export function PassiveTag() {
-  return (
-    <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-      Pasif
     </span>
   );
 }
@@ -86,23 +70,6 @@ export function MemberAvatar({
   );
 }
 
-export function MemberFields({
-  fields,
-}: {
-  fields: { label: string; value: string | null }[];
-}) {
-  return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-      {fields.map((field) => (
-        <div key={field.label} className="contents">
-          <dt className="text-muted-foreground">{field.label}</dt>
-          <dd>{orDash(field.value)}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 export function RepresentativeList({
   representatives,
 }: {
@@ -117,11 +84,26 @@ export function RepresentativeList({
       {representatives.map((representative) => (
         <li
           key={representative.id}
-          className="flex justify-between gap-6 py-1.5 first:pt-0 last:pb-0"
+          className="flex items-center justify-between gap-6 py-1.5 first:pt-0 last:pb-0"
         >
-          <span>{representative.name}</span>
+          <span className="flex flex-wrap items-center gap-x-2">
+            <Link
+              href={`/representatives/${representative.id}`}
+              // rows of the members list toggle on click
+              onClick={(event) => event.stopPropagation()}
+              className="text-primary hover:underline"
+            >
+              {representative.name}
+            </Link>
+            {representative.role && (
+              <span className="text-muted-foreground">
+                {representative.role}
+              </span>
+            )}
+            {!representative.active && <PassiveTag />}
+          </span>
           <span className="text-muted-foreground">
-            {formatDate(representative.dateOfBirth)}
+            {orDash(representative.phone)}
           </span>
         </li>
       ))}
