@@ -1,6 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getSectors } from "@/lib/fetches/sector";
 import { getQueryClient } from "@/lib/query-client";
+import { getSavedColumnVisibility } from "@/lib/saved-column-visibility";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import { Sectors } from "./sectors";
 
@@ -8,6 +9,7 @@ export default async function SectorsPage() {
   await requireSession();
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
+  const savedColumnVisibility = await getSavedColumnVisibility("sectors");
 
   // prefetch
   await queryClient
@@ -19,7 +21,7 @@ export default async function SectorsPage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <Sectors />
+      <Sectors savedColumnVisibility={savedColumnVisibility} />
     </HydrationBoundary>
   );
 }

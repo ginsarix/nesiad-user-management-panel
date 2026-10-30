@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
+  type ColumnVisibilityState,
   columnVisibilityFeature,
   createColumnHelper,
   createSortedRowModel,
@@ -44,7 +45,11 @@ const DEFAULT_SORTING: SortingState = [{ id: "name", desc: false }];
 
 const emptySectors: Sector[] = [];
 
-export function Sectors() {
+export function Sectors({
+  savedColumnVisibility,
+}: {
+  savedColumnVisibility: ColumnVisibilityState;
+}) {
   const [query, setQuery] = useState("");
   const [sorting, setSorting] = useState(DEFAULT_SORTING);
   // keeps the sector while the dialog animates closed
@@ -115,6 +120,7 @@ export function Sectors() {
   const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(
     "sectors",
     DEFAULT_COLUMN_VISIBILITY,
+    savedColumnVisibility,
   );
 
   const table = useTable({

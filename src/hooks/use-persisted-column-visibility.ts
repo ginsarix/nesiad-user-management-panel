@@ -3,43 +3,43 @@ import {
   functionalUpdate,
   type Updater,
 } from "@tanstack/react-table";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import {
+  columnVisibilityCookieName,
+  readColumnVisibilityCookie,
+} from "@/lib/column-visibility";
 
-function storageKey(tableId: string) {
-  return `nesiad:columns:${tableId}`;
-}
+const ONE_YEAR_IN_SECONDS = 60 * 60 * 24 * 365;
 
 /**
- * Column visibility for a table, remembered in this browser's localStorage.
- * `defaults` should be a module-level constant; saved choices are merged
- * over it, so a newly added column starts with its default.
+ * Column visibility for a table, remembered in this browser via a cookie.
+ * `saved` is what the page read from that cookie on the server; the saved
+ * choice is merged over `defaults`, so a newly added column starts with its
+ * default.
  */
 export function usePersistedColumnVisibility(
   tableId: string,
   defaults: ColumnVisibilityState,
+  saved: ColumnVisibilityState,
 ) {
-  const [visibility, setVisibility] = useState(defaults);
-
-  // Read after mount: the server render can't see localStorage, so reading
-  // it during render would make the first client render not match
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey(tableId));
-      if (saved) setVisibility({ ...defaults, ...JSON.parse(saved) });
-    } catch {
-      // storage unavailable or corrupt: keep the defaults
-    }
-  }, [tableId, defaults]);
+  const [visibility, setVisibility] = useState(() => ({
+    ...defaults,
+    // Back/forward can reuse a cached render whose `saved` predates the
+    // last change, so the browser reads the cookie itself. On the first
+    // load both are the same cookie, so hydration still matches.
+    ...(typeof document === "undefined"
+      ? saved
+      : (readColumnVisibilityCookie(tableId) ?? saved)),
+  }));
 
   const updateVisibility = useCallback(
     (updater: Updater<ColumnVisibilityState>) => {
       setVisibility((previous) => {
         const next = functionalUpdate(updater, previous);
-        try {
-          localStorage.setItem(storageKey(tableId), JSON.stringify(next));
-        } catch {
-          // not persisted this time; the table still updates
-        }
+        // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API isn't in every browser the staff may use
+        document.cookie = `${columnVisibilityCookieName(tableId)}=${encodeURIComponent(
+          JSON.stringify(next),
+        )}; path=/; max-age=${ONE_YEAR_IN_SECONDS}; samesite=lax`;
         return next;
       });
     },

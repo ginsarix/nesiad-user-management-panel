@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
+  type ColumnVisibilityState,
   columnVisibilityFeature,
   createColumnHelper,
   createSortedRowModel,
@@ -198,7 +199,11 @@ function parseSector(value: string | null) {
 const emptyMembers: MemberListItem[] = [];
 const emptySectors: Sector[] = [];
 
-export function Members() {
+export function Members({
+  savedColumnVisibility,
+}: {
+  savedColumnVisibility: ColumnVisibilityState;
+}) {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [sector, setSector] = useState(() =>
@@ -283,6 +288,7 @@ export function Members() {
   const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(
     "members",
     DEFAULT_COLUMN_VISIBILITY,
+    savedColumnVisibility,
   );
 
   const table = useTable({

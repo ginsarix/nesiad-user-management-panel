@@ -2,6 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getMembers } from "@/lib/fetches/member";
 import { getSectors } from "@/lib/fetches/sector";
 import { getQueryClient } from "@/lib/query-client";
+import { getSavedColumnVisibility } from "@/lib/saved-column-visibility";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import { Members } from "./members";
 
@@ -9,6 +10,7 @@ export default async function MembersPage() {
   await requireSession();
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
+  const savedColumnVisibility = await getSavedColumnVisibility("members");
 
   // prefetch (the sectors are for the filter)
   await Promise.all([
@@ -28,7 +30,7 @@ export default async function MembersPage() {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <Members />
+      <Members savedColumnVisibility={savedColumnVisibility} />
     </HydrationBoundary>
   );
 }
