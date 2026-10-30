@@ -37,6 +37,7 @@ describe("GET /api/audit-logs", () => {
     expect(first.actors).toContainEqual({
       id: actor.actorId,
       name: actor.actorName,
+      email: actor.actorEmail,
     });
 
     const second = await list({ actor: actor.actorId, page: "2" });

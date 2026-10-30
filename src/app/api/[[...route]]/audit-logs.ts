@@ -100,6 +100,7 @@ export const auditLogsRoute = new Hono<AppEnv>().get(
         .selectDistinctOn([auditLogTable.actorId], {
           id: auditLogTable.actorId,
           name: auditLogTable.actorName,
+          email: auditLogTable.actorEmail,
         })
         .from(auditLogTable)
         .where(isNotNull(auditLogTable.actorId))
@@ -112,7 +113,11 @@ export const auditLogsRoute = new Hono<AppEnv>().get(
       page: filters.page,
       pageSize: AUDIT_PAGE_SIZE,
       actors: actors
-        .map((actor) => ({ id: actor.id ?? "", name: actor.name ?? "" }))
+        .map((actor) => ({
+          id: actor.id ?? "",
+          name: actor.name ?? "",
+          email: actor.email ?? "",
+        }))
         .sort((a, b) => compareTr(a.name, b.name)),
     });
   },

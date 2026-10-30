@@ -25,6 +25,16 @@ export const auth = betterAuth({
     },
   }),
   baseURL: env.NEXT_PUBLIC_APP_URL,
+  advanced: {
+    ipAddress: {
+      // Plesk's nginx front end sets this to the real client IP
+      // ($remote_addr) on every request, overwriting anything the browser
+      // sends. x-forwarded-for can be sent by the browser itself, so it
+      // isn't trusted. The IP is used for the login rate limit and the
+      // audit log; locally there's no such header and it stays empty.
+      ipAddressHeaders: ["x-real-ip"],
+    },
+  },
   session: {
     // trusted staff on office computers; renewed while in use
     expiresIn: 60 * 60 * 24 * 30, // 30 days

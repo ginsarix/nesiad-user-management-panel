@@ -96,6 +96,22 @@ describe("audit log of better-auth events", () => {
     });
   });
 
+  it("takes the IP from x-real-ip, never a browser-sent x-forwarded-for", async () => {
+    const { email, userId } = await newUser();
+    await auth.api.signInEmail({
+      body: { email, password: "verilen-sifre" },
+      headers: new Headers({
+        "x-real-ip": "203.0.113.7",
+        "x-forwarded-for": "198.51.100.1",
+        "user-agent": "__test__ browser",
+      }),
+    });
+    expect(await lastEntry("login", userId)).toMatchObject({
+      ip: "203.0.113.7",
+      userAgent: "__test__ browser",
+    });
+  });
+
   it("records a login through the email link", async () => {
     // the link only logs in someone who isn't verified yet
     const { email, userId } = await newUser(undefined, { verified: false });

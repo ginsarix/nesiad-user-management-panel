@@ -86,7 +86,21 @@ const columns = helper.columns([
       </span>
     ),
   }),
-  helper.accessor(actorLabel, { id: "actor", header: "Kullanıcı" }),
+  helper.accessor(actorLabel, {
+    id: "actor",
+    header: "Kullanıcı",
+    // the e-posta tells apart people with the same name
+    cell: ({ row, getValue }) => (
+      <div className="flex flex-col">
+        <span>{getValue()}</span>
+        {row.original.actorEmail && (
+          <span className="text-xs text-muted-foreground">
+            {row.original.actorEmail}
+          </span>
+        )}
+      </div>
+    ),
+  }),
   helper.accessor((row) => auditActionLabel(row.entityType, row.action), {
     id: "action",
     header: "İşlem",
@@ -201,11 +215,16 @@ export function AuditLogs({
 
   const actorItems = useMemo(
     () => [
-      { value: null as string | null, label: "Tüm kullanıcılar" },
-      { value: NO_ACTOR, label: "Sistem / bilinmeyen" },
+      {
+        value: null as string | null,
+        label: "Tüm kullanıcılar",
+        email: "",
+      },
+      { value: NO_ACTOR, label: "Sistem / bilinmeyen", email: "" },
       ...(data?.actors ?? []).map((actor) => ({
         value: actor.id,
         label: actor.name,
+        email: actor.email,
       })),
     ],
     [data?.actors],
@@ -259,7 +278,14 @@ export function AuditLogs({
           <SelectContent>
             {actorItems.map((item) => (
               <SelectItem key={item.value ?? "all"} value={item.value}>
-                {item.label}
+                <span className="flex flex-col">
+                  {item.label}
+                  {item.email && (
+                    <span className="text-xs text-muted-foreground">
+                      {item.email}
+                    </span>
+                  )}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
