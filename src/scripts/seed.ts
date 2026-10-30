@@ -1,10 +1,11 @@
 import { auth } from "@/lib/auth";
+import { env } from "@/lib/env";
 
 export async function seedDefaultAdmin() {
   const { user } = await auth.api.createUser({
     body: {
-      email: "cankomusdogan1@gmail.com",
-      password: "greatfood123",
+      email: env.DEFAULT_ADMIN_EMAIL,
+      password: env.DEFAULT_ADMIN_PASSWORD,
       name: "Admin User",
       role: "admin",
     },

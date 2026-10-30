@@ -7,6 +7,9 @@ export const env = createEnv({
     DATABASE_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(1),
 
+    DEFAULT_ADMIN_EMAIL: z.email(),
+    DEFAULT_ADMIN_PASSWORD: z.string().min(8).max(128),
+
     SMTP_HOST: z.string().min(1),
     SMTP_PORT: safeNumSchema().optional(),
     SMTP_SECURE: z.stringbool().optional(),
