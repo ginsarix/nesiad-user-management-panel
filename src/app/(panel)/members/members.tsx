@@ -44,6 +44,7 @@ import {
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
 import { membershipYears } from "@/lib/dates";
 import { getMembers, type MemberListItem } from "@/lib/fetches/member";
+import { getSectors, type Sector } from "@/lib/fetches/sector";
 import { compareTr, foldTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
 import {
@@ -199,12 +200,21 @@ function serializeSort([sort]: SortingState) {
   return `${sort.desc ? "-" : ""}${sort.id}`;
 }
 
+/** `?sector=12`: a sector id */
+function parseSector(value: string | null) {
+  const id = Number(value);
+  return value && Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
 const emptyMembers: MemberListItem[] = [];
+const emptySectors: Sector[] = [];
 
 export function Members() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
-  const [sector, setSector] = useState(() => searchParams.get("sector"));
+  const [sector, setSector] = useState(() =>
+    parseSector(searchParams.get("sector")),
+  );
   const [status, setStatus] = useState(() =>
     parseStatus(searchParams.get("status")),
   );
@@ -217,7 +227,7 @@ export function Members() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
-    if (sector) params.set("sector", sector);
+    if (sector) params.set("sector", String(sector));
     if (status !== "active") params.set("status", status);
     const sort = serializeSort(sorting);
     if (sort) params.set("sort", sort);
@@ -236,15 +246,18 @@ export function Members() {
     queryFn: () => getMembers(),
   });
 
-  const sectorItems = useMemo(() => {
-    const sectors = new Set(
-      members.map((m) => m.sector?.trim()).filter((s): s is string => !!s),
-    );
-    return [
-      { value: null as string | null, label: "Tüm sektörler" },
-      ...[...sectors].toSorted(compareTr).map((s) => ({ value: s, label: s })),
-    ];
-  }, [members]);
+  const { data: sectors = emptySectors } = useQuery({
+    queryKey: ["sectors"],
+    queryFn: () => getSectors(),
+  });
+
+  const sectorItems = useMemo(
+    () => [
+      { value: null as number | null, label: "Tüm sektörler" },
+      ...sectors.map((s) => ({ value: s.id, label: s.name })),
+    ],
+    [sectors],
+  );
 
   const searchIndex = useMemo(
     () =>
@@ -272,7 +285,7 @@ export function Members() {
       .filter(
         ({ member, text }) =>
           matchesStatus(member, status) &&
-          (!sector || member.sector?.trim() === sector) &&
+          (!sector || member.sectorId === sector) &&
           (!needle || text.includes(needle)),
       )
       .map(({ member }) => member);
@@ -318,7 +331,7 @@ export function Members() {
           </SelectTrigger>
           <SelectContent>
             {sectorItems.map((item) => (
-              <SelectItem key={item.label} value={item.value}>
+              <SelectItem key={item.value ?? "all"} value={item.value}>
                 {item.label}
               </SelectItem>
             ))}

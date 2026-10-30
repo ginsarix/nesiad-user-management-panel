@@ -2,17 +2,7 @@ import type { ClientRequestOptions } from "hono/client";
 import { displayToIso } from "../dates";
 import { rpcClient } from "../rpc-client";
 import type { MemberFormValues } from "../zod-schemas/member";
-
-/** Throws the API's `{ error }` message, or the fallback if there is none */
-async function throwResponseError(
-  res: { json(): Promise<unknown> },
-  fallback: string,
-): Promise<never> {
-  const body = (await res.json().catch(() => null)) as {
-    error?: string;
-  } | null;
-  throw new Error(body?.error ?? fallback);
-}
+import { throwResponseError } from "./errors";
 
 export function logoUrl(filename: string) {
   return `/api/files/${encodeURIComponent(filename)}`;
@@ -47,10 +37,12 @@ function toMemberForm({
   active,
   memberLoginDate,
   foundingDate,
+  sectorId,
   ...fields
 }: MemberFormValues) {
   return {
     ...fields,
+    sectorId: sectorId === null ? "" : String(sectorId),
     // the form holds gg.aa.yyyy, the API takes yyyy-aa-gg
     memberLoginDate: displayToIso(memberLoginDate),
     foundingDate: displayToIso(foundingDate),

@@ -3,6 +3,7 @@ import {
   type LucideIcon,
   MessageSquareText,
   ScrollText,
+  Tags,
   UserCheck,
   UserCog,
   Wallet,
@@ -30,6 +31,7 @@ export const navGroups: NavGroup[] = [
         href: "/representatives",
         icon: UserCheck,
       },
+      { title: "Sektörler", href: "/sectors", icon: Tags },
       { title: "SMS", href: "/sms", icon: MessageSquareText },
       {
         title: "Otomatik Tahsilatlar",

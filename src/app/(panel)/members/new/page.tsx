@@ -1,5 +1,5 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { getMembers } from "@/lib/fetches/member";
+import { getSectors } from "@/lib/fetches/sector";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import { MemberForm } from "../_components/member-form";
@@ -9,11 +9,11 @@ export default async function NewMemberPage() {
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // prefetch (for sector suggestions)
+  // prefetch (the sectors to pick from)
   await queryClient
     .query({
-      queryKey: ["members"],
-      queryFn: () => getMembers(options),
+      queryKey: ["sectors"],
+      queryFn: () => getSectors(options),
     })
     .catch(console.error);
 

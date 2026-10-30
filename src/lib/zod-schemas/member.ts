@@ -20,6 +20,21 @@ const optionalTextSchema = z
   .transform((value) => value || null)
   .optional();
 
+/** A sector id sent as form text; blank clears the sector */
+const optionalSectorIdSchema = z
+  .string()
+  .trim()
+  .transform((value, ctx) => {
+    if (!value) return null;
+    const id = Number(value);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      ctx.addIssue({ code: "custom", message: "Geçersiz sektör" });
+      return z.NEVER;
+    }
+    return id;
+  })
+  .optional();
+
 export const createMemberSchema = z.object({
   title: titleSchema,
 
@@ -32,7 +47,7 @@ export const createMemberSchema = z.object({
 
   address: optionalTextSchema,
   phone: optionalTextSchema,
-  sector: optionalTextSchema,
+  sectorId: optionalSectorIdSchema,
   foundingDate: optionalIsoDateSchema,
 });
 
@@ -48,7 +63,7 @@ export const memberFormSchema = z.object({
   active: z.boolean(),
   address: z.string(),
   phone: z.string(),
-  sector: z.string(),
+  sectorId: z.number().nullable(),
   foundingDate: optionalDisplayDateSchema,
   logo: logoFileSchema.nullable(),
   removeLogo: z.boolean(),

@@ -1,6 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
-import { getMember, getMembers } from "@/lib/fetches/member";
+import { getMember } from "@/lib/fetches/member";
+import { getSectors } from "@/lib/fetches/sector";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import { EditMember } from "./edit-member";
@@ -15,7 +16,7 @@ export default async function EditMemberPage({
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // prefetch (the member list is for sector suggestions)
+  // prefetch (the sectors to pick from too)
   const [member] = await Promise.all([
     queryClient
       .query({
@@ -25,8 +26,8 @@ export default async function EditMemberPage({
       .catch(console.error),
     queryClient
       .query({
-        queryKey: ["members"],
-        queryFn: () => getMembers(options),
+        queryKey: ["sectors"],
+        queryFn: () => getSectors(options),
       })
       .catch(console.error),
   ]);

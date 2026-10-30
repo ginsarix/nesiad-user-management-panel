@@ -28,11 +28,11 @@ export function DeleteMemberButton({ member }: { member: MemberDetails }) {
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: () => deleteMember(member.id),
     onSuccess: async () => {
-      // only the list: refetching this member now would just 404
-      await queryClient.invalidateQueries({
-        queryKey: ["members"],
-        exact: true,
-      });
+      await Promise.all([
+        // only the list: refetching this member now would just 404
+        queryClient.invalidateQueries({ queryKey: ["members"], exact: true }),
+        queryClient.invalidateQueries({ queryKey: ["sectors"] }),
+      ]);
       router.push(membersListHref());
     },
   });

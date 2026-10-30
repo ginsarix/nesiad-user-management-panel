@@ -1,7 +1,7 @@
 import { inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { memberTable } from "@/db/schema";
+import { memberTable, sectorTable } from "@/db/schema";
 import { deleteFile, readStoredFile } from "@/lib/file-storage";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
@@ -13,11 +13,17 @@ const PNG = Buffer.from(
 );
 
 const createdIds: number[] = [];
+const createdSectorIds: number[] = [];
 const createdFiles: string[] = [];
 
 afterAll(async () => {
   if (createdIds.length) {
     await db.delete(memberTable).where(inArray(memberTable.id, createdIds));
+  }
+  if (createdSectorIds.length) {
+    await db
+      .delete(sectorTable)
+      .where(inArray(sectorTable.id, createdSectorIds));
   }
   await Promise.all(createdFiles.map(deleteFile));
 });
@@ -51,13 +57,14 @@ describe("POST /api/members", () => {
   it("creates a member with blank fields stored as null", async () => {
     const { res, body } = await createMember({
       title: "  __test__ Boş Alanlar  ",
-      sector: "",
+      sectorId: "",
       phone: "0384 000 00 00",
     });
     expect(res.status).toBe(201);
 
     const { body: member } = await getMember(body.id);
     expect(member.title).toBe("__test__ Boş Alanlar");
+    expect(member.sectorId).toBeNull();
     expect(member.sector).toBeNull();
     expect(member.phone).toBe("0384 000 00 00");
     expect(member.logo).toBeNull();
@@ -131,22 +138,84 @@ describe("POST /api/members", () => {
   });
 });
 
+async function createSector(name: string) {
+  const [sector] = await db
+    .insert(sectorTable)
+    .values({ name, nameKey: name.toLocaleLowerCase("tr") })
+    .returning({ id: sectorTable.id });
+  createdSectorIds.push(sector.id);
+  return sector.id;
+}
+
+describe("member sector", () => {
+  it("links a sector by id and returns its name", async () => {
+    const sectorId = await createSector("__test__ Üye Sektörü");
+    const { res, body } = await createMember({
+      title: "__test__ Sektörlü",
+      sectorId: String(sectorId),
+    });
+    expect(res.status).toBe(201);
+
+    const { body: member } = await getMember(body.id);
+    expect(member.sectorId).toBe(sectorId);
+    expect(member.sector).toBe("__test__ Üye Sektörü");
+
+    const list = await (await membersRoute.request("/")).json();
+    const listed = list.find((m: { id: number }) => m.id === body.id);
+    expect(listed.sector).toBe("__test__ Üye Sektörü");
+  });
+
+  it("clears the sector when sent blank", async () => {
+    const sectorId = await createSector("__test__ Temizlenecek Sektör");
+    const { body } = await createMember({
+      title: "__test__ Sektörü Temizlenecek",
+      sectorId: String(sectorId),
+    });
+
+    await membersRoute.request(`/${body.id}`, {
+      method: "PATCH",
+      body: form({ sectorId: "" }),
+    });
+
+    const { body: member } = await getMember(body.id);
+    expect(member.sectorId).toBeNull();
+  });
+
+  it("rejects a sector that doesn't exist", async () => {
+    const { res, body } = await createMember({
+      title: "__test__ Olmayan Sektör",
+      sectorId: "2147483000",
+    });
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("Seçilen sektör bulunamadı");
+  });
+
+  it("rejects a sector id that isn't a number", async () => {
+    const { res, body } = await createMember({
+      title: "__test__ Geçersiz Sektör",
+      sectorId: "inşaat",
+    });
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("Geçersiz sektör");
+  });
+});
+
 describe("PATCH /api/members/:id", () => {
   it("updates fields and clears blank ones", async () => {
     const { body } = await createMember({
       title: "__test__ Güncellenecek",
-      sector: "İnşaat",
+      phone: "0384 000 00 00",
     });
 
     const res = await membersRoute.request(`/${body.id}`, {
       method: "PATCH",
-      body: form({ title: "__test__ Güncellendi", sector: "" }),
+      body: form({ title: "__test__ Güncellendi", phone: "" }),
     });
     expect(res.status).toBe(200);
 
     const { body: member } = await getMember(body.id);
     expect(member.title).toBe("__test__ Güncellendi");
-    expect(member.sector).toBeNull();
+    expect(member.phone).toBeNull();
   });
 
   it("switches aktif/pasif without touching other fields", async () => {

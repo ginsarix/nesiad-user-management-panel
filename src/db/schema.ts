@@ -9,6 +9,22 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
+export const sectorTable = pgTable("sector", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: text().notNull(),
+  // the name in Turkish lowercase, so "GIDA" and "Gıda" can't both exist
+  // (Postgres lower() isn't Turkish-aware: it gives "gida")
+  nameKey: text("name_key").notNull().unique(),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
 export const memberTable = pgTable("member", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   title: text().notNull(),
@@ -21,7 +37,10 @@ export const memberTable = pgTable("member", {
   logo: text(),
   address: text(),
   phone: text(),
-  sector: text(),
+  // a deleted sector leaves its members without one
+  sectorId: integer("sector_id").references(() => sectorTable.id, {
+    onDelete: "set null",
+  }),
   foundingDate: date("founding_date", { mode: "string" }),
 
   createdAt: timestamp("created_at", { withTimezone: true })

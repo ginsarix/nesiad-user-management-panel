@@ -1,12 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ImageIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   type Control,
   Controller,
@@ -22,20 +22,16 @@ import { Input } from "@/components/ui/input";
 import { isoToDisplay } from "@/lib/dates";
 import {
   createMember,
-  getMembers,
   logoUrl,
   type MemberDetails,
-  type MemberListItem,
   updateMember,
 } from "@/lib/fetches/member";
-import { compareTr } from "@/lib/turkish";
 import {
   type MemberFormValues,
   memberFormSchema,
 } from "@/lib/zod-schemas/member";
 import { membersListHref } from "../_lib/list-href";
-
-const emptyMembers: MemberListItem[] = [];
+import { SectorCombobox } from "./sector-combobox";
 
 type DateFieldName = "memberLoginDate" | "foundingDate";
 
@@ -44,26 +40,11 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // existing sectors are suggested so the same one isn't typed differently
-  const { data: members = emptyMembers } = useQuery({
-    queryKey: ["members"],
-    queryFn: () => getMembers(),
-  });
-  const sectors = useMemo(
-    () =>
-      [
-        ...new Set(
-          members.map((m) => m.sector?.trim()).filter((s): s is string => !!s),
-        ),
-      ].toSorted(compareTr),
-    [members],
-  );
-
   const form = useForm({
     resolver: zodResolver(memberFormSchema),
     defaultValues: {
       title: member?.title ?? "",
-      sector: member?.sector ?? "",
+      sectorId: member?.sectorId ?? null,
       phone: member?.phone ?? "",
       address: member?.address ?? "",
       // the API sends yyyy-aa-gg, the form works in gg.aa.yyyy
@@ -83,7 +64,11 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
       return member.id;
     },
     onSuccess: async (id) => {
-      await queryClient.invalidateQueries({ queryKey: ["members"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["members"] }),
+        // member counts per sector
+        queryClient.invalidateQueries({ queryKey: ["sectors"] }),
+      ]);
       router.push(`/members/${id}`);
     },
   });
@@ -124,20 +109,21 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
             <FieldError errors={[errors.title]} />
           </Field>
 
-          <Field>
-            <FieldLabel htmlFor="sector">Sektör</FieldLabel>
-            <Input
-              id="sector"
-              list="sector-options"
-              autoComplete="off"
-              {...form.register("sector")}
-            />
-            <datalist id="sector-options">
-              {sectors.map((sector) => (
-                <option key={sector} value={sector} />
-              ))}
-            </datalist>
-          </Field>
+          <Controller
+            control={form.control}
+            name="sectorId"
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="sector">Sektör</FieldLabel>
+                <SectorCombobox
+                  id="sector"
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              </Field>
+            )}
+          />
 
           <Field>
             <FieldLabel htmlFor="phone">Telefon</FieldLabel>

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, getColumns } from "drizzle-orm";
 import { fileTypeFromBuffer } from "file-type";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -8,6 +8,7 @@ import {
   authorizedRepresentativeTable,
   membersRepresentativesTable,
   memberTable,
+  sectorTable,
 } from "@/db/schema";
 import { createFile, deleteFile } from "@/lib/file-storage";
 import {
@@ -15,7 +16,18 @@ import {
   MAX_LOGO_SIZE,
   updateMemberSchema,
 } from "@/lib/zod-schemas/member";
+import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
+
+/** Members with their sector's name next to its id */
+function selectMembers() {
+  return db
+    .select({ ...getColumns(memberTable), sector: sectorTable.name })
+    .from(memberTable)
+    .leftJoin(sectorTable, eq(memberTable.sectorId, sectorTable.id));
+}
+
+const MISSING_SECTOR_ERROR = "Seçilen sektör bulunamadı";
 
 /** Representatives joined to their member, optionally for a single member */
 function selectRepresentatives(memberId?: number) {
@@ -72,7 +84,7 @@ type MemberRepresentative = Omit<
 export const membersRoute = new Hono()
   .get("/", async (c) => {
     const [members, representatives] = await Promise.all([
-      db.select().from(memberTable),
+      selectMembers(),
       selectRepresentatives(),
     ]);
 
@@ -96,10 +108,7 @@ export const membersRoute = new Hono()
     async (c) => {
       const { id } = c.req.valid("param");
 
-      const [member] = await db
-        .select()
-        .from(memberTable)
-        .where(eq(memberTable.id, id));
+      const [member] = await selectMembers().where(eq(memberTable.id, id));
 
       if (!member) return c.json({ error: "Üye bulunamadı" }, 404);
 
@@ -134,6 +143,9 @@ export const membersRoute = new Hono()
         );
       } catch (error) {
         if (logoFilename) await deleteFile(logoFilename);
+        if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+          return c.json({ error: MISSING_SECTOR_ERROR }, 400);
+        }
         throw error;
       }
     },
@@ -172,6 +184,9 @@ export const membersRoute = new Hono()
           .where(eq(memberTable.id, id));
       } catch (error) {
         if (newLogo) await deleteFile(newLogo);
+        if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+          return c.json({ error: MISSING_SECTOR_ERROR }, 400);
+        }
         throw error;
       }
 
