@@ -26,7 +26,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { title: "Üyeler", href: "/members", icon: Building2 },
       {
-        title: "Yetkili Temsilciler",
+        title: "Yetkililer",
         href: "/representatives",
         icon: UserCheck,
       },

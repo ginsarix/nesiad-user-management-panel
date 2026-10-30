@@ -3,7 +3,7 @@ import { getMembers } from "@/lib/fetches/member";
 import { getQueryClient } from "@/lib/query-client";
 import { Members } from "./members";
 
-export default async function PostsPage() {
+export default async function MembersPage() {
   const queryClient = getQueryClient();
 
   // prefetch

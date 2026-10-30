@@ -1,34 +1,91 @@
 import { zValidator } from "@hono/zod-validator";
+import { asc, eq } from "drizzle-orm";
 import { fileTypeFromBuffer } from "file-type";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { db } from "@/db";
-import { membersRepresentativesTable, memberTable } from "@/db/schema";
+import {
+  authorizedRepresentativeTable,
+  membersRepresentativesTable,
+  memberTable,
+} from "@/db/schema";
 import { createFile } from "@/lib/file-storage";
 import { createMemberSchema } from "@/lib/zod-schemas/member";
 import { safeNumSchema } from "@/lib/zod-schemas/shared";
 
+/** Representatives joined to their member, optionally for a single member */
+function selectRepresentatives(memberId?: number) {
+  return db
+    .select({
+      memberId: membersRepresentativesTable.memberId,
+      id: authorizedRepresentativeTable.id,
+      name: authorizedRepresentativeTable.name,
+      dateOfBirth: authorizedRepresentativeTable.dateOfBirth,
+    })
+    .from(membersRepresentativesTable)
+    .innerJoin(
+      authorizedRepresentativeTable,
+      eq(
+        membersRepresentativesTable.authorizedRepresentativeId,
+        authorizedRepresentativeTable.id,
+      ),
+    )
+    .where(
+      memberId === undefined
+        ? undefined
+        : eq(membersRepresentativesTable.memberId, memberId),
+    )
+    .orderBy(asc(authorizedRepresentativeTable.name));
+}
+
+type MemberRepresentative = Omit<
+  Awaited<ReturnType<typeof selectRepresentatives>>[number],
+  "memberId"
+>;
+
 export const membersRoute = new Hono()
+  .get("/", async (c) => {
+    const [members, representatives] = await Promise.all([
+      db.select().from(memberTable),
+      selectRepresentatives(),
+    ]);
+
+    const representativesByMember = new Map<number, MemberRepresentative[]>();
+    for (const { memberId, ...representative } of representatives) {
+      const list = representativesByMember.get(memberId) ?? [];
+      list.push(representative);
+      representativesByMember.set(memberId, list);
+    }
+
+    return c.json(
+      members.map((member) => ({
+        ...member,
+        representatives: representativesByMember.get(member.id) ?? [],
+      })),
+    );
+  })
   .get(
-    "/",
+    "/:id",
     zValidator(
-      "query",
-      z.object({
-        limit: safeNumSchema(z.number().int().positive()),
-        skip: safeNumSchema(z.number().int().nonnegative()),
-      }),
+      "param",
+      z.object({ id: safeNumSchema(z.number().int().positive()) }),
     ),
     async (c) => {
-      const pagination = c.req.valid("query");
+      const { id } = c.req.valid("param");
 
-      const members = await db
+      const [member] = await db
         .select()
         .from(memberTable)
-        .offset(pagination.skip)
-        .limit(pagination.limit);
+        .where(eq(memberTable.id, id));
 
-      return c.json(members);
+      if (!member) return c.json({ error: "Üye bulunamadı" }, 404);
+
+      const representatives = (await selectRepresentatives(id)).map(
+        ({ memberId: _, ...representative }) => representative,
+      );
+
+      return c.json({ ...member, representatives }, 200);
     },
   )
   .post(
