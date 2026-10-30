@@ -114,7 +114,8 @@ export function RowActions({
               Şifre belirle
             </DropdownMenuItem>
           )}
-          {!user.emailVerified && (
+          {/* a disabled user's link would only lead to "devre dışı" */}
+          {!user.emailVerified && !disabled && (
             <DropdownMenuItem
               disabled={resend.isPending}
               onClick={() => resend.mutate()}
