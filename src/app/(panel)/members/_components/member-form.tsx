@@ -6,7 +6,7 @@ import { ArrowLeft, ImageIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type DragEvent, useEffect, useState } from "react";
 import {
   type Control,
   Controller,
@@ -27,6 +27,7 @@ import {
   updateMember,
 } from "@/lib/fetches/member";
 import { listHref } from "@/lib/list-href";
+import { cn } from "@/lib/utils";
 import {
   type MemberFormValues,
   memberFormSchema,
@@ -264,11 +265,49 @@ function LogoField({
   const previewUrl =
     pickedUrl ??
     (currentLogo && !removeLogo.field.value ? logoUrl(currentLogo) : null);
+  const [dragging, setDragging] = useState(false);
+
+  const pick = (file: File | null) => {
+    logo.field.onChange(file);
+    void trigger("logo");
+  };
+
+  const hasFiles = (event: DragEvent) =>
+    event.dataTransfer.types.includes("Files");
 
   return (
     <Field data-invalid={!!logo.fieldState.error}>
       <FieldLabel htmlFor="logo">Logo</FieldLabel>
-      <div className="flex items-center gap-3">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: drop target only; the file input stays the keyboard path */}
+      <div
+        className={cn(
+          "flex items-center gap-3 rounded-lg border border-dashed p-2 transition-colors",
+          dragging && "border-primary bg-primary/5",
+        )}
+        onDragEnter={(event) => {
+          if (!hasFiles(event)) return;
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragOver={(event) => {
+          if (!hasFiles(event)) return;
+          // required for the drop event to fire
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDragLeave={(event) => {
+          // ignore leaving into a child element
+          if (event.currentTarget.contains(event.relatedTarget as Node | null))
+            return;
+          setDragging(false);
+        }}
+        onDrop={(event) => {
+          if (!hasFiles(event)) return;
+          event.preventDefault();
+          setDragging(false);
+          pick(event.dataTransfer.files[0] ?? null);
+        }}
+      >
         <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white">
           {previewUrl ? (
             <Image
@@ -295,10 +334,9 @@ function LogoField({
                 accept="image/*"
                 className="sr-only"
                 onChange={(event) => {
-                  logo.field.onChange(event.target.files?.[0] ?? null);
+                  pick(event.target.files?.[0] ?? null);
                   // allow picking the same file again after removing it
                   event.target.value = "";
-                  void trigger("logo");
                 }}
               />
             </label>
@@ -308,9 +346,8 @@ function LogoField({
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  logo.field.onChange(null);
                   removeLogo.field.onChange(true);
-                  void trigger("logo");
+                  pick(null);
                 }}
               >
                 Kaldır
@@ -318,7 +355,9 @@ function LogoField({
             )}
           </div>
           <span className="text-xs text-muted-foreground">
-            Resim dosyası · en fazla 5 MB
+            {dragging
+              ? "Bırakın"
+              : "veya buraya sürükleyin · resim, en fazla 5 MB"}
           </span>
         </div>
       </div>
