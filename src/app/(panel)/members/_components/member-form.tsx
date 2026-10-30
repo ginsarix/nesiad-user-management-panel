@@ -45,7 +45,7 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
   // existing sectors are suggested so the same one isn't typed differently
   const { data: members = emptyMembers } = useQuery({
     queryKey: ["members"],
-    queryFn: getMembers,
+    queryFn: () => getMembers(),
   });
   const sectors = useMemo(
     () =>

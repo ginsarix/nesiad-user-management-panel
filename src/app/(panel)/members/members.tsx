@@ -161,7 +161,7 @@ export function Members() {
 
   const { data: members = emptyMembers, isError } = useQuery({
     queryKey: ["members"],
-    queryFn: getMembers,
+    queryFn: () => getMembers(),
   });
 
   const sectorItems = useMemo(() => {

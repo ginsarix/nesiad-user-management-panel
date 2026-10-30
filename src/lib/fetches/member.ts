@@ -1,3 +1,4 @@
+import type { ClientRequestOptions } from "hono/client";
 import { rpcClient } from "../rpc-client";
 import type { MemberFormValues } from "../zod-schemas/member";
 
@@ -16,8 +17,9 @@ export function logoUrl(filename: string) {
   return `/api/files/${encodeURIComponent(filename)}`;
 }
 
-export async function getMembers() {
-  const res = await rpcClient.api.members.$get();
+/** `options` lets server-side prefetches forward the user's cookies */
+export async function getMembers(options?: ClientRequestOptions) {
+  const res = await rpcClient.api.members.$get(undefined, options);
 
   if (!res.ok) throw new Error("An error occured while getting members");
 
@@ -25,10 +27,11 @@ export async function getMembers() {
 }
 
 /** Resolves to null when the member does not exist */
-export async function getMember(id: number) {
-  const res = await rpcClient.api.members[":id"].$get({
-    param: { id: String(id) },
-  });
+export async function getMember(id: number, options?: ClientRequestOptions) {
+  const res = await rpcClient.api.members[":id"].$get(
+    { param: { id: String(id) } },
+    options,
+  );
 
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("An error occured while getting the member");
