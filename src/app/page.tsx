@@ -1,3 +1,5 @@
-export default async function Home() {
-  return <></>;
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/members");
 }
