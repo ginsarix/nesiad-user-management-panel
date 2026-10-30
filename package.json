@@ -13,7 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "node --env-file=.env --import ./src/scripts/register-aliases.mjs src/scripts/seed.ts",
+    "db:seed": "tsx --env-file=.env src/scripts/seed.ts",
     "test": "NODE_OPTIONS='--import dotenv/config' vitest"
   },
   "dependencies": {
@@ -55,6 +55,7 @@
     "dotenv": "^18.0.9",
     "drizzle-kit": "1.0.0-rc.5",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"
   },

@@ -1,4 +1,6 @@
 allowBuilds:
+  # postinstall only re-checks the binary; @esbuild/<platform> ships it
+  esbuild: false
   sharp: false
   unrs-resolver: false
 permissions:
