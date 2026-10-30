@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
+  columnVisibilityFeature,
   createColumnHelper,
   createSortedRowModel,
   rowExpandingFeature,
@@ -22,6 +23,7 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { ColumnToggle } from "@/components/column-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,18 +41,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
+import { membershipYears } from "@/lib/dates";
 import { getMembers, type MemberListItem } from "@/lib/fetches/member";
 import { compareTr, foldTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
 import {
+  formatDate,
   MemberAvatar,
   MemberFields,
   orDash,
+  PassiveTag,
   RepresentativeList,
+  SeniorityBadge,
 } from "./_components/member-info";
 import { rememberMembersListSearch } from "./_lib/list-href";
 
 const features = tableFeatures({
+  columnVisibilityFeature,
   rowSortingFeature,
   sortedRowModel: createSortedRowModel(),
   rowExpandingFeature,
@@ -62,11 +70,23 @@ const sortTr: SortFn<typeof features, MemberListItem> = (a, b, columnId) =>
     b.getValue<string | null>(columnId) ?? "",
   );
 
+/** For ISO dates and numbers; empty values are placed via sortUndefined */
+const sortByValue: SortFn<typeof features, MemberListItem> = (
+  a,
+  b,
+  columnId,
+) => {
+  const left = a.getValue<string | number>(columnId);
+  const right = b.getValue<string | number>(columnId);
+  return left < right ? -1 : left > right ? 1 : 0;
+};
+
 const helper = createColumnHelper<typeof features, MemberListItem>();
 
 const columns = helper.columns([
   helper.accessor("title", {
     header: "Ünvan",
+    enableHiding: false,
     sortFn: sortTr,
     cell: ({ row }) => (
       <button
@@ -87,6 +107,7 @@ const columns = helper.columns([
         />
         <MemberAvatar title={row.original.title} logo={row.original.logo} />
         {row.original.title}
+        {!row.original.active && <PassiveTag />}
       </button>
     ),
   }),
@@ -109,14 +130,61 @@ const columns = helper.columns([
       cell: (info) => orDash(info.getValue()),
     },
   ),
-  helper.accessor("memberLoginDate", {
+  helper.accessor((member) => member.memberLoginDate ?? undefined, {
+    id: "memberLoginDate",
     header: "Üye Giriş Tarihi",
+    sortFn: sortByValue,
+    sortUndefined: "last",
+    cell: (info) => formatDate(info.getValue()),
+  }),
+  helper.accessor(
+    (member) => membershipYears(member.memberLoginDate) ?? undefined,
+    {
+      id: "seniority",
+      header: "Kıdem",
+      sortFn: sortByValue,
+      sortUndefined: "last",
+      // most senior first on the first click
+      sortDescFirst: true,
+      cell: ({ row }) => (
+        <SeniorityBadge memberLoginDate={row.original.memberLoginDate} />
+      ),
+    },
+  ),
+  helper.accessor("address", {
+    header: "Adres",
     enableSorting: false,
     cell: (info) => orDash(info.getValue()),
   }),
+  helper.accessor("foundingDate", {
+    header: "Kuruluş Tarihi",
+    enableSorting: false,
+    cell: (info) => formatDate(info.getValue()),
+  }),
 ]);
 
-const SORTABLE_COLUMNS = ["title", "sector"];
+// Extra details that can be switched on from "Sütunlar"
+const DEFAULT_COLUMN_VISIBILITY = { address: false, foundingDate: false };
+
+type MemberStatus = "active" | "passive" | "all";
+
+const STATUS_ITEMS: { value: MemberStatus; label: string }[] = [
+  { value: "active", label: "Aktif üyeler" },
+  { value: "passive", label: "Pasif üyeler" },
+  { value: "all", label: "Tüm üyeler" },
+];
+
+/** `?status=passive` / `?status=all`; aktif when absent */
+function parseStatus(value: string | null): MemberStatus {
+  return value === "passive" || value === "all" ? value : "active";
+}
+
+function matchesStatus(member: MemberListItem, status: MemberStatus) {
+  if (status === "all") return true;
+  return member.active === (status === "active");
+}
+
+const SORTABLE_COLUMNS = ["title", "sector", "memberLoginDate", "seniority"];
 const DEFAULT_SORTING: SortingState = [{ id: "title", desc: false }];
 
 /** `?sort=title` / `?sort=-sector` <-> table sorting state */
@@ -137,6 +205,9 @@ export function Members() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [sector, setSector] = useState(() => searchParams.get("sector"));
+  const [status, setStatus] = useState(() =>
+    parseStatus(searchParams.get("status")),
+  );
   const [sorting, setSorting] = useState(() =>
     parseSort(searchParams.get("sort")),
   );
@@ -147,6 +218,7 @@ export function Members() {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (sector) params.set("sector", sector);
+    if (status !== "active") params.set("status", status);
     const sort = serializeSort(sorting);
     if (sort) params.set("sort", sort);
 
@@ -157,7 +229,7 @@ export function Members() {
       "",
       search ? `?${search}` : window.location.pathname,
     );
-  }, [query, sector, sorting]);
+  }, [query, sector, status, sorting]);
 
   const { data: members = emptyMembers, isError } = useQuery({
     queryKey: ["members"],
@@ -199,11 +271,17 @@ export function Members() {
     return searchIndex
       .filter(
         ({ member, text }) =>
+          matchesStatus(member, status) &&
           (!sector || member.sector?.trim() === sector) &&
           (!needle || text.includes(needle)),
       )
       .map(({ member }) => member);
-  }, [searchIndex, query, sector]);
+  }, [searchIndex, query, sector, status]);
+
+  const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(
+    "members",
+    DEFAULT_COLUMN_VISIBILITY,
+  );
 
   const table = useTable({
     features,
@@ -211,13 +289,14 @@ export function Members() {
     data: filteredMembers,
     getRowId: (member) => String(member.id),
     getRowCanExpand: () => true,
-    state: { sorting },
+    state: { sorting, columnVisibility },
     onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
     enableSortingRemoval: false,
   });
 
   const rows = table.getRowModel().rows;
-  const columnCount = columns.length;
+  const columnCount = table.getVisibleLeafColumns().length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -245,11 +324,28 @@ export function Members() {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          items={STATUS_ITEMS}
+          value={status}
+          onValueChange={(value) => setStatus(value ?? "active")}
+        >
+          <SelectTrigger aria-label="Durum" className="min-w-36 bg-card">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_ITEMS.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <span className="ml-auto text-sm text-muted-foreground">
           {filteredMembers.length === members.length
             ? `${members.length} üye`
             : `${filteredMembers.length} / ${members.length} üye`}
         </span>
+        <ColumnToggle columns={table.getAllLeafColumns()} />
         <Link href="/members/new" className={buttonVariants()}>
           <Plus />
           Üye Ekle
@@ -305,7 +401,7 @@ export function Members() {
                   data-state={row.getIsExpanded() ? "selected" : undefined}
                   className="cursor-pointer"
                 >
-                  {row.getAllCells().map((cell) => (
+                  {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       <table.FlexRender cell={cell} />
                     </TableCell>
@@ -351,8 +447,7 @@ function MemberSummary({ member }: { member: MemberListItem }) {
       <MemberFields
         fields={[
           { label: "Adres", value: member.address },
-          { label: "Kuruluş Tarihi", value: member.foundingDate },
-          { label: "Kıdem Tarihi", value: member.seniorityDate },
+          { label: "Kuruluş Tarihi", value: formatDate(member.foundingDate) },
         ]}
       />
       <div className="min-w-64">

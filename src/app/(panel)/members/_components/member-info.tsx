@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { isoToDisplay, seniorityBadge } from "@/lib/dates";
 import { logoUrl, type MemberListItem } from "@/lib/fetches/member";
 import { initialsTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,39 @@ type MemberRepresentative = MemberListItem["representatives"][number];
 /** Free-text fields can be null or blank; show a dash instead */
 export function orDash(value: string | null | undefined) {
   return value?.trim() ? value : "—";
+}
+
+/** yyyy-aa-gg from the API shown as gg.aa.yyyy, or a dash */
+export function formatDate(iso: string | null | undefined) {
+  return orDash(isoToDisplay(iso));
+}
+
+/** "5 Yıl", "10 Yıl"… from Üye Giriş Tarihi; nothing under 5 years */
+export function SeniorityBadge({
+  memberLoginDate,
+}: {
+  memberLoginDate: string | null;
+}) {
+  const badge = seniorityBadge(memberLoginDate);
+  if (!badge) return null;
+
+  return (
+    <span
+      title="Kıdem, üye giriş tarihinden hesaplanır"
+      // NESIAD gold; text darkened for contrast on the light badge
+      className="inline-flex shrink-0 items-center rounded-full border border-sidebar-primary/50 bg-sidebar-primary/15 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-[#6f5618]"
+    >
+      {badge}
+    </span>
+  );
+}
+
+export function PassiveTag() {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+      Pasif
+    </span>
+  );
 }
 
 /** The member's logo, or their initials when there is none */
@@ -87,7 +121,7 @@ export function RepresentativeList({
         >
           <span>{representative.name}</span>
           <span className="text-muted-foreground">
-            {orDash(representative.dateOfBirth)}
+            {formatDate(representative.dateOfBirth)}
           </span>
         </li>
       ))}

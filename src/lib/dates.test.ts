@@ -1,0 +1,63 @@
+import { describe, expect, it } from "vitest";
+import {
+  displayToIso,
+  isoToDisplay,
+  parseDisplayDate,
+  seniorityBadge,
+} from "./dates";
+
+describe("parseDisplayDate", () => {
+  it("parses a complete gg.aa.yyyy date", () => {
+    const date = parseDisplayDate("05.03.2014");
+    expect(date?.getFullYear()).toBe(2014);
+    expect(date?.getMonth()).toBe(2);
+    expect(date?.getDate()).toBe(5);
+  });
+
+  it.each([
+    "",
+    "5.3.2014",
+    "05.03.14",
+    "31.02.2024",
+    "29.02.2023",
+    "Mart 2014",
+    "2014",
+    "2014-03-05",
+    "05/03/2014",
+    " 05.03.2014",
+  ])("rejects %j", (text) => {
+    expect(parseDisplayDate(text)).toBeNull();
+  });
+
+  it("accepts 29 February in a leap year", () => {
+    expect(parseDisplayDate("29.02.2024")).not.toBeNull();
+  });
+});
+
+describe("iso <-> display", () => {
+  it("converts both ways", () => {
+    expect(displayToIso("05.03.2014")).toBe("2014-03-05");
+    expect(isoToDisplay("2014-03-05")).toBe("05.03.2014");
+  });
+
+  it("treats empty values as empty", () => {
+    expect(isoToDisplay(null)).toBe("");
+    expect(displayToIso("")).toBe("");
+  });
+});
+
+describe("seniorityBadge", () => {
+  const today = new Date(2026, 9, 30); // 30.10.2026
+
+  it.each([
+    [null, null],
+    ["2024-01-01", null], // 2 years
+    ["2021-10-31", null], // 4 years, one day short of 5
+    ["2021-10-30", "5 Yıl"], // exactly 5 years
+    ["2018-05-01", "5 Yıl"], // 8 years
+    ["2016-10-30", "10 Yıl"],
+    ["1999-01-01", "25 Yıl"], // 27 years
+  ])("%s → %s", (memberLoginDate, badge) => {
+    expect(seniorityBadge(memberLoginDate, today)).toBe(badge);
+  });
+});

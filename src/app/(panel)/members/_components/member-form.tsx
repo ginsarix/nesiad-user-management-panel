@@ -15,9 +15,11 @@ import {
   useForm,
 } from "react-hook-form";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { isoToDisplay } from "@/lib/dates";
 import {
   createMember,
   getMembers,
@@ -35,7 +37,7 @@ import { membersListHref } from "../_lib/list-href";
 
 const emptyMembers: MemberListItem[] = [];
 
-type DateFieldName = "memberLoginDate" | "foundingDate" | "seniorityDate";
+type DateFieldName = "memberLoginDate" | "foundingDate";
 
 /** Create form without a member, edit form with one */
 export function MemberForm({ member }: { member?: MemberDetails }) {
@@ -64,9 +66,10 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
       sector: member?.sector ?? "",
       phone: member?.phone ?? "",
       address: member?.address ?? "",
-      memberLoginDate: member?.memberLoginDate ?? "",
-      foundingDate: member?.foundingDate ?? "",
-      seniorityDate: member?.seniorityDate ?? "",
+      // the API sends yyyy-aa-gg, the form works in gg.aa.yyyy
+      memberLoginDate: isoToDisplay(member?.memberLoginDate),
+      foundingDate: isoToDisplay(member?.foundingDate),
+      active: member?.active ?? true,
       logo: null,
       removeLogo: false,
     },
@@ -165,16 +168,28 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
             name="foundingDate"
             label="Kuruluş Tarihi"
           />
-          <DateField
-            control={form.control}
-            name="seniorityDate"
-            label="Kıdem Tarihi"
-          />
 
           <LogoField
             control={form.control}
             trigger={form.trigger}
             currentLogo={member?.logo ?? null}
+          />
+
+          <Controller
+            control={form.control}
+            name="active"
+            render={({ field }) => (
+              <Field orientation="horizontal" className="self-start sm:pt-7">
+                <Checkbox
+                  id="active"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+                <FieldLabel htmlFor="active" className="font-normal">
+                  Aktif üye
+                </FieldLabel>
+              </Field>
+            )}
           />
         </div>
 
@@ -207,22 +222,24 @@ function DateField({
   label: string;
 }) {
   return (
-    <Field>
-      <FieldLabel htmlFor={name}>{label}</FieldLabel>
-      <Controller
-        control={control}
-        name={name}
-        render={({ field }) => (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field, fieldState }) => (
+        <Field data-invalid={!!fieldState.error}>
+          <FieldLabel htmlFor={name}>{label}</FieldLabel>
           <DatePickerInput
             id={name}
             name={field.name}
             value={field.value}
             onChange={field.onChange}
             onBlur={field.onBlur}
+            aria-invalid={!!fieldState.error}
           />
-        )}
-      />
-    </Field>
+          <FieldError errors={[fieldState.error]} />
+        </Field>
+      )}
+    />
   );
 }
 

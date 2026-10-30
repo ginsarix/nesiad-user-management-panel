@@ -1,8 +1,8 @@
 "use client";
 
-import { isValid, parse as parseDate } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
+import { tr } from "react-day-picker/locale";
 import { Calendar } from "@/components/ui/calendar";
 import {
   InputGroup,
@@ -15,30 +15,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { formatDisplayDate, parseDisplayDate } from "@/lib/dates";
 
-const DATE_FORMAT = "dd.MM.yyyy";
-
-function formatDate(date: Date | undefined) {
-  if (!date) {
-    return "";
-  }
-
-  return date.toLocaleDateString("tr-TR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-/** Free-text value; only a full dd.MM.yyyy date is picked up by the calendar */
-function parseValue(value: string) {
-  const date = parseDate(value, DATE_FORMAT, new Date());
-  return isValid(date) ? date : undefined;
-}
+// Earliest year offered in the calendar's year dropdown
+const START_MONTH = new Date(1900, 0);
 
 /**
- * Text input with an optional calendar. The value stays free text (e.g.
- * "Mart 2014"); picking a day fills it in as dd.MM.yyyy.
+ * Date input typed as gg.aa.yyyy, with a calendar as an alternative. The value
+ * is the text as typed; the form validates it (see optionalDisplayDateSchema).
+ * Future days can't be picked.
  */
 export function DatePickerInput({
   id,
@@ -46,7 +31,7 @@ export function DatePickerInput({
   value,
   onChange,
   onBlur,
-  placeholder = "Ocak 01, 2025",
+  placeholder = "gg.aa.yyyy",
   "aria-invalid": ariaInvalid,
 }: {
   id: string;
@@ -58,8 +43,9 @@ export function DatePickerInput({
   "aria-invalid"?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const date = parseValue(value);
+  const date = parseDisplayDate(value) ?? undefined;
   const [month, setMonth] = useState<Date | undefined>(date);
+  const today = new Date();
 
   return (
     <InputGroup>
@@ -68,13 +54,15 @@ export function DatePickerInput({
         name={name}
         value={value}
         placeholder={placeholder}
+        inputMode="numeric"
+        maxLength={10}
         autoComplete="off"
         aria-invalid={ariaInvalid}
         onBlur={onBlur}
         onChange={(e) => {
           const value = e.target.value;
           onChange(value);
-          const date = parseValue(value);
+          const date = parseDisplayDate(value);
           if (date) setMonth(date);
         }}
         onKeyDown={(e) => {
@@ -91,7 +79,7 @@ export function DatePickerInput({
               <InputGroupButton
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Tarih seçiniz"
+                aria-label="Takvimden seç"
               >
                 <CalendarIcon />
               </InputGroupButton>
@@ -105,11 +93,16 @@ export function DatePickerInput({
           >
             <Calendar
               mode="single"
+              locale={tr}
+              captionLayout="dropdown"
+              startMonth={START_MONTH}
+              endMonth={today}
+              disabled={{ after: today }}
               selected={date}
               month={month}
               onMonthChange={setMonth}
               onSelect={(date) => {
-                onChange(formatDate(date));
+                if (date) onChange(formatDisplayDate(date));
                 setOpen(false);
               }}
             />

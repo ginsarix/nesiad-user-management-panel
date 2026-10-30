@@ -1,4 +1,5 @@
 import type { ClientRequestOptions } from "hono/client";
+import { displayToIso } from "../dates";
 import { rpcClient } from "../rpc-client";
 import type { MemberFormValues } from "../zod-schemas/member";
 
@@ -40,9 +41,20 @@ export async function getMember(id: number, options?: ClientRequestOptions) {
 }
 
 /** Text fields are always sent so clearing one in the form clears it in the DB */
-function toMemberForm({ logo, removeLogo, ...fields }: MemberFormValues) {
+function toMemberForm({
+  logo,
+  removeLogo,
+  active,
+  memberLoginDate,
+  foundingDate,
+  ...fields
+}: MemberFormValues) {
   return {
     ...fields,
+    // the form holds gg.aa.yyyy, the API takes yyyy-aa-gg
+    memberLoginDate: displayToIso(memberLoginDate),
+    foundingDate: displayToIso(foundingDate),
+    active: String(active),
     ...(logo ? { logo } : removeLogo && { removeLogo: "true" }),
   };
 }
@@ -64,6 +76,15 @@ export async function updateMember(id: number, values: MemberFormValues) {
   });
 
   if (!res.ok) await throwResponseError(res, "Üye güncellenemedi");
+}
+
+export async function setMemberActive(id: number, active: boolean) {
+  const res = await rpcClient.api.members[":id"].$patch({
+    param: { id: String(id) },
+    form: { active: String(active) },
+  });
+
+  if (!res.ok) await throwResponseError(res, "Üye durumu değiştirilemedi");
 }
 
 export async function deleteMember(id: number) {

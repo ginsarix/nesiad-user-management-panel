@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   index,
   integer,
   pgTable,
@@ -12,15 +13,16 @@ export const memberTable = pgTable("member", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   title: text().notNull(),
 
-  memberLoginDate: text("member_login_date"),
+  // kıdem (seniority) is calculated from this, not stored
+  memberLoginDate: date("member_login_date", { mode: "string" }),
+
+  active: boolean().default(true).notNull(),
 
   logo: text(),
   address: text(),
   phone: text(),
   sector: text(),
-  foundingDate: text("founding_date"),
-
-  seniorityDate: text("seniority_date"),
+  foundingDate: date("founding_date", { mode: "string" }),
 
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
@@ -37,7 +39,7 @@ export const authorizedRepresentativeTable = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     name: text().notNull(),
 
-    dateOfBirth: text("date_of_birth"),
+    dateOfBirth: date("date_of_birth", { mode: "string" }),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

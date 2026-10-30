@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalDisplayDateSchema, optionalIsoDateSchema } from "./shared";
 
 export const MAX_LOGO_SIZE = 5 * 1024 * 1024; // 5 MiB
 
@@ -22,16 +23,17 @@ const optionalTextSchema = z
 export const createMemberSchema = z.object({
   title: titleSchema,
 
-  memberLoginDate: optionalTextSchema,
+  memberLoginDate: optionalIsoDateSchema,
+
+  /** Defaults to aktif when left out */
+  active: z.stringbool().optional(),
 
   logo: logoFileSchema.optional(),
 
   address: optionalTextSchema,
   phone: optionalTextSchema,
   sector: optionalTextSchema,
-  foundingDate: optionalTextSchema,
-
-  seniorityDate: optionalTextSchema,
+  foundingDate: optionalIsoDateSchema,
 });
 
 export const updateMemberSchema = createMemberSchema.partial().extend({
@@ -39,15 +41,15 @@ export const updateMemberSchema = createMemberSchema.partial().extend({
   removeLogo: z.stringbool().optional(),
 });
 
-/** Client-side form values; sent to the API as multipart form data */
+/** Client-side form values (dates as gg.aa.yyyy); sent to the API as multipart form data */
 export const memberFormSchema = z.object({
   title: titleSchema,
-  memberLoginDate: z.string(),
+  memberLoginDate: optionalDisplayDateSchema,
+  active: z.boolean(),
   address: z.string(),
   phone: z.string(),
   sector: z.string(),
-  foundingDate: z.string(),
-  seniorityDate: z.string(),
+  foundingDate: optionalDisplayDateSchema,
   logo: logoFileSchema.nullable(),
   removeLogo: z.boolean(),
 });

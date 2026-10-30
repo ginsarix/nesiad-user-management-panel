@@ -6,12 +6,16 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { getMember } from "@/lib/fetches/member";
 import {
+  formatDate,
   MemberAvatar,
   MemberFields,
+  PassiveTag,
   RepresentativeList,
+  SeniorityBadge,
 } from "../_components/member-info";
 import { membersListHref } from "../_lib/list-href";
 import { DeleteMemberButton } from "./delete-member-button";
+import { ToggleActiveButton } from "./toggle-active-button";
 
 export function MemberDetails({ id }: { id: number }) {
   const { data: member, isError } = useQuery({
@@ -37,15 +41,20 @@ export function MemberDetails({ id }: { id: number }) {
 
       {member && (
         <>
-          <div className="flex items-center gap-4 rounded-lg border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-card p-4">
             <MemberAvatar title={member.title} logo={member.logo} size="lg" />
             <div>
-              <h2 className="text-lg font-medium">{member.title}</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-medium">{member.title}</h2>
+                <SeniorityBadge memberLoginDate={member.memberLoginDate} />
+                {!member.active && <PassiveTag />}
+              </div>
               {member.sector && (
                 <p className="text-sm text-muted-foreground">{member.sector}</p>
               )}
             </div>
             <div className="ml-auto flex gap-2">
+              <ToggleActiveButton member={member} />
               <Link
                 href={`/members/${member.id}/edit`}
                 className={buttonVariants({ variant: "outline" })}
@@ -65,15 +74,21 @@ export function MemberDetails({ id }: { id: number }) {
               <div className="p-4">
                 <MemberFields
                   fields={[
+                    {
+                      label: "Durum",
+                      value: member.active ? "Aktif" : "Pasif",
+                    },
                     { label: "Telefon", value: member.phone },
                     { label: "Adres", value: member.address },
                     { label: "Sektör", value: member.sector },
                     {
                       label: "Üye Giriş Tarihi",
-                      value: member.memberLoginDate,
+                      value: formatDate(member.memberLoginDate),
                     },
-                    { label: "Kuruluş Tarihi", value: member.foundingDate },
-                    { label: "Kıdem Tarihi", value: member.seniorityDate },
+                    {
+                      label: "Kuruluş Tarihi",
+                      value: formatDate(member.foundingDate),
+                    },
                   ]}
                 />
               </div>

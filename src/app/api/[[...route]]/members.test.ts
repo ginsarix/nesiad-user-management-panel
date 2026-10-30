@@ -69,6 +69,44 @@ describe("POST /api/members", () => {
     expect(body.error).toBe("Ünvan boş olamaz");
   });
 
+  it("stores real dates and defaults to aktif", async () => {
+    const { res, body } = await createMember({
+      title: "__test__ Tarihli",
+      memberLoginDate: "2014-03-05",
+      foundingDate: "1998-01-01",
+    });
+    expect(res.status).toBe(201);
+
+    const { body: member } = await getMember(body.id);
+    expect(member.memberLoginDate).toBe("2014-03-05");
+    expect(member.foundingDate).toBe("1998-01-01");
+    expect(member.active).toBe(true);
+  });
+
+  it("creates a pasif member", async () => {
+    const { body } = await createMember({
+      title: "__test__ Pasif",
+      active: "false",
+    });
+
+    const { body: member } = await getMember(body.id);
+    expect(member.active).toBe(false);
+  });
+
+  it.each([
+    ["05.03.2014", "Geçerli bir tarih girin (gg.aa.yyyy)"],
+    ["2024-02-31", "Geçerli bir tarih girin (gg.aa.yyyy)"],
+    ["Mart 2014", "Geçerli bir tarih girin (gg.aa.yyyy)"],
+    ["2999-01-01", "Tarih gelecekte olamaz"],
+  ])("rejects %j as a date", async (memberLoginDate, error) => {
+    const { res, body } = await createMember({
+      title: "__test__ Hatalı Tarih",
+      memberLoginDate,
+    });
+    expect(res.status).toBe(400);
+    expect(body.error).toBe(error);
+  });
+
   it("saves the logo and stores its filename", async () => {
     const { res, body } = await createMember({
       title: "__test__ Logolu",
@@ -109,6 +147,38 @@ describe("PATCH /api/members/:id", () => {
     const { body: member } = await getMember(body.id);
     expect(member.title).toBe("__test__ Güncellendi");
     expect(member.sector).toBeNull();
+  });
+
+  it("switches aktif/pasif without touching other fields", async () => {
+    const { body } = await createMember({
+      title: "__test__ Durum",
+      memberLoginDate: "2014-03-05",
+    });
+
+    await membersRoute.request(`/${body.id}`, {
+      method: "PATCH",
+      body: form({ active: "false" }),
+    });
+
+    const { body: member } = await getMember(body.id);
+    expect(member.active).toBe(false);
+    expect(member.title).toBe("__test__ Durum");
+    expect(member.memberLoginDate).toBe("2014-03-05");
+  });
+
+  it("clears a date sent blank", async () => {
+    const { body } = await createMember({
+      title: "__test__ Tarih Silme",
+      foundingDate: "1998-01-01",
+    });
+
+    await membersRoute.request(`/${body.id}`, {
+      method: "PATCH",
+      body: form({ foundingDate: "" }),
+    });
+
+    const { body: member } = await getMember(body.id);
+    expect(member.foundingDate).toBeNull();
   });
 
   it("replaces the logo and deletes the old file", async () => {
