@@ -1,5 +1,6 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { INITIAL_PASSWORD_WINDOW_MS } from "@/lib/auth-plugins/initial-password";
+import { auth } from "@/lib/auth";
 import { getSession } from "@/lib/session";
 import { WelcomeForm } from "./welcome-form";
 
@@ -13,9 +14,11 @@ export default async function WelcomePage({
   const session = await getSession();
   if (!session) redirect("/login");
 
-  // Past the window the password can't be set here anymore
-  const sessionAge = Date.now() - session.session.createdAt.getTime();
-  if (sessionAge >= INITIAL_PASSWORD_WINDOW_MS) redirect("/members");
+  // Only once, right after the email link; otherwise straight to the panel
+  const { available } = await auth.api.initialPasswordStatus({
+    headers: await headers(),
+  });
+  if (!available) redirect("/members");
 
   return <WelcomeForm name={session.user.name} />;
 }

@@ -9,8 +9,8 @@ const messages: Record<string, string> = {
     "Bağlantının süresi dolmuş ya da daha önce kullanılmış. Yeni bir bağlantı isteyin.",
   PASSWORD_TOO_SHORT: "Şifre çok kısa.",
   PASSWORD_TOO_LONG: "Şifre çok uzun.",
-  SESSION_NOT_FRESH:
-    "Bu ekranın süresi doldu. Şifrenizi menüdeki “Şifre değiştir” ile değiştirebilirsiniz.",
+  INITIAL_PASSWORD_NOT_ALLOWED:
+    "Bu ekran yalnızca e-posta bağlantısıyla girişten hemen sonra, bir kez kullanılabilir. Şifrenizi menüdeki “Şifre değiştir” ile değiştirebilirsiniz.",
 };
 
 export function authErrorMessage(
