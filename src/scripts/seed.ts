@@ -2,10 +2,18 @@ import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
 
 export async function seedDefaultAdmin() {
+  const email = env.DEFAULT_ADMIN_EMAIL;
+  const password = env.DEFAULT_ADMIN_PASSWORD;
+  if (!email || !password) {
+    throw new Error(
+      "Set DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD in .env to seed the default admin",
+    );
+  }
+
   const { user } = await auth.api.createUser({
     body: {
-      email: env.DEFAULT_ADMIN_EMAIL,
-      password: env.DEFAULT_ADMIN_PASSWORD,
+      email,
+      password,
       name: "Admin User",
       role: "admin",
     },
