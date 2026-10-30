@@ -9,6 +9,11 @@ const messages: Record<string, string> = {
     "Bağlantının süresi dolmuş ya da daha önce kullanılmış. Yeni bir bağlantı isteyin.",
   PASSWORD_TOO_SHORT: "Şifre çok kısa.",
   PASSWORD_TOO_LONG: "Şifre çok uzun.",
+  USER_ALREADY_EXISTS: "Bu e-posta adresiyle bir kullanıcı zaten var.",
+  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL:
+    "Bu e-posta adresiyle bir kullanıcı zaten var.",
+  YOU_CANNOT_BAN_YOURSELF: "Kendi hesabınızı devre dışı bırakamazsınız.",
+  YOU_CANNOT_REMOVE_YOURSELF: "Kendi hesabınızı silemezsiniz.",
   INITIAL_PASSWORD_NOT_ALLOWED:
     "Bu ekran yalnızca e-posta bağlantısıyla girişten hemen sonra, bir kez kullanılabilir. Şifrenizi menüdeki “Şifre değiştir” ile değiştirebilirsiniz.",
 };
@@ -18,6 +23,9 @@ export function authErrorMessage(
 ) {
   if (error?.status === 429) {
     return "Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar deneyin.";
+  }
+  if (error?.code?.startsWith("YOU_ARE_NOT_ALLOWED_")) {
+    return "Bu işlem için yetkiniz yok.";
   }
   return (
     (error?.code && messages[error.code]) ??

@@ -19,9 +19,14 @@ export async function requireSession() {
 }
 
 /**
- * Options for API calls made while rendering on the server: forwards the
+ * Headers for API calls made while rendering on the server: forwards the
  * user's cookies so the API sees the same session.
  */
+export async function forwardedHeaders() {
+  return { cookie: (await headers()).get("cookie") ?? "" };
+}
+
+/** forwardedHeaders() as Hono RPC client options */
 export async function forwardedRequestOptions(): Promise<ClientRequestOptions> {
-  return { headers: { cookie: (await headers()).get("cookie") ?? "" } };
+  return { headers: await forwardedHeaders() };
 }

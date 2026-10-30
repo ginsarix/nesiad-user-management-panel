@@ -65,5 +65,10 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
   },
-  plugins: [admin(), initialPassword()],
+  plugins: [
+    // No roles in this panel: every account manages the others, so users
+    // created from the panel get the role the admin endpoints require
+    admin({ defaultRole: "admin" }),
+    initialPassword(),
+  ],
 });

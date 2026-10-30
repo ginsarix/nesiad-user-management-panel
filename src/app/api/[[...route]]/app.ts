@@ -3,6 +3,7 @@ import { createMiddleware } from "hono/factory";
 import { auth } from "@/lib/auth";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
+import { panelUsersRoute } from "./panel-users";
 import { representativesRoute } from "./representatives";
 import { sectorsRoute } from "./sectors";
 
@@ -19,6 +20,7 @@ export const app = new Hono()
   .route("/members", membersRoute)
   .route("/sectors", sectorsRoute)
   .route("/representatives", representativesRoute)
+  .route("/panel-users", panelUsersRoute)
   .route("/files", filesRoute);
 
 export type AppType = typeof app;
