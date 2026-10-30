@@ -3,6 +3,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -174,4 +175,48 @@ export const verificationTable = pgTable(
       .notNull(),
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)],
+);
+
+/** A label and its display-ready value(s), e.g. Telefon: "0384 111" → "0384 222" */
+export type AuditChange = { label: string; from: string; to: string };
+export type AuditField = { label: string; value: string };
+
+/**
+ * Denetim Kayıtları: append-only. The actor is stored as a snapshot with no
+ * foreign key, so deleting a panel user keeps their trail.
+ */
+export const auditLogTable = pgTable(
+  "audit_log",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+
+    // null for the system (seed, scripts) and failed logins
+    actorId: text("actor_id"),
+    actorName: text("actor_name"),
+    actorEmail: text("actor_email"),
+
+    // e.g. "create", "update", "login_failed"; see src/lib/audit-labels.ts
+    action: text().notNull(),
+    // "member", "representative", "sector", "panel_user", "auth"
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id"),
+    // the record's name at the time, e.g. the member's title
+    entityLabel: text("entity_label"),
+
+    // field-level changes of an update
+    changes: jsonb().$type<AuditChange[]>(),
+    // the whole record on create/delete, extra facts on other events
+    details: jsonb().$type<AuditField[]>(),
+
+    // logins only
+    ip: text(),
+    userAgent: text("user_agent"),
+  },
+  (table) => [
+    index("audit_log_created_at_idx").on(table.createdAt.desc()),
+    index("audit_log_actor_idx").on(table.actorId, table.createdAt.desc()),
+  ],
 );

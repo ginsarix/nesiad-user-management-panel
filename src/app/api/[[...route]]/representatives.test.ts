@@ -143,18 +143,17 @@ describe("POST /api/representatives", () => {
   });
 
   it("rejects a member that doesn't exist and saves nothing", async () => {
-    const before = (await (await representativesRoute.request("/")).json())
-      .length;
+    const name = `__test__ Olmayan Üye ${crypto.randomUUID()}`;
     const { res, body } = await createRepresentative({
-      name: "__test__ Olmayan Üye",
+      name,
       members: [{ memberId: 2147483000 }],
     });
     expect(res.status).toBe(400);
     expect(body.error).toBe("Seçilen üye bulunamadı");
 
-    const after = (await (await representativesRoute.request("/")).json())
-      .length;
-    expect(after).toBe(before);
+    // by name: other test files add yetkililer in parallel
+    const all = await (await representativesRoute.request("/")).json();
+    expect(all.some((r: { name: string }) => r.name === name)).toBe(false);
   });
 });
 

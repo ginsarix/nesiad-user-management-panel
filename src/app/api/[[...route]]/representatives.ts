@@ -1,25 +1,37 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { db } from "@/db";
+import { db, type Executor, type Transaction } from "@/db";
 import {
   authorizedRepresentativeTable,
   membersRepresentativesTable,
   memberTable,
 } from "@/db/schema";
+import { recordAudit } from "@/lib/audit";
+import {
+  type AuditSpec,
+  change,
+  describeFields,
+  diffFields,
+  formatAudit,
+} from "@/lib/audit-diff";
 import { compareTr } from "@/lib/turkish";
 import {
   createRepresentativeSchema,
   updateRepresentativeSchema,
 } from "@/lib/zod-schemas/authorized-representative";
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
+import { type AppEnv, actorOf } from "./env";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 const MISSING_MEMBER_ERROR = "Seçilen üye bulunamadı";
 
 /** Members joined to their yetkili, optionally for a single yetkili */
-function selectLinkedMembers(representativeId?: number) {
-  return db
+function selectLinkedMembers(
+  representativeId?: number,
+  executor: Executor = db,
+) {
+  return executor
     .select({
       representativeId: membersRepresentativesTable.authorizedRepresentativeId,
       id: memberTable.id,
@@ -52,7 +64,26 @@ function byTitle(a: LinkedMember, b: LinkedMember) {
   return compareTr(a.title, b.title);
 }
 
-type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+const representativeAuditSpec: AuditSpec = {
+  name: { label: "Ad Soyad", format: formatAudit.text },
+  active: { label: "Durum", format: formatAudit.active },
+  phone: { label: "Cep Telefonu", format: formatAudit.text },
+  email: { label: "E-posta", format: formatAudit.text },
+  dateOfBirth: { label: "Doğum Tarihi", format: formatAudit.date },
+  notes: { label: "Notlar", format: formatAudit.text },
+};
+
+/** "ABC Ltd (Genel Müdür), XYZ A.Ş." for the audit log */
+async function linkedMembersText(executor: Executor, representativeId: number) {
+  const links = (await selectLinkedMembers(representativeId, executor)).sort(
+    byTitle,
+  );
+  return (
+    links
+      .map((m) => (m.role ? `${m.title} (${m.role})` : m.title))
+      .join(", ") || "—"
+  );
+}
 
 /** Replaces all of a yetkili's member links */
 async function replaceLinks(
@@ -80,7 +111,7 @@ async function replaceLinks(
   );
 }
 
-export const representativesRoute = new Hono()
+export const representativesRoute = new Hono<AppEnv>()
   .get("/", async (c) => {
     const [representatives, links] = await Promise.all([
       db.select().from(authorizedRepresentativeTable),
@@ -134,9 +165,23 @@ export const representativesRoute = new Hono()
           const [representative] = await tx
             .insert(authorizedRepresentativeTable)
             .values(fields)
-            .returning({ id: authorizedRepresentativeTable.id });
+            .returning();
 
           await replaceLinks(tx, representative.id, members);
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "create",
+            entityType: "representative",
+            entityId: representative.id,
+            entityLabel: representative.name,
+            details: [
+              ...describeFields(representativeAuditSpec, representative),
+              {
+                label: "Bağlı Üyeler",
+                value: await linkedMembersText(tx, representative.id),
+              },
+            ],
+          });
           return representative.id;
         });
 
@@ -160,7 +205,7 @@ export const representativesRoute = new Hono()
       try {
         const found = await db.transaction(async (tx) => {
           const [existing] = await tx
-            .select({ id: authorizedRepresentativeTable.id })
+            .select()
             .from(authorizedRepresentativeTable)
             .where(eq(authorizedRepresentativeTable.id, id));
           if (!existing) return false;
@@ -172,7 +217,32 @@ export const representativesRoute = new Hono()
               .set(fields)
               .where(eq(authorizedRepresentativeTable.id, id));
           }
-          if (members) await replaceLinks(tx, id, members);
+
+          let linkChanges: ReturnType<typeof change> = [];
+          if (members) {
+            const before = await linkedMembersText(tx, id);
+            await replaceLinks(tx, id, members);
+            linkChanges = change(
+              "Bağlı Üyeler",
+              before,
+              await linkedMembersText(tx, id),
+            );
+          }
+
+          const changes = [
+            ...diffFields(representativeAuditSpec, existing, fields),
+            ...linkChanges,
+          ];
+          if (changes.length > 0) {
+            await recordAudit(tx, {
+              actor: actorOf(c),
+              action: "update",
+              entityType: "representative",
+              entityId: id,
+              entityLabel: fields.name ?? existing.name,
+              changes,
+            });
+          }
           return true;
         });
 
@@ -193,11 +263,32 @@ export const representativesRoute = new Hono()
     async (c) => {
       const { id } = c.req.valid("param");
 
-      // the foreign keys remove its member links
-      const [deleted] = await db
-        .delete(authorizedRepresentativeTable)
-        .where(eq(authorizedRepresentativeTable.id, id))
-        .returning({ id: authorizedRepresentativeTable.id });
+      const deleted = await db.transaction(async (tx) => {
+        const [representative] = await tx
+          .select()
+          .from(authorizedRepresentativeTable)
+          .where(eq(authorizedRepresentativeTable.id, id));
+        if (!representative) return null;
+
+        // the foreign keys remove its member links, so name them now
+        const members = await linkedMembersText(tx, id);
+
+        await tx
+          .delete(authorizedRepresentativeTable)
+          .where(eq(authorizedRepresentativeTable.id, id));
+        await recordAudit(tx, {
+          actor: actorOf(c),
+          action: "delete",
+          entityType: "representative",
+          entityId: id,
+          entityLabel: representative.name,
+          details: [
+            ...describeFields(representativeAuditSpec, representative),
+            { label: "Bağlı Üyeler", value: members },
+          ],
+        });
+        return representative;
+      });
 
       if (!deleted) return c.json({ error: "Yetkili bulunamadı" }, 404);
 

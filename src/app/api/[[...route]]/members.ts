@@ -3,13 +3,21 @@ import { asc, eq, getColumns } from "drizzle-orm";
 import { fileTypeFromBuffer } from "file-type";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { db } from "@/db";
+import { db, type Executor } from "@/db";
 import {
   authorizedRepresentativeTable,
   membersRepresentativesTable,
   memberTable,
   sectorTable,
 } from "@/db/schema";
+import { recordAudit } from "@/lib/audit";
+import {
+  type AuditSpec,
+  change,
+  describeFields,
+  diffFields,
+  formatAudit,
+} from "@/lib/audit-diff";
 import { createFile, deleteFile } from "@/lib/file-storage";
 import {
   createMemberSchema,
@@ -17,11 +25,12 @@ import {
   updateMemberSchema,
 } from "@/lib/zod-schemas/member";
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
+import { type AppEnv, actorOf } from "./env";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 /** Members with their sector's name next to its id */
-function selectMembers() {
-  return db
+function selectMembers(executor: Executor = db) {
+  return executor
     .select({ ...getColumns(memberTable), sector: sectorTable.name })
     .from(memberTable)
     .leftJoin(sectorTable, eq(memberTable.sectorId, sectorTable.id));
@@ -30,8 +39,8 @@ function selectMembers() {
 const MISSING_SECTOR_ERROR = "Seçilen sektör bulunamadı";
 
 /** Representatives joined to their member, optionally for a single member */
-function selectRepresentatives(memberId?: number) {
-  return db
+function selectRepresentatives(memberId?: number, executor: Executor = db) {
+  return executor
     .select({
       memberId: membersRepresentativesTable.memberId,
       id: authorizedRepresentativeTable.id,
@@ -78,12 +87,31 @@ const logoBodyLimit = bodyLimit({
   onError: (c) => c.json({ error: "Logo 5 MB'dan küçük olmalıdır" }, 413),
 });
 
+/** A member's own fields in the audit log; sector and logo are added apart */
+const memberAuditSpec: AuditSpec = {
+  title: { label: "Ünvan", format: formatAudit.text },
+  active: { label: "Durum", format: formatAudit.active },
+  phone: { label: "Telefon", format: formatAudit.text },
+  address: { label: "Adres", format: formatAudit.text },
+  memberLoginDate: { label: "Üye Giriş Tarihi", format: formatAudit.date },
+  foundingDate: { label: "Kuruluş Tarihi", format: formatAudit.date },
+};
+
+async function sectorName(executor: Executor, id: number | null | undefined) {
+  if (id == null) return null;
+  const [sector] = await executor
+    .select({ name: sectorTable.name })
+    .from(sectorTable)
+    .where(eq(sectorTable.id, id));
+  return sector?.name ?? null;
+}
+
 type MemberRepresentative = Omit<
   Awaited<ReturnType<typeof selectRepresentatives>>[number],
   "memberId"
 >;
 
-export const membersRoute = new Hono()
+export const membersRoute = new Hono<AppEnv>()
   .get("/", async (c) => {
     const [members, representatives] = await Promise.all([
       selectMembers(),
@@ -134,15 +162,31 @@ export const membersRoute = new Hono()
       }
 
       try {
-        const [member] = await db
-          .insert(memberTable)
-          .values({ ...fields, logo: logoFilename })
-          .returning({ id: memberTable.id });
+        const id = await db.transaction(async (tx) => {
+          const [member] = await tx
+            .insert(memberTable)
+            .values({ ...fields, logo: logoFilename })
+            .returning();
 
-        return c.json(
-          { id: member.id, message: "Üye başarıyla kaydedildi" },
-          201,
-        );
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "create",
+            entityType: "member",
+            entityId: member.id,
+            entityLabel: member.title,
+            details: [
+              ...describeFields(memberAuditSpec, member),
+              {
+                label: "Sektör",
+                value: (await sectorName(tx, member.sectorId)) ?? "—",
+              },
+              { label: "Logo", value: member.logo ? "Var" : "—" },
+            ],
+          });
+          return member.id;
+        });
+
+        return c.json({ id, message: "Üye başarıyla kaydedildi" }, 201);
       } catch (error) {
         if (logoFilename) await deleteFile(logoFilename);
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
@@ -161,10 +205,7 @@ export const membersRoute = new Hono()
       const { id } = c.req.valid("param");
       const { logo, removeLogo, ...fields } = c.req.valid("form");
 
-      const [existing] = await db
-        .select({ logo: memberTable.logo })
-        .from(memberTable)
-        .where(eq(memberTable.id, id));
+      const [existing] = await selectMembers().where(eq(memberTable.id, id));
 
       if (!existing) return c.json({ error: "Üye bulunamadı" }, 404);
 
@@ -180,10 +221,43 @@ export const membersRoute = new Hono()
       }
 
       try {
-        await db
-          .update(memberTable)
-          .set({ ...fields, ...(newLogo !== undefined && { logo: newLogo }) })
-          .where(eq(memberTable.id, id));
+        await db.transaction(async (tx) => {
+          await tx
+            .update(memberTable)
+            .set({
+              ...fields,
+              ...(newLogo !== undefined && { logo: newLogo }),
+            })
+            .where(eq(memberTable.id, id));
+
+          const changes = [
+            ...diffFields(memberAuditSpec, existing, fields),
+            ...(fields.sectorId !== undefined
+              ? change(
+                  "Sektör",
+                  existing.sector,
+                  await sectorName(tx, fields.sectorId),
+                )
+              : []),
+            ...(newLogo !== undefined
+              ? change(
+                  "Logo",
+                  existing.logo && "Eski logo",
+                  newLogo && "Yeni logo",
+                )
+              : []),
+          ];
+          if (changes.length === 0) return;
+
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "update",
+            entityType: "member",
+            entityId: id,
+            entityLabel: fields.title ?? existing.title,
+            changes,
+          });
+        });
       } catch (error) {
         if (newLogo) await deleteFile(newLogo);
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
@@ -205,10 +279,35 @@ export const membersRoute = new Hono()
     async (c) => {
       const { id } = c.req.valid("param");
 
-      const [deleted] = await db
-        .delete(memberTable)
-        .where(eq(memberTable.id, id))
-        .returning({ logo: memberTable.logo });
+      const deleted = await db.transaction(async (tx) => {
+        const [member] = await selectMembers(tx).where(eq(memberTable.id, id));
+        if (!member) return null;
+
+        // the links cascade away with the member, so name them now
+        const representatives = await selectRepresentatives(id, tx);
+
+        await tx.delete(memberTable).where(eq(memberTable.id, id));
+        await recordAudit(tx, {
+          actor: actorOf(c),
+          action: "delete",
+          entityType: "member",
+          entityId: id,
+          entityLabel: member.title,
+          details: [
+            ...describeFields(memberAuditSpec, member),
+            { label: "Sektör", value: member.sector ?? "—" },
+            { label: "Logo", value: member.logo ? "Var" : "—" },
+            {
+              label: "Yetkililer",
+              value:
+                representatives
+                  .map((r) => (r.role ? `${r.name} (${r.role})` : r.name))
+                  .join(", ") || "—",
+            },
+          ],
+        });
+        return member;
+      });
 
       if (!deleted) return c.json({ error: "Üye bulunamadı" }, 404);
 

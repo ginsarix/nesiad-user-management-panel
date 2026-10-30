@@ -8,6 +8,8 @@ import {
   userTable,
   verificationTable,
 } from "@/db/schema";
+import { recordAudit } from "./audit";
+import { auditLog } from "./auth-plugins/audit";
 import { initialPassword } from "./auth-plugins/initial-password";
 import { env } from "./env";
 import { sendEmail } from "./mail";
@@ -36,6 +38,16 @@ export const auth = betterAuth({
     requireEmailVerification: true,
     // A reset usually means the old password may be known to someone else
     revokeSessionsOnPasswordReset: true,
+    // the reset link has no session, so the audit hooks can't see who it was
+    onPasswordReset: async ({ user }) => {
+      await recordAudit(db, {
+        actor: { id: user.id, name: user.name, email: user.email },
+        action: "password_reset",
+        entityType: "auth",
+        entityId: user.id,
+        entityLabel: user.name,
+      }).catch((error) => console.error("Audit log write failed:", error));
+    },
     sendResetPassword: async ({ user, url }) => {
       // not awaited so response time doesn't reveal whether the email exists
       void sendEmail({
@@ -70,5 +82,6 @@ export const auth = betterAuth({
     // created from the panel get the role the admin endpoints require
     admin({ defaultRole: "admin" }),
     initialPassword(),
+    auditLog(),
   ],
 });
