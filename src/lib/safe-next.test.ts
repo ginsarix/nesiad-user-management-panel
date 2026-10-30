@@ -14,6 +14,10 @@ describe("safeNextPath", () => {
     "//evil.com",
     "/\\evil.com",
     "https://evil.com",
+    "/\t/evil.com",
+    "/\n/evil.com",
+    "/\r\n/evil.com",
+    "/\\\\evil.com",
   ])("falls back for %j", (next) => {
     expect(safeNextPath(next)).toBe("/members");
   });

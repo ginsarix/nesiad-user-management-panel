@@ -34,6 +34,8 @@ export const auth = betterAuth({
     disableSignUp: true,
     // Also what makes sendOnSignIn below send a fresh link
     requireEmailVerification: true,
+    // A reset usually means the old password may be known to someone else
+    revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
       // not awaited so response time doesn't reveal whether the email exists
       void sendEmail({

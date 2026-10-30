@@ -71,6 +71,16 @@ export const initialPassword = () =>
             hash,
           );
 
+          // Log out other devices, keep this one
+          const otherSessions = (
+            await ctx.context.internalAdapter.listSessions(session.userId)
+          ).filter((other) => other.token !== session.token);
+          if (otherSessions.length) {
+            await ctx.context.internalAdapter.deleteSessions(
+              otherSessions.map((other) => other.token),
+            );
+          }
+
           return ctx.json({ status: true });
         },
       ),

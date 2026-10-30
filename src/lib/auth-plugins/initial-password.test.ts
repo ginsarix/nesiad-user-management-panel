@@ -61,6 +61,28 @@ describe("POST /api/auth/initial-password/set", () => {
     expect(await canSignIn(email, "verilen-sifre")).toBe(false);
   });
 
+  it("logs out other sessions but keeps the current one", async () => {
+    const { email, headers } = await loggedInUser();
+    const other = await auth.api.signInEmail({
+      body: { email, password: "verilen-sifre" },
+      asResponse: true,
+    });
+    const otherHeaders = new Headers({
+      cookie: other.headers
+        .getSetCookie()
+        .map((c) => c.split(";")[0])
+        .join("; "),
+    });
+
+    await auth.api.setInitialPassword({
+      body: { newPassword: "yeni-sifre-123" },
+      headers,
+    });
+
+    expect(await auth.api.getSession({ headers })).not.toBeNull();
+    expect(await auth.api.getSession({ headers: otherHeaders })).toBeNull();
+  });
+
   it("refuses once the session is older than 30 minutes", async () => {
     const { email, userId, headers } = await loggedInUser();
     await db

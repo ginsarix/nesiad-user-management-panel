@@ -45,6 +45,8 @@ export function ChangePasswordDialog({
     const { error } = await authClient.changePassword({
       currentPassword,
       newPassword,
+      // log out other devices; this one gets a fresh session
+      revokeOtherSessions: true,
     });
     if (error) {
       form.setError("root", { message: authErrorMessage(error) });
