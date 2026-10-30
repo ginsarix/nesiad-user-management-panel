@@ -16,7 +16,11 @@ export function safeNextPath(
   try {
     const url = new URL(next, PLACEHOLDER_ORIGIN);
     if (url.origin !== PLACEHOLDER_ORIGIN) return fallback;
-    return url.pathname + url.search + url.hash;
+
+    // Resolving "." and ".." can still produce "//evil.com" ("/.//evil.com")
+    const path = url.pathname + url.search + url.hash;
+    if (path.startsWith("//") || path.startsWith("/\\")) return fallback;
+    return path;
   } catch {
     return fallback;
   }
