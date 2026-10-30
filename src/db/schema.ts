@@ -3,6 +3,7 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
@@ -48,14 +49,26 @@ export const authorizedRepresentativeTable = pgTable(
   },
 );
 
-export const membersRepresentativesTable = pgTable("members_representatives", {
-  memberId: integer("member_id").notNull(),
-  authorizedRepresentativeId: integer("authorized_representative_id").notNull(),
+export const membersRepresentativesTable = pgTable(
+  "members_representatives",
+  {
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => memberTable.id, { onDelete: "cascade" }),
+    authorizedRepresentativeId: integer("authorized_representative_id")
+      .notNull()
+      .references(() => authorizedRepresentativeTable.id, {
+        onDelete: "cascade",
+      }),
 
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.memberId, table.authorizedRepresentativeId] }),
+  ],
+);
 
 export const userTable = pgTable("user", {
   id: text("id").primaryKey(),
