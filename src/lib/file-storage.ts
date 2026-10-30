@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join as pathJoin, parse as pathParse } from "node:path";
 import { nanoid } from "nanoid";
 
@@ -36,7 +36,8 @@ export async function createFile({
   const _filename = (file?.name ?? filename)!;
 
   const baseName = pathParse(_filename).name; // remove ext
-  const safeName = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const safeName =
+    baseName.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "") || "file";
 
   const uniqueName = `${safeName}_${nanoid(8)}.${ext}`;
 
@@ -48,4 +49,36 @@ export async function createFile({
   await writeFile(filePath, _buffer);
 
   return uniqueName;
+}
+
+/** Names createFile can produce: no path separators, no leading dot */
+export function isSafeFilename(filename: string) {
+  return /^[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/.test(filename);
+}
+
+function isNotFound(error: unknown) {
+  return (error as NodeJS.ErrnoException).code === "ENOENT";
+}
+
+/** Resolves to null when the file does not exist */
+export async function readStoredFile(filename: string) {
+  if (!isSafeFilename(filename)) return null;
+
+  try {
+    return await readFile(getFilePath(filename));
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
+}
+
+/** Deleting a file that is already gone is not an error */
+export async function deleteFile(filename: string) {
+  if (!isSafeFilename(filename)) return;
+
+  try {
+    await unlink(getFilePath(filename));
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
 }

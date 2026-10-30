@@ -1,4 +1,5 @@
-import type { MemberListItem } from "@/lib/fetches/member";
+import Image from "next/image";
+import { logoUrl, type MemberListItem } from "@/lib/fetches/member";
 import { initialsTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
 
@@ -9,20 +10,41 @@ export function orDash(value: string | null | undefined) {
   return value?.trim() ? value : "—";
 }
 
-// TODO: show the uploaded logo once logo upload and serving are fixed
+/** The member's logo, or their initials when there is none */
 export function MemberAvatar({
   title,
+  logo,
   size = "sm",
 }: {
   title: string;
+  logo?: string | null;
   size?: "sm" | "lg";
 }) {
+  const sizeClass = size === "sm" ? "size-6 text-[10px]" : "size-12 text-base";
+
+  if (logo) {
+    return (
+      <Image
+        src={logoUrl(logo)}
+        alt=""
+        width={size === "sm" ? 24 : 48}
+        height={size === "sm" ? 24 : 48}
+        // uploads are served by our API, not part of the image optimizer
+        unoptimized
+        className={cn(
+          "shrink-0 rounded-md border bg-white object-contain",
+          sizeClass,
+        )}
+      />
+    );
+  }
+
   return (
     <span
       aria-hidden
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-md bg-secondary font-bold text-secondary-foreground",
-        size === "sm" ? "size-6 text-[10px]" : "size-12 text-base",
+        sizeClass,
       )}
     >
       {initialsTr(title)}

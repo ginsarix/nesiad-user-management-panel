@@ -3,16 +3,19 @@ import { asc, eq } from "drizzle-orm";
 import { fileTypeFromBuffer } from "file-type";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { z } from "zod";
 import { db } from "@/db";
 import {
   authorizedRepresentativeTable,
   membersRepresentativesTable,
   memberTable,
 } from "@/db/schema";
-import { createFile } from "@/lib/file-storage";
-import { createMemberSchema } from "@/lib/zod-schemas/member";
-import { safeNumSchema } from "@/lib/zod-schemas/shared";
+import { createFile, deleteFile } from "@/lib/file-storage";
+import {
+  createMemberSchema,
+  MAX_LOGO_SIZE,
+  updateMemberSchema,
+} from "@/lib/zod-schemas/member";
+import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 /** Representatives joined to their member, optionally for a single member */
 function selectRepresentatives(memberId?: number) {
@@ -38,6 +41,28 @@ function selectRepresentatives(memberId?: number) {
     )
     .orderBy(asc(authorizedRepresentativeTable.name));
 }
+
+/**
+ * Stores an uploaded logo after checking its actual contents are an image.
+ * Resolves to null when the file is not an image.
+ */
+async function saveLogo(logo: File) {
+  const buffer = await logo.arrayBuffer();
+  const fileType = await fileTypeFromBuffer(buffer);
+  if (!fileType?.mime.startsWith("image/")) return null;
+
+  return await createFile({
+    buffer: Buffer.from(buffer),
+    filename: logo.name,
+    ext: fileType.ext,
+  });
+}
+
+const logoBodyLimit = bodyLimit({
+  // the logo plus some room for the text fields
+  maxSize: MAX_LOGO_SIZE + 1024 * 1024,
+  onError: (c) => c.json({ error: "Logo 5 MB'dan küçük olmalıdır" }, 413),
+});
 
 type MemberRepresentative = Omit<
   Awaited<ReturnType<typeof selectRepresentatives>>[number],
@@ -67,10 +92,7 @@ export const membersRoute = new Hono()
   })
   .get(
     "/:id",
-    zValidator(
-      "param",
-      z.object({ id: safeNumSchema(z.number().int().positive()) }),
-    ),
+    zValidator("param", idParamSchema, respondWithFirstIssue),
     async (c) => {
       const { id } = c.req.valid("param");
 
@@ -90,72 +112,91 @@ export const membersRoute = new Hono()
   )
   .post(
     "/",
-    bodyLimit({
-      maxSize: 25 * 1024 * 1024, // 25 MiB
-      onError: (c) => {
-        return c.text("Dosya 25 MB'dan küçük olmalıdır", 413);
-      },
-    }),
-    zValidator("form", createMemberSchema),
+    logoBodyLimit,
+    zValidator("form", createMemberSchema, respondWithFirstIssue),
     async (c) => {
-      const { logo, authorizedRepresentativeIds, ...form } =
-        c.req.valid("form");
+      const { logo, ...fields } = c.req.valid("form");
 
-      let createdMember: Pick<
-        typeof memberTable.$inferSelect,
-        "id" | "createdAt" | "updatedAt"
-      >;
+      const logoFilename = logo ? await saveLogo(logo) : null;
+      if (logo && !logoFilename) {
+        return c.json({ error: "Sadece resim dosyaları kabul edilir" }, 415);
+      }
 
-      const memberInsertReturnColumns = {
-        id: memberTable.id,
-        createdAt: memberTable.createdAt,
-        updatedAt: memberTable.updatedAt,
-      };
-
-      if (authorizedRepresentativeIds?.length) {
-        createdMember = await db.transaction(async (tx) => {
-          const [member] = await tx
-            .insert(memberTable)
-            .values(form)
-            .returning(memberInsertReturnColumns);
-
-          const relations = authorizedRepresentativeIds.map((arId) => ({
-            authorizedRepresentativeId: arId,
-            memberId: member.id,
-          }));
-
-          await tx
-            .insert(membersRepresentativesTable)
-            .values(relations)
-            .returning();
-          return member;
-        });
-      } else {
-        [createdMember] = await db
+      try {
+        const [member] = await db
           .insert(memberTable)
-          .values(form)
-          .returning(memberInsertReturnColumns);
+          .values({ ...fields, logo: logoFilename })
+          .returning({ id: memberTable.id });
+
+        return c.json(
+          { id: member.id, message: "Üye başarıyla kaydedildi" },
+          201,
+        );
+      } catch (error) {
+        if (logoFilename) await deleteFile(logoFilename);
+        throw error;
       }
+    },
+  )
+  .patch(
+    "/:id",
+    logoBodyLimit,
+    zValidator("param", idParamSchema, respondWithFirstIssue),
+    zValidator("form", updateMemberSchema, respondWithFirstIssue),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const { logo, removeLogo, ...fields } = c.req.valid("form");
 
-      let savedFilename: string | undefined;
+      const [existing] = await db
+        .select({ logo: memberTable.logo })
+        .from(memberTable)
+        .where(eq(memberTable.id, id));
 
+      if (!existing) return c.json({ error: "Üye bulunamadı" }, 404);
+
+      // undefined keeps the current logo, null removes it
+      let newLogo: string | null | undefined;
       if (logo) {
-        const buf = await logo.arrayBuffer();
-        const detectedFileType = await fileTypeFromBuffer(buf);
-        if (!detectedFileType || !detectedFileType.mime.startsWith("image/")) {
-          return c.json({ error: "Sadece resim dosyaları kabul edilir." }, 415);
+        newLogo = await saveLogo(logo);
+        if (!newLogo) {
+          return c.json({ error: "Sadece resim dosyaları kabul edilir" }, 415);
         }
-
-        savedFilename = await createFile({
-          buffer: Buffer.from(buf),
-          filename: logo.name,
-          ext: detectedFileType.ext,
-        });
+      } else if (removeLogo) {
+        newLogo = null;
       }
 
-      return c.json(
-        { createdMember, savedFilename, message: "Üye başarıyla kaydedildi" },
-        200,
-      );
+      try {
+        await db
+          .update(memberTable)
+          .set({ ...fields, ...(newLogo !== undefined && { logo: newLogo }) })
+          .where(eq(memberTable.id, id));
+      } catch (error) {
+        if (newLogo) await deleteFile(newLogo);
+        throw error;
+      }
+
+      if (newLogo !== undefined && existing.logo) {
+        await deleteFile(existing.logo);
+      }
+
+      return c.json({ id, message: "Üye güncellendi" }, 200);
+    },
+  )
+  .delete(
+    "/:id",
+    zValidator("param", idParamSchema, respondWithFirstIssue),
+    async (c) => {
+      const { id } = c.req.valid("param");
+
+      const [deleted] = await db
+        .delete(memberTable)
+        .where(eq(memberTable.id, id))
+        .returning({ logo: memberTable.logo });
+
+      if (!deleted) return c.json({ error: "Üye bulunamadı" }, 404);
+
+      if (deleted.logo) await deleteFile(deleted.logo);
+
+      return c.json({ message: "Üye silindi" }, 200);
     },
   );

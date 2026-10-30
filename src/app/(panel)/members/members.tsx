@@ -16,6 +16,7 @@ import {
   ArrowRight,
   ArrowUp,
   ChevronRight,
+  Plus,
   SearchIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -84,7 +85,7 @@ const columns = helper.columns([
             row.getIsExpanded() && "rotate-90",
           )}
         />
-        <MemberAvatar title={row.original.title} />
+        <MemberAvatar title={row.original.title} logo={row.original.logo} />
         {row.original.title}
       </button>
     ),
@@ -249,6 +250,10 @@ export function Members() {
             ? `${members.length} üye`
             : `${filteredMembers.length} / ${members.length} üye`}
         </span>
+        <Link href="/members/new" className={buttonVariants()}>
+          <Plus />
+          Üye Ekle
+        </Link>
       </div>
 
       {/* The table scrolls inside its own box so the header can stay sticky */}

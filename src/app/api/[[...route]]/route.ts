@@ -1,8 +1,12 @@
 import { handle } from "@hono/vercel";
 import { Hono } from "hono";
+import { filesRoute } from "./files";
 import { membersRoute } from "./members";
 
-const app = new Hono().basePath("/api").route("/members", membersRoute);
+const app = new Hono()
+  .basePath("/api")
+  .route("/members", membersRoute)
+  .route("/files", filesRoute);
 
 export type AppType = typeof app;
 

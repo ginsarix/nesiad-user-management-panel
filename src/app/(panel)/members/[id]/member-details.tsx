@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import { getMember } from "@/lib/fetches/member";
 import {
   MemberAvatar,
@@ -10,6 +11,7 @@ import {
   RepresentativeList,
 } from "../_components/member-info";
 import { membersListHref } from "../_lib/list-href";
+import { DeleteMemberButton } from "./delete-member-button";
 
 export function MemberDetails({ id }: { id: number }) {
   const { data: member, isError } = useQuery({
@@ -36,12 +38,22 @@ export function MemberDetails({ id }: { id: number }) {
       {member && (
         <>
           <div className="flex items-center gap-4 rounded-lg border bg-card p-4">
-            <MemberAvatar title={member.title} size="lg" />
+            <MemberAvatar title={member.title} logo={member.logo} size="lg" />
             <div>
               <h2 className="text-lg font-medium">{member.title}</h2>
               {member.sector && (
                 <p className="text-sm text-muted-foreground">{member.sector}</p>
               )}
+            </div>
+            <div className="ml-auto flex gap-2">
+              <Link
+                href={`/members/${member.id}/edit`}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                <Pencil />
+                Düzenle
+              </Link>
+              <DeleteMemberButton member={member} />
             </div>
           </div>
 

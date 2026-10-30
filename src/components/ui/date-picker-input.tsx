@@ -4,7 +4,6 @@ import { isValid, parse as parseDate } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { Field, FieldLabel } from "@/components/ui/field";
 import {
   InputGroup,
   InputGroupAddon,
@@ -16,6 +15,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+
+const DATE_FORMAT = "dd.MM.yyyy";
 
 function formatDate(date: Date | undefined) {
   if (!date) {
@@ -29,78 +30,92 @@ function formatDate(date: Date | undefined) {
   });
 }
 
+/** Free-text value; only a full dd.MM.yyyy date is picked up by the calendar */
+function parseValue(value: string) {
+  const date = parseDate(value, DATE_FORMAT, new Date());
+  return isValid(date) ? date : undefined;
+}
+
+/**
+ * Text input with an optional calendar. The value stays free text (e.g.
+ * "Mart 2014"); picking a day fills it in as dd.MM.yyyy.
+ */
 export function DatePickerInput({
-  fieldLabelText,
+  id,
+  name,
+  value,
+  onChange,
+  onBlur,
+  placeholder = "Ocak 01, 2025",
+  "aria-invalid": ariaInvalid,
 }: {
-  fieldLabelText?: string;
+  id: string;
+  name?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  placeholder?: string;
+  "aria-invalid"?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const date = parseValue(value);
   const [month, setMonth] = useState<Date | undefined>(date);
-  const [value, setValue] = useState(formatDate(date));
 
   return (
-    <Field className="mx-auto w-48">
-      <FieldLabel htmlFor="date-required">
-        {fieldLabelText ?? "Tarih"}
-      </FieldLabel>
-      <InputGroup>
-        <InputGroupInput
-          id="date-required"
-          value={value}
-          placeholder="Ocak 01, 2025"
-          onChange={(e) => {
-            const value = e.target.value;
-            const date = parseDate(value, "dd.MM.yyyy", new Date());
-            setValue(value);
-            if (isValid(date)) {
-              setDate(date);
-              setMonth(date);
+    <InputGroup>
+      <InputGroupInput
+        id={id}
+        name={name}
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        aria-invalid={ariaInvalid}
+        onBlur={onBlur}
+        onChange={(e) => {
+          const value = e.target.value;
+          onChange(value);
+          const date = parseValue(value);
+          if (date) setMonth(date);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+      />
+      <InputGroupAddon align="inline-end">
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            render={
+              <InputGroupButton
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Tarih seçiniz"
+              >
+                <CalendarIcon />
+              </InputGroupButton>
             }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setOpen(true);
-            }
-          }}
-        />
-        <InputGroupAddon align="inline-end">
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger
-              render={
-                <InputGroupButton
-                  id="date-picker"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Select date"
-                >
-                  <CalendarIcon />
-                  <span className="sr-only">Tarih seçiniz</span>
-                </InputGroupButton>
-              }
+          />
+          <PopoverContent
+            className="w-auto overflow-hidden p-0"
+            align="end"
+            alignOffset={-8}
+            sideOffset={10}
+          >
+            <Calendar
+              mode="single"
+              selected={date}
+              month={month}
+              onMonthChange={setMonth}
+              onSelect={(date) => {
+                onChange(formatDate(date));
+                setOpen(false);
+              }}
             />
-            <PopoverContent
-              className="w-auto overflow-hidden p-0"
-              align="end"
-              alignOffset={-8}
-              sideOffset={10}
-            >
-              <Calendar
-                mode="single"
-                selected={date}
-                month={month}
-                onMonthChange={setMonth}
-                onSelect={(date) => {
-                  setDate(date);
-                  setValue(formatDate(date));
-                  setOpen(false);
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-        </InputGroupAddon>
-      </InputGroup>
-    </Field>
+          </PopoverContent>
+        </Popover>
+      </InputGroupAddon>
+    </InputGroup>
   );
 }
