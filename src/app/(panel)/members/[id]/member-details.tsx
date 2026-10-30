@@ -7,12 +7,9 @@ import { formatDate, InfoFields, PassiveTag } from "@/components/info-fields";
 import { buttonVariants } from "@/components/ui/button";
 import { getMember } from "@/lib/fetches/member";
 import { listHref } from "@/lib/list-href";
-import {
-  MemberAvatar,
-  RepresentativeList,
-  SeniorityBadge,
-} from "../_components/member-info";
+import { RepresentativeList, SeniorityBadge } from "../_components/member-info";
 import { DeleteMemberButton } from "./delete-member-button";
+import { MemberLogo } from "./member-logo";
 import { ToggleActiveButton } from "./toggle-active-button";
 
 export function MemberDetails({ id }: { id: number }) {
@@ -40,7 +37,7 @@ export function MemberDetails({ id }: { id: number }) {
       {member && (
         <>
           <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-card p-4">
-            <MemberAvatar title={member.title} logo={member.logo} size="lg" />
+            <MemberLogo title={member.title} logo={member.logo} />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-medium">{member.title}</h2>
