@@ -8,7 +8,7 @@
 3. "Simüle tarih" 2027-02-28 lists the exact people who celebrate that day, including 29 Şubat birthdays.
 4. With the send time set to 2 minutes from now, the automatic SMS arrives once. A server restart does not send it again.
 
-**Decisions:** NetGSM `iysfilter: "0"` (informational). Founding-date SMS goes to the member's own phone (skipped when it is not a mobile). Ayarlar holds the send time and the editable message text (placeholders like `{ad}`, `{yil}`) for each celebration. No NetGSM `startdate`: a daily job reads current data at send time and sends right away.
+**Decisions:** NetGSM `iysfilter: "0"` (informational). Founding-date SMS goes to the member's own phone (skipped when it is not a mobile). Ayarlar holds the send time and the editable message text (placeholders like `{ad}`, `{yil}`) for each celebration. No NetGSM `startdate`: a daily job reads current data at send time and sends right away. 29 Şubat is celebrated on 28 Şubat in non-leap years.
 
 ## Level 0: Setup and playground
 Build: `/sms` with tabs Manuel, Otomatik, and Ayarlar. A fake NetGSM client returns `FAKE-…` job ids. An `sms_send` table logs each send. Otomatik has a "Simüle tarih" picker. Locked parts say "Locked. Build Level N to unlock."
