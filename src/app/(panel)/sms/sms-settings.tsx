@@ -15,7 +15,11 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getSmsSettings, updateSmsSettings } from "@/lib/fetches/sms";
+import {
+  getSmsContacts,
+  getSmsSettings,
+  updateSmsSettings,
+} from "@/lib/fetches/sms";
 import { fillTemplate, TEMPLATE_PLACEHOLDERS } from "@/lib/sms/templates";
 import {
   SMS_MAX_LENGTH,
@@ -43,6 +47,10 @@ const SAMPLES = {
 function SettingsForm({ settings }: { settings: SmsSettingsValues }) {
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
+  const { data: contacts } = useQuery({
+    queryKey: ["sms-contacts"],
+    queryFn: () => getSmsContacts(),
+  });
 
   const form = useForm<SmsSettingsValues>({
     resolver: zodResolver(smsSettingsSchema),
@@ -103,6 +111,12 @@ function SettingsForm({ settings }: { settings: SmsSettingsValues }) {
           <FieldError errors={[errors.sendTime]} />
         </Field>
 
+        {contacts?.dryRun && (
+          <p className="basis-full rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            Deneme modu açık (SMS_DRY_RUN): otomatik SMS'ler gönderilmiş sayılır
+            ama NetGSM'e gitmez. O gün için tekrar gönderilmezler.
+          </p>
+        )}
         <p className="basis-full text-xs text-muted-foreground">
           Her gün bu saatten sonra (Türkiye saati) o gün kutlaması olanlara
           birer SMS gider. Sunucu o saatte kapalıysa aynı gün içinde telafi
