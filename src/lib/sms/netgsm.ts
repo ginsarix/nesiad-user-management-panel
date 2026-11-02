@@ -41,10 +41,10 @@ export function netgsmClient(): NetgsmClient {
 }
 
 /**
- * LEVEL 3 (you write this): NetGSM's answer to a send, as a success with
- * its job id or an error with its code and a Turkish message.
+ * NetGSM's answer to a send, as a success with its job id or an error with
+ * its code and a Turkish message.
  *
- * FAKE (Level 0): assumes success and reads `jobid`.
+ * TODO(level 3): decode error codes; for now assumes success and reads `jobid`.
  */
 export function decodeSendResponse(raw: NetgsmRawResponse): SendResult {
   const body = raw.body as { jobid: string };
