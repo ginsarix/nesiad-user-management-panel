@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import { deleteMember, type MemberDetails } from "@/lib/fetches/member";
+import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
 
 export function DeleteMemberButton({ member }: { member: MemberDetails }) {
@@ -33,6 +34,7 @@ export function DeleteMemberButton({ member }: { member: MemberDetails }) {
         queryClient.invalidateQueries({ queryKey: ["members"], exact: true }),
         queryClient.invalidateQueries({ queryKey: ["sectors"] }),
         queryClient.invalidateQueries({ queryKey: ["representatives"] }),
+        invalidateSmsQueries(queryClient),
       ]);
       router.push(listHref("/members"));
     },

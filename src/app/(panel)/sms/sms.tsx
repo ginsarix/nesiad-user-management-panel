@@ -2,6 +2,7 @@
 
 import { Lock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AutoSms } from "./auto-sms";
 import { ManualSms } from "./manual-sms";
 
 export function Sms() {
@@ -16,16 +17,16 @@ export function Sms() {
         <ManualSms />
       </TabsContent>
       <TabsContent value="auto">
-        <Locked text="Kilitli. Açmak için Level 4'ü tamamla (kimin kutlaması var?)." />
+        <AutoSms />
       </TabsContent>
       <TabsContent value="settings">
-        <Locked text="Kilitli. Açmak için Level 4'ü tamamla (saat ve mesaj metni)." />
+        <Locked text="Kilitli. Level 5 ile açılacak (gönderim saati ve mesaj metni)." />
       </TabsContent>
     </Tabs>
   );
 }
 
-// TODO(level 4): remove with the last locked tab
+// TODO(level 5): remove with the last locked tab
 function Locked({ text }: { text: string }) {
   return (
     <div className="flex items-center justify-center gap-2 rounded-lg border bg-card p-10 text-sm text-muted-foreground">

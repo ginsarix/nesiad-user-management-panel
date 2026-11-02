@@ -28,6 +28,7 @@ import {
   type RepresentativeDetails,
   updateRepresentative,
 } from "@/lib/fetches/representative";
+import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
 import { compareTr } from "@/lib/turkish";
 import {
@@ -86,6 +87,7 @@ export function RepresentativeForm({
         queryClient.invalidateQueries({ queryKey: ["representatives"] }),
         // member pages list their yetkililer
         queryClient.invalidateQueries({ queryKey: ["members"] }),
+        invalidateSmsQueries(queryClient),
       ]);
       router.push(
         fromMemberId ? `/members/${fromMemberId}` : `/representatives/${id}`,

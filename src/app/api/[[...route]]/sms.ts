@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { db } from "@/db";
 import { authorizedRepresentativeTable, memberTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
+import { loadCelebrationsOn } from "@/lib/sms/load-celebrations";
 import {
   decodeSendResponse,
   type NetgsmRawResponse,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/sms/netgsm";
 import { buildRecipients, type Contact } from "@/lib/sms/recipients";
 import { compareTr } from "@/lib/turkish";
-import { smsSendSchema } from "@/lib/zod-schemas/sms";
+import { celebrationsQuerySchema, smsSendSchema } from "@/lib/zod-schemas/sms";
 import { type AppEnv, actorOf } from "./env";
 import { respondWithFirstIssue } from "./validation";
 
@@ -77,6 +78,15 @@ export const smsRoute = new Hono<AppEnv>()
       dryRun: netgsmClient().dryRun,
     });
   })
+  /** Who gets an automatic SMS on ?date=yyyy-MM-dd */
+  .get(
+    "/celebrations",
+    zValidator("query", celebrationsQuerySchema, respondWithFirstIssue),
+    async (c) => {
+      const { date } = c.req.valid("query");
+      return c.json({ date, celebrations: await loadCelebrationsOn(date) });
+    },
+  )
   .post(
     "/send",
     zValidator("json", smsSendSchema, respondWithFirstIssue),

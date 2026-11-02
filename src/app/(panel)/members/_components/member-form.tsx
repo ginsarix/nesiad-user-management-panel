@@ -24,6 +24,7 @@ import {
   type MemberDetails,
   updateMember,
 } from "@/lib/fetches/member";
+import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
 import {
   type MemberFormValues,
@@ -69,6 +70,7 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
         queryClient.invalidateQueries({ queryKey: ["sectors"] }),
         // yetkili pages show member titles
         queryClient.invalidateQueries({ queryKey: ["representatives"] }),
+        invalidateSmsQueries(queryClient),
       ]);
       router.push(`/members/${id}`);
     },

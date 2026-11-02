@@ -19,11 +19,13 @@ import { formatDisplayDate, parseDisplayDate } from "@/lib/dates";
 
 // Earliest year offered in the calendar's year dropdown
 const START_MONTH = new Date(1900, 0);
+// Latest month offered when future days can be picked
+const END_MONTH = new Date(new Date().getFullYear() + 10, 11);
 
 /**
  * Date input typed as gg.aa.yyyy, with a calendar as an alternative. The value
  * is the text as typed; the form validates it (see optionalDisplayDateSchema).
- * Future days can't be picked.
+ * Future days can't be picked unless `allowFuture`.
  */
 export function DatePickerInput({
   id,
@@ -33,6 +35,7 @@ export function DatePickerInput({
   onBlur,
   placeholder = "gg.aa.yyyy",
   "aria-invalid": ariaInvalid,
+  allowFuture = false,
 }: {
   id: string;
   name?: string;
@@ -41,6 +44,7 @@ export function DatePickerInput({
   onBlur?: () => void;
   placeholder?: string;
   "aria-invalid"?: boolean;
+  allowFuture?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const date = parseDisplayDate(value) ?? undefined;
@@ -96,8 +100,8 @@ export function DatePickerInput({
               locale={tr}
               captionLayout="dropdown"
               startMonth={START_MONTH}
-              endMonth={today}
-              disabled={{ after: today }}
+              endMonth={allowFuture ? END_MONTH : today}
+              disabled={allowFuture ? undefined : { after: today }}
               selected={date}
               month={month}
               onMonthChange={setMonth}

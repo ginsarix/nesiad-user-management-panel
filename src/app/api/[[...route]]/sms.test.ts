@@ -44,19 +44,25 @@ afterAll(async () => {
   }
 });
 
-async function createMember(phone: string | null) {
+async function createMember(
+  phone: string | null,
+  extra: Partial<typeof memberTable.$inferInsert> = {},
+) {
   const [member] = await db
     .insert(memberTable)
-    .values({ title: "__test__ SMS Üyesi", phone })
+    .values({ title: "__test__ SMS Üyesi", phone, ...extra })
     .returning({ id: memberTable.id });
   createdMemberIds.push(member.id);
   return member.id;
 }
 
-async function createRepresentative(phone: string | null) {
+async function createRepresentative(
+  phone: string | null,
+  extra: Partial<typeof authorizedRepresentativeTable.$inferInsert> = {},
+) {
   const [representative] = await db
     .insert(authorizedRepresentativeTable)
-    .values({ name: "__test__ SMS Yetkilisi", phone })
+    .values({ name: "__test__ SMS Yetkilisi", phone, ...extra })
     .returning({ id: authorizedRepresentativeTable.id });
   createdRepresentativeIds.push(representative.id);
   return representative.id;
@@ -176,5 +182,71 @@ describe("POST /api/sms/send", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "En az bir alıcı seçin" });
+  });
+});
+
+describe("GET /api/sms/celebrations", () => {
+  it("lists active members' founding dates and yetkililer's birthdays", async () => {
+    const foundedId = await createMember("0532 000 00 11", {
+      foundingDate: "2012-02-29",
+    });
+    const passiveId = await createMember("0532 000 00 12", {
+      foundingDate: "2012-02-29",
+      active: false,
+    });
+    const otherDayId = await createMember("0532 000 00 13", {
+      foundingDate: "2012-03-01",
+    });
+    const bornId = await createRepresentative("0535 000 00 11", {
+      dateOfBirth: "1980-02-28",
+    });
+
+    const res = await smsRoute.request("/celebrations?date=2027-02-28");
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.date).toBe("2027-02-28");
+    const ours = body.celebrations.filter(
+      (c: { contact: { kind: string; id: number } }) =>
+        c.contact.kind === "member"
+          ? [foundedId, passiveId, otherDayId].includes(c.contact.id)
+          : c.contact.id === bornId,
+    );
+    expect(ours).toEqual([
+      {
+        kind: "founding",
+        contact: {
+          kind: "member",
+          id: foundedId,
+          name: "__test__ SMS Üyesi",
+          phone: "0532 000 00 11",
+        },
+        date: "2012-02-29",
+        years: 15,
+        phone: { ok: true, phone: "5320000011" },
+      },
+      {
+        kind: "birthday",
+        contact: {
+          kind: "representative",
+          id: bornId,
+          name: "__test__ SMS Yetkilisi",
+          phone: "0535 000 00 11",
+        },
+        date: "1980-02-28",
+        years: 47,
+        phone: { ok: true, phone: "5350000011" },
+      },
+    ]);
+  });
+
+  it.each([
+    "",
+    "2027-02-30",
+    "28.02.2027",
+  ])("refuses the date %j", async (date) => {
+    const res = await smsRoute.request(`/celebrations?date=${date}`);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Geçerli bir tarih girin" });
   });
 });

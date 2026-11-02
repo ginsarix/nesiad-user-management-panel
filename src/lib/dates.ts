@@ -43,6 +43,14 @@ export function isoToDisplay(iso: string | null | undefined) {
   return date ? formatDisplayDate(date) : "";
 }
 
+/** Today's date in Türkiye as yyyy-MM-dd, wherever the code runs */
+export function todayInIstanbul(now = new Date()) {
+  // en-CA formats as yyyy-MM-dd
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+  }).format(now);
+}
+
 export function isFutureDate(date: Date, today = new Date()) {
   return date.getTime() > today.getTime();
 }

@@ -18,6 +18,19 @@ export type RecipientList = {
   skipped: { contact: Contact; reason: SkipReason }[];
 };
 
+export type PhoneCheck =
+  | { ok: true; phone: string }
+  | { ok: false; reason: "no_phone" | "invalid" };
+
+/** A stored phone as an SMS number ("5XXXXXXXXX"), or why it can't be one */
+export function checkPhone(raw: string | null): PhoneCheck {
+  if (!raw?.trim()) return { ok: false, reason: "no_phone" };
+  const normalized = normalizePhone(raw);
+  return normalized.ok
+    ? { ok: true, phone: normalized.phone }
+    : { ok: false, reason: "invalid" };
+}
+
 /**
  * Who gets the SMS. Each mobile number gets one SMS (the first contact with
  * it, in the given order); every contact that gets none is in `skipped`
@@ -29,18 +42,14 @@ export function buildRecipients(contacts: Contact[]): RecipientList {
   const seen = new Set<string>();
 
   for (const contact of contacts) {
-    if (!contact.phone?.trim()) {
-      skipped.push({ contact, reason: "no_phone" });
-      continue;
-    }
-    const normalized = normalizePhone(contact.phone);
-    if (!normalized.ok) {
-      skipped.push({ contact, reason: "invalid" });
-    } else if (seen.has(normalized.phone)) {
+    const check = checkPhone(contact.phone);
+    if (!check.ok) {
+      skipped.push({ contact, reason: check.reason });
+    } else if (seen.has(check.phone)) {
       skipped.push({ contact, reason: "duplicate" });
     } else {
-      seen.add(normalized.phone);
-      recipients.push({ phone: normalized.phone, contact });
+      seen.add(check.phone);
+      recipients.push({ phone: check.phone, contact });
     }
   }
 

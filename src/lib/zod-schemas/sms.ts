@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseIsoDate } from "../dates";
 
 /** NetGSM's limit for a message with Turkish characters (encoding "TR") */
 export const SMS_MAX_LENGTH = 883;
@@ -23,6 +24,13 @@ export const smsSendSchema = z
   });
 
 export type SmsSendValues = z.infer<typeof smsSendSchema>;
+
+/** GET /api/sms/celebrations */
+export const celebrationsQuerySchema = z.object({
+  date: z
+    .string()
+    .refine((v) => parseIsoDate(v) !== null, "Geçerli bir tarih girin"),
+});
 
 /** The Manuel tab's form; recipients are picked outside the form */
 export const smsFormSchema = z.object({ message: smsMessageSchema });

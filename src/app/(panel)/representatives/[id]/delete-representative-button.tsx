@@ -21,6 +21,7 @@ import {
   deleteRepresentative,
   type RepresentativeDetails,
 } from "@/lib/fetches/representative";
+import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
 
 export function DeleteRepresentativeButton({
@@ -42,6 +43,7 @@ export function DeleteRepresentativeButton({
           exact: true,
         }),
         queryClient.invalidateQueries({ queryKey: ["members"] }),
+        invalidateSmsQueries(queryClient),
       ]);
       router.push(listHref("/representatives"));
     },

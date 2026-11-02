@@ -7,6 +7,7 @@ import {
   type RepresentativeDetails,
   setRepresentativeActive,
 } from "@/lib/fetches/representative";
+import { invalidateSmsQueries } from "@/lib/fetches/sms";
 
 /** "Pasife al" / "Aktife al" in one click; reversible, so no confirmation */
 export function ToggleActiveButton({
@@ -24,6 +25,7 @@ export function ToggleActiveButton({
         queryClient.invalidateQueries({ queryKey: ["representatives"] }),
         // member pages tag pasif yetkililer
         queryClient.invalidateQueries({ queryKey: ["members"] }),
+        invalidateSmsQueries(queryClient),
       ]),
     onError: (error) => window.alert(error.message),
   });

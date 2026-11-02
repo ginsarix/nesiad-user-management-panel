@@ -307,7 +307,7 @@ function ContactGroup({
 }
 
 /** The stored phone, and how normalizePhone reads it */
-function PhoneHint({ phone }: { phone: string | null }) {
+export function PhoneHint({ phone }: { phone: string | null }) {
   if (!phone) {
     return (
       <span className="ml-auto shrink-0 text-xs text-muted-foreground">
