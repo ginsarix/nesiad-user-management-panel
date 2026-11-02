@@ -1,17 +1,29 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
   authorizedRepresentativeTable,
   memberTable,
 } from "@/db/schema";
+import type { NetgsmClient } from "@/lib/sms/netgsm";
 import { smsRoute } from "./sms";
 
-// Tests never reach NetGSM, whatever SMS_DRY_RUN says
+// Tests never reach NetGSM, whatever SMS_DRY_RUN says; a test may swap in
+// another fake for one send
+const netgsm = vi.hoisted(() => ({
+  client: null as NetgsmClient | null,
+}));
 vi.mock("@/lib/sms/netgsm", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/sms/netgsm")>();
-  return { ...mod, netgsmClient: () => mod.fakeNetgsmClient };
+  return {
+    ...mod,
+    netgsmClient: () => netgsm.client ?? mod.fakeNetgsmClient,
+  };
+});
+
+afterEach(() => {
+  netgsm.client = null;
 });
 
 const createdMemberIds: number[] = [];
@@ -103,6 +115,56 @@ describe("POST /api/sms/send", () => {
     expect(await res.json()).toEqual({
       error: "Seçilenler arasında geçerli cep telefonu olan yok",
     });
+  });
+
+  it("shows NetGSM's error and writes no audit row when NetGSM refuses", async () => {
+    const memberId = await createMember("0532 000 00 02");
+    netgsm.client = {
+      dryRun: false,
+      send: async () => ({ status: 406, body: { code: "40" } }),
+    };
+    const message = `__test__ Reddedilen ${Date.now()}`;
+
+    const res = await send({
+      message,
+      memberIds: [memberId],
+      representativeIds: [],
+    });
+
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({
+      error:
+        "Mesaj başlığı (gönderici adı) NetGSM'de tanımlı değil (NetGSM 40)",
+    });
+    const audits = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "sms"),
+          eq(auditLogTable.entityLabel, message),
+        ),
+      );
+    expect(audits).toEqual([]);
+  });
+
+  it("warns that the SMS may have gone when NetGSM doesn't answer", async () => {
+    const memberId = await createMember("0532 000 00 03");
+    netgsm.client = {
+      dryRun: false,
+      send: async () => {
+        throw new DOMException("timed out", "TimeoutError");
+      },
+    };
+
+    const res = await send({
+      message: "__test__ Zaman aşımı",
+      memberIds: [memberId],
+      representativeIds: [],
+    });
+
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toContain("SMS gitmiş olabilir");
   });
 
   it("requires a recipient", async () => {

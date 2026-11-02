@@ -4,7 +4,11 @@ import { Hono } from "hono";
 import { db } from "@/db";
 import { authorizedRepresentativeTable, memberTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
-import { decodeSendResponse, netgsmClient } from "@/lib/sms/netgsm";
+import {
+  decodeSendResponse,
+  type NetgsmRawResponse,
+  netgsmClient,
+} from "@/lib/sms/netgsm";
 import { buildRecipients, type Contact } from "@/lib/sms/recipients";
 import { compareTr } from "@/lib/turkish";
 import { smsSendSchema } from "@/lib/zod-schemas/sms";
@@ -89,12 +93,26 @@ export const smsRoute = new Hono<AppEnv>()
       }
 
       const client = netgsmClient();
-      const result = decodeSendResponse(
-        await client.send(
+      let raw: NetgsmRawResponse;
+      try {
+        raw = await client.send(
           recipients.map((r) => ({ no: r.phone, msg: message })),
-        ),
-      );
+        );
+      } catch (error) {
+        console.error("NetGSM send failed", error);
+        // a timeout may come after NetGSM queued the job
+        return c.json(
+          {
+            error:
+              "NetGSM'den yanıt alınamadı. SMS gitmiş olabilir; tekrar göndermeden önce NetGSM panelinden kontrol edin.",
+          },
+          502,
+        );
+      }
+
+      const result = decodeSendResponse(raw);
       if (!result.ok) {
+        console.error("NetGSM refused the send", raw);
         return c.json(
           { error: `${result.message} (NetGSM ${result.code})` },
           502,
