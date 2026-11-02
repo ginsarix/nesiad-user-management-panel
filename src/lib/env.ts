@@ -17,6 +17,12 @@ export const env = createEnv({
     SMTP_USER: z.string().min(1),
     SMTP_PASS: z.string().min(1),
     SMTP_FROM: z.string().min(1),
+
+    NETGSM_USERNAME: z.string().min(1),
+    NETGSM_PASSWORD: z.string().min(1),
+    NETGSM_HEADER: z.string().min(1),
+    // true unless set to "false": SMS go to a fake client, nothing is sent
+    SMS_DRY_RUN: z.stringbool().default(true),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.url(),

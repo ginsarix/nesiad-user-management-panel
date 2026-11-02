@@ -5,6 +5,7 @@ export const ENTITY_TYPE_LABELS: Record<AuditEntityTypeFilter, string> = {
   representative: "Yetkililer",
   sector: "Sektörler",
   panel_user: "Panel kullanıcıları",
+  sms: "SMS",
   auth: "Oturum açma",
 };
 
@@ -32,6 +33,9 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     disable: "Panel kullanıcısı devre dışı bırakıldı",
     enable: "Panel kullanıcısı etkinleştirildi",
     verification_email: "Doğrulama e-postası gönderildi",
+  },
+  sms: {
+    send: "SMS gönderildi",
   },
   auth: {
     login: "Giriş yaptı",

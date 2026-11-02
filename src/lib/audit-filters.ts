@@ -7,6 +7,7 @@ export const AUDIT_ENTITY_TYPES = [
   "representative",
   "sector",
   "panel_user",
+  "sms",
   "auth",
 ] as const;
 export type AuditEntityTypeFilter = (typeof AUDIT_ENTITY_TYPES)[number];

@@ -10,6 +10,7 @@ export type AuditEntityType =
   | "representative"
   | "sector"
   | "panel_user"
+  | "sms"
   | "auth";
 
 export type AuditEntry = {
