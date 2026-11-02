@@ -7,9 +7,15 @@ import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { displayToIso, isoToDisplay, todayInIstanbul } from "@/lib/dates";
-import { getSmsCelebrations } from "@/lib/fetches/sms";
+import {
+  getSmsCelebrations,
+  getSmsSettings,
+  type SmsCelebrationsResponse,
+} from "@/lib/fetches/sms";
 import { type Celebration, celebrationLabel } from "@/lib/sms/celebrations";
+import { celebrationMessage } from "@/lib/sms/templates";
 import { INVALID_DATE_MESSAGE } from "@/lib/zod-schemas/shared";
+import type { SmsSettingsValues } from "@/lib/zod-schemas/sms";
 import { PhoneHint } from "./manual-sms";
 
 export function AutoSms() {
@@ -23,7 +29,14 @@ export function AutoSms() {
     enabled: date !== "",
     placeholderData: keepPreviousData,
   });
+  const { data: settings } = useQuery({
+    queryKey: ["sms-settings"],
+    queryFn: () => getSmsSettings(),
+  });
   const celebrations = data?.celebrations ?? [];
+  const sends = new Map(
+    (data?.sends ?? []).map((s) => [`${s.kind}:${s.contactId}`, s]),
+  );
 
   return (
     <div className="flex max-w-3xl flex-col gap-4">
@@ -48,7 +61,11 @@ export function AutoSms() {
         <p className="basis-full text-xs text-muted-foreground">
           Bu tarihte otomatik SMS alacak aktif üyeler (kuruluş yıl dönümü) ve
           yetkililer (doğum günü). 29 Şubat, artık yıl olmayan yıllarda 28
-          Şubat'ta kutlanır. Otomatik gönderim henüz kapalı.
+          Şubat'ta kutlanır.{" "}
+          {settings &&
+            (settings.autoEnabled
+              ? `Otomatik gönderim açık: her gün ${settings.sendTime}'dan sonra.`
+              : "Otomatik gönderim kapalı (Ayarlar).")}
         </p>
         {date === "" && <FieldError>{INVALID_DATE_MESSAGE}</FieldError>}
         {isError && (
@@ -63,22 +80,32 @@ export function AutoSms() {
         <CelebrationGroup
           title="Kuruluş yıl dönümleri"
           celebrations={celebrations.filter((c) => c.kind === "founding")}
+          sends={sends}
+          settings={settings}
         />
         <CelebrationGroup
           title="Doğum günleri"
           celebrations={celebrations.filter((c) => c.kind === "birthday")}
+          sends={sends}
+          settings={settings}
         />
       </div>
     </div>
   );
 }
 
+type Send = SmsCelebrationsResponse["sends"][number];
+
 function CelebrationGroup({
   title,
   celebrations,
+  sends,
+  settings,
 }: {
   title: string;
   celebrations: Celebration[];
+  sends: Map<string, Send>;
+  settings?: SmsSettingsValues;
 }) {
   const sendable = celebrations.filter((c) => c.phone.ok).length;
 
@@ -91,23 +118,36 @@ function CelebrationGroup({
         </span>
       </div>
       <ul>
-        {celebrations.map((c) => (
-          <li
-            key={`${c.contact.kind}:${c.contact.id}`}
-            className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-1.5 text-sm"
-          >
-            <Link
-              href={`/${c.contact.kind === "member" ? "members" : "representatives"}/${c.contact.id}`}
-              className="truncate hover:underline"
+        {celebrations.map((c) => {
+          const send = sends.get(`${c.kind}:${c.contact.id}`);
+          // what went out, else what would go out with today's settings
+          const message =
+            send?.message ??
+            (c.phone.ok && settings ? celebrationMessage(c, settings) : null);
+          return (
+            <li
+              key={`${c.contact.kind}:${c.contact.id}`}
+              className="flex flex-col gap-1 border-b px-3 py-2 text-sm last:border-b-0"
             >
-              {c.contact.name}
-            </Link>
-            <span className="text-muted-foreground">
-              {celebrationLabel(c)} · {isoToDisplay(c.date)}
-            </span>
-            <PhoneHint phone={c.contact.phone} />
-          </li>
-        ))}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                <Link
+                  href={`/${c.contact.kind === "member" ? "members" : "representatives"}/${c.contact.id}`}
+                  className="truncate hover:underline"
+                >
+                  {c.contact.name}
+                </Link>
+                <span className="text-muted-foreground">
+                  {celebrationLabel(c)} · {isoToDisplay(c.date)}
+                </span>
+                <PhoneHint phone={c.contact.phone} />
+              </div>
+              {message && (
+                <p className="text-xs text-muted-foreground">{message}</p>
+              )}
+              {send && <SendStatus send={send} />}
+            </li>
+          );
+        })}
         {celebrations.length === 0 && (
           <li className="px-3 py-4 text-center text-sm text-muted-foreground">
             Bu tarihte yok
@@ -115,5 +155,29 @@ function CelebrationGroup({
         )}
       </ul>
     </div>
+  );
+}
+
+const timeFormat = new Intl.DateTimeFormat("tr-TR", {
+  timeZone: "Europe/Istanbul",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** What the daily job did for this person on this day */
+function SendStatus({ send }: { send: Send }) {
+  const at = timeFormat.format(new Date(send.sentAt ?? send.createdAt));
+  const text = {
+    sent: `Gönderildi ${at} · NetGSM iş no ${send.jobId}`,
+    failed: `Gönderilemedi ${at}: ${send.error}`,
+    unknown: `${at}: ${send.error}`,
+    pending: `${at} itibarıyla gönderilmedi (sunucu gönderim sırasında durdu); tekrar denenmeyecek`,
+  }[send.status];
+  return (
+    <p
+      className={`text-xs ${send.status === "sent" ? "text-primary" : "text-destructive"}`}
+    >
+      {text}
+    </p>
   );
 }

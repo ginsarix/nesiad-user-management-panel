@@ -23,6 +23,9 @@ export const env = createEnv({
     NETGSM_HEADER: z.string().min(1),
     // true unless set to "false": SMS go to a fake client, nothing is sent
     SMS_DRY_RUN: z.stringbool().default(true),
+    // the Plesk scheduled task sends it to POST /api/cron/sms; without it the
+    // endpoint refuses every call
+    CRON_SECRET: z.string().min(32).optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.url(),

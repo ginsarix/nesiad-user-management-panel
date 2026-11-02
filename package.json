@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env src/scripts/seed.ts",
+    "cron:sms": "tsx --env-file=.env src/scripts/cron-sms.ts",
     "test": "NODE_OPTIONS='--import dotenv/config' vitest"
   },
   "dependencies": {

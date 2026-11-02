@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ClientRequestOptions } from "hono/client";
 import { rpcClient } from "../rpc-client";
-import type { SmsSendValues } from "../zod-schemas/sms";
+import type { SmsSendValues, SmsSettingsValues } from "../zod-schemas/sms";
 import { throwResponseError } from "./errors";
 
 /** Active members, then active yetkililer, each sorted by name */
@@ -45,3 +45,23 @@ export function invalidateSmsQueries(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: ["sms-celebrations"] }),
   ]);
 }
+
+export async function getSmsSettings(options?: ClientRequestOptions) {
+  const res = await rpcClient.api.sms.settings.$get(undefined, options);
+
+  if (!res.ok) return throwResponseError(res, "SMS ayarları yüklenemedi");
+
+  return await res.json();
+}
+
+export async function updateSmsSettings(values: SmsSettingsValues) {
+  const res = await rpcClient.api.sms.settings.$put({ json: values });
+
+  if (!res.ok) return throwResponseError(res, "SMS ayarları kaydedilemedi");
+
+  return await res.json();
+}
+
+export type SmsCelebrationsResponse = Awaited<
+  ReturnType<typeof getSmsCelebrations>
+>;

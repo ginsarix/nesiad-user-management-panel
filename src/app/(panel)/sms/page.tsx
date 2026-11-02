@@ -1,6 +1,10 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { todayInIstanbul } from "@/lib/dates";
-import { getSmsCelebrations, getSmsContacts } from "@/lib/fetches/sms";
+import {
+  getSmsCelebrations,
+  getSmsContacts,
+  getSmsSettings,
+} from "@/lib/fetches/sms";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import { Sms } from "./sms";
@@ -17,6 +21,12 @@ export default async function SmsPage() {
       .query({
         queryKey: ["sms-contacts"],
         queryFn: () => getSmsContacts(options),
+      })
+      .catch(console.error),
+    queryClient
+      .query({
+        queryKey: ["sms-settings"],
+        queryFn: () => getSmsSettings(options),
       })
       .catch(console.error),
     queryClient

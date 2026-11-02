@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -8,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 
 export const sectorTable = pgTable("sector", {
@@ -219,4 +222,73 @@ export const auditLogTable = pgTable(
     index("audit_log_created_at_idx").on(table.createdAt.desc()),
     index("audit_log_actor_idx").on(table.actorId, table.createdAt.desc()),
   ],
+);
+
+/** One automatic SMS per person, celebration and day */
+export type SmsSendStatus =
+  // claimed by a run; stays so if the server stopped before sending
+  | "pending"
+  | "sent"
+  | "failed"
+  // NetGSM didn't answer: it may have gone, so it's never retried
+  | "unknown";
+
+/**
+ * Automatic (celebration) SMS. The unique key is what makes each one go out
+ * at most once: a run claims a row before sending, and a later or concurrent
+ * run can't claim it again.
+ */
+export const smsSendTable = pgTable(
+  "sms_send",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    kind: text().$type<"founding" | "birthday">().notNull(),
+    // member id for "founding", yetkili id for "birthday"; no foreign key, so
+    // the log outlives a deleted member
+    contactId: integer("contact_id").notNull(),
+    contactName: text("contact_name").notNull(),
+    // the Istanbul day it's sent for
+    celebrationDate: date("celebration_date", { mode: "string" }).notNull(),
+    years: integer().notNull(),
+    phone: text().notNull(),
+    message: text().notNull(),
+
+    status: text().$type<SmsSendStatus>().default("pending").notNull(),
+    jobId: text("job_id"),
+    error: text(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("sms_send_once").on(
+      table.kind,
+      table.contactId,
+      table.celebrationDate,
+    ),
+    index("sms_send_celebration_date_idx").on(table.celebrationDate),
+  ],
+);
+
+/** The one row of automatic SMS settings (Ayarlar tab) */
+export const smsSettingsTable = pgTable(
+  "sms_settings",
+  {
+    id: integer().primaryKey().default(1),
+    // off until someone turns it on, so a fresh database sends nothing
+    autoEnabled: boolean("auto_enabled").default(false).notNull(),
+    // "HH:mm", Istanbul time
+    sendTime: text("send_time").default("09:00").notNull(),
+    // templates with {ad} and {yil}
+    foundingMessage: text("founding_message").notNull(),
+    birthdayMessage: text("birthday_message").notNull(),
+
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [check("sms_settings_single_row", sql`${table.id} = 1`)],
 );

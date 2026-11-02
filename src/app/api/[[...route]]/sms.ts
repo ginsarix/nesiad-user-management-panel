@@ -2,8 +2,14 @@ import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "@/db";
-import { authorizedRepresentativeTable, memberTable } from "@/db/schema";
+import {
+  authorizedRepresentativeTable,
+  memberTable,
+  smsSendTable,
+  smsSettingsTable,
+} from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
+import { type AuditSpec, diffFields, formatAudit } from "@/lib/audit-diff";
 import { loadCelebrationsOn } from "@/lib/sms/load-celebrations";
 import {
   decodeSendResponse,
@@ -11,8 +17,13 @@ import {
   netgsmClient,
 } from "@/lib/sms/netgsm";
 import { buildRecipients, type Contact } from "@/lib/sms/recipients";
+import { getSmsSettings, type SmsSettings } from "@/lib/sms/settings";
 import { compareTr } from "@/lib/turkish";
-import { celebrationsQuerySchema, smsSendSchema } from "@/lib/zod-schemas/sms";
+import {
+  celebrationsQuerySchema,
+  smsSendSchema,
+  smsSettingsSchema,
+} from "@/lib/zod-schemas/sms";
 import { type AppEnv, actorOf } from "./env";
 import { respondWithFirstIssue } from "./validation";
 
@@ -70,6 +81,25 @@ async function loadContacts(ids?: {
 
 const KIND_LABELS = { member: "Üye", representative: "Yetkili" } as const;
 
+const settingsAuditSpec: AuditSpec = {
+  autoEnabled: {
+    label: "Otomatik gönderim",
+    format: (value) => (value ? "Açık" : "Kapalı"),
+  },
+  sendTime: { label: "Gönderim saati", format: formatAudit.text },
+  foundingMessage: {
+    label: "Kuruluş yıl dönümü mesajı",
+    format: formatAudit.text,
+  },
+  birthdayMessage: { label: "Doğum günü mesajı", format: formatAudit.text },
+};
+
+/** The settings the Ayarlar form edits */
+function settingsResponse(settings: SmsSettings) {
+  const { autoEnabled, sendTime, foundingMessage, birthdayMessage } = settings;
+  return { autoEnabled, sendTime, foundingMessage, birthdayMessage };
+}
+
 export const smsRoute = new Hono<AppEnv>()
   /** Who can be picked on the Manuel tab */
   .get("/contacts", async (c) => {
@@ -84,7 +114,57 @@ export const smsRoute = new Hono<AppEnv>()
     zValidator("query", celebrationsQuerySchema, respondWithFirstIssue),
     async (c) => {
       const { date } = c.req.valid("query");
-      return c.json({ date, celebrations: await loadCelebrationsOn(date) });
+      const [celebrations, sends] = await Promise.all([
+        loadCelebrationsOn(date),
+        // what the daily job already did for that day
+        db
+          .select({
+            kind: smsSendTable.kind,
+            contactId: smsSendTable.contactId,
+            status: smsSendTable.status,
+            message: smsSendTable.message,
+            jobId: smsSendTable.jobId,
+            error: smsSendTable.error,
+            createdAt: smsSendTable.createdAt,
+            sentAt: smsSendTable.sentAt,
+          })
+          .from(smsSendTable)
+          .where(eq(smsSendTable.celebrationDate, date)),
+      ]);
+      return c.json({ date, celebrations, sends });
+    },
+  )
+  /** The Ayarlar tab: send time, on/off, message templates */
+  .get("/settings", async (c) => {
+    return c.json(settingsResponse(await getSmsSettings()));
+  })
+  .put(
+    "/settings",
+    zValidator("json", smsSettingsSchema, respondWithFirstIssue),
+    async (c) => {
+      const values = c.req.valid("json");
+      const before = await getSmsSettings();
+
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(smsSettingsTable)
+          .set(values)
+          .where(eq(smsSettingsTable.id, 1))
+          .returning();
+        const changes = diffFields(settingsAuditSpec, before, values);
+        if (changes.length > 0) {
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "settings_update",
+            entityType: "sms",
+            entityLabel: "Otomatik SMS ayarları",
+            changes,
+          });
+        }
+        return row;
+      });
+
+      return c.json(settingsResponse(updated));
     },
   )
   .post(

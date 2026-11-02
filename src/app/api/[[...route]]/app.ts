@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { auth } from "@/lib/auth";
 import { auditLogsRoute } from "./audit-logs";
+import { cronRoute } from "./cron";
 import type { AppEnv } from "./env";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
@@ -21,6 +22,10 @@ const requireSession = createMiddleware<AppEnv>(async (c, next) => {
 
 export const app = new Hono<AppEnv>()
   .basePath("/api")
+  // before the session check: the scheduled task has no session, only its
+  // secret. Hono runs handlers in registration order, so its response ends
+  // the chain here
+  .route("/cron", cronRoute)
   .use(requireSession)
   .route("/members", membersRoute)
   .route("/sectors", sectorsRoute)

@@ -36,6 +36,10 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
   },
   sms: {
     send: "SMS gönderildi",
+    auto_send: "Kutlama SMS'i gönderildi",
+    auto_send_failed: "Kutlama SMS'i gönderilemedi",
+    auto_send_unknown: "Kutlama SMS'i: NetGSM yanıt vermedi",
+    settings_update: "SMS ayarları değiştirildi",
   },
   auth: {
     login: "Giriş yaptı",

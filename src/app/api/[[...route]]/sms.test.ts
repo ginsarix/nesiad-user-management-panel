@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray, max } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {
@@ -248,5 +248,84 @@ describe("GET /api/sms/celebrations", () => {
     const res = await smsRoute.request(`/celebrations?date=${date}`);
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Geçerli bir tarih girin" });
+  });
+});
+
+describe("/api/sms/settings", () => {
+  function put(body: unknown) {
+    return smsRoute.request("/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("saves the settings and logs what changed", async () => {
+    // the one settings row is shared with the dev panel: put it back after
+    const original = await (await smsRoute.request("/settings")).json();
+    const [{ maxId }] = await db
+      .select({ maxId: max(auditLogTable.id) })
+      .from(auditLogTable);
+    try {
+      const values = {
+        ...original,
+        sendTime: original.sendTime === "07:45" ? "07:46" : "07:45",
+        birthdayMessage: "__test__ {ad}, iyi ki doğdunuz",
+      };
+      const res = await put(values);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual(values);
+
+      const [audit] = await db
+        .select()
+        .from(auditLogTable)
+        .where(
+          and(
+            gt(auditLogTable.id, maxId ?? 0),
+            eq(auditLogTable.action, "settings_update"),
+          ),
+        );
+      expect(audit.changes).toEqual([
+        {
+          label: "Gönderim saati",
+          from: original.sendTime,
+          to: values.sendTime,
+        },
+        {
+          label: "Doğum günü mesajı",
+          from: original.birthdayMessage,
+          to: values.birthdayMessage,
+        },
+      ]);
+    } finally {
+      await put(original);
+      await db
+        .delete(auditLogTable)
+        .where(
+          and(
+            gt(auditLogTable.id, maxId ?? 0),
+            eq(auditLogTable.action, "settings_update"),
+          ),
+        );
+    }
+  });
+
+  it.each([
+    [{ sendTime: "24:00" }, "Saati ss:dd olarak girin"],
+    [
+      { foundingMessage: "Sayın {isim}" },
+      "Tanınmayan alan: {isim}. Kullanılabilenler: {ad}, {yil}",
+    ],
+    [{ birthdayMessage: "  " }, "Mesaj yazın"],
+  ])("refuses %j", async (override, error) => {
+    const res = await put({
+      autoEnabled: false,
+      sendTime: "09:00",
+      foundingMessage: "{ad}",
+      birthdayMessage: "{ad}",
+      ...override,
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error });
   });
 });
