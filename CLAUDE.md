@@ -51,3 +51,4 @@ pnpm db:seed                    # create the default admin from DEFAULT_ADMIN_* 
 - Members (üyeler) are hard-deleted; the audit log keeps the deleted record. They also have Aktif/Pasif (`active`), and lists default to Aktif. Kıdem is computed from Üye Giriş Tarihi ("5 Yıl", "10 Yıl"…), not stored.
 - Yetkililer (authorized representatives) are linked to members from the yetkili form (`members_representatives`, with a per-link `role` = görev), never from the member form.
 - Sectors are a managed list (Sektörler page) referenced by id; names are unique ignoring Turkish case (`name_key`). Deleting a sector sets members' `sector_id` to null.
+- SMS goes through NetGSM (`src/lib/sms/`). Automatic celebration SMS run when a Plesk scheduled task calls `POST /api/cron/sms`; `sms_send` makes each one go out at most once. Production setup: `docs/production-sms.md`.
