@@ -17,7 +17,7 @@ pnpm exec tsc --noEmit          # typecheck
 pnpm test --run                 # all tests (vitest)
 pnpm test --run audit-logs      # tests whose path matches a pattern
 pnpm db:push                    # apply src/db/schema.ts to the database
-pnpm db:seed                    # create the default admin from DEFAULT_ADMIN_* in .env (sends a real verification email)
+pnpm db:seed                    # create the default admin from DEFAULT_ADMIN_* if missing (sends a real verification email); the server also does this at every start
 ```
 
 - Always run tests through `pnpm test`: it preloads `.env` (`dotenv/config`). Plain `vitest` fails on env validation.

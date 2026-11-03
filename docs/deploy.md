@@ -5,7 +5,7 @@
 1. **check**: lint, typecheck, and the tests against a throwaway Postgres.
 2. **deploy** (only `main`, only after check passes): builds the standalone server, copies it to the Plesk app folder with `rsync` over SSH, and restarts the app. A smoke test then requests `/login` and fails the run if the new version doesn't answer.
 
-Plesk only runs the app; nothing is installed or built there. Schema changes and the first admin are done by hand (section 4).
+Plesk only runs the app; nothing is installed or built there. Schema changes are done by hand (section 4); the app creates the first admin itself when it starts (section 5).
 
 ## 1. Plesk: SSH access for the deploy
 
@@ -45,6 +45,7 @@ mkdir -p /var/www/vhosts/<domain>/nesiad-panel/public /var/www/vhosts/<domain>/n
 
 - `UPLOAD_DIR`: the absolute logo folder from above. Left unset, logos go into the app folder; the deploy is told to keep `uploads/` there, but backups and moves are easier outside it.
 - `NEXT_PUBLIC_APP_URL`: exactly the same value as the GitHub `APP_URL` variable. The build bakes in GitHub's value; the server reads Plesk's.
+- `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD`: the first admin (section 5).
 
 The app checks these when it starts. A missing or invalid one is printed in the app's log (Node.js page → logs) and every request fails with 500 until it's fixed. Restart the app after changing them.
 
@@ -71,11 +72,11 @@ Secret: `SSH_PRIVATE_KEY`, the contents of `nesiad-deploy`.
 
 Optional: **Required reviewers** on the environment makes each deploy wait for an approval.
 
-## 4. Database schema and the first admin
+## 4. Database schema
 
-Not part of the deploy: on a database with real data, `drizzle-kit push` can drop columns, and it stops to ask. Run these from your machine, against production.
+Not part of the deploy: on a database with real data, `drizzle-kit push` can drop columns, and it stops to ask. Run it from your machine, against production.
 
-If Postgres only listens on the server, open a tunnel first and use port 5433 in the URLs below:
+If Postgres only listens on the server, open a tunnel first and use port 5433 in the URL below:
 
 ```bash
 ssh -N -L 5433:localhost:5432 <ssh-user>@<ssh-host>
@@ -87,13 +88,13 @@ ssh -N -L 5433:localhost:5432 <ssh-user>@<ssh-host>
 DATABASE_URL='postgresql://…@localhost:5433/…' pnpm db:push
 ```
 
-**First admin**, once. The seed sends the verification email, whose link is signed with `BETTER_AUTH_SECRET` and points to `NEXT_PUBLIC_APP_URL`, so it needs the production values of every variable, not your development `.env`. Put them in `.env.seed-production` (gitignored), with `DATABASE_URL` through the tunnel and `DEFAULT_ADMIN_*` set, then:
+## 5. The first admin
 
-```bash
-pnpm exec tsx --env-file=.env.seed-production src/scripts/seed.ts
-```
+Every time the app starts, it checks for an account with `DEFAULT_ADMIN_EMAIL`. If there is none, it creates one (name "Admin User", password `DEFAULT_ADMIN_PASSWORD`) and emails the verification link, which logs them in and leads to `/welcome` to choose their own password. The app log says `Default admin: created`. If the account exists, nothing happens. The schema has to be pushed first (section 4).
 
-Delete the file afterwards. Running the seed again fails with "User already exists" and sends nothing.
+- **The email didn't arrive** (the log says `created_email_failed`): sign in with the email and `DEFAULT_ADMIN_PASSWORD`. Login is refused until the address is verified, but each attempt sends a new link.
+- **It comes back:** as long as both variables are set, deleting that account on Panel Kullanıcıları recreates it at the next start, and Passenger starts the app again after every idle period. Remove the variables in Plesk once the admin has logged in, unless that's what you want.
+- `pnpm db:seed` does the same check from a machine, using its `.env`.
 
 ## Deploying, retrying, rolling back
 

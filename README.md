@@ -35,7 +35,7 @@ All variables are validated at startup (`src/lib/env.ts`); the app won't start w
 | `SMS_DRY_RUN` | Defaults to `true`: no SMS is sent. Set to `false` in production |
 | `CRON_SECRET` | 32+ characters. Needed for automatic SMS (`POST /api/cron/sms`) |
 | `UPLOAD_DIR` | Where member logos are stored. Defaults to `./uploads`; in production an absolute path outside the app folder |
-| `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD` | Only for `pnpm db:seed` |
+| `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD` | The first admin. When no account has this email, the server creates it at startup and emails a verification link (`pnpm db:seed` does the same). See [docs/deploy.md](docs/deploy.md) |
 
 `SKIP_ENV_VALIDATION=true` skips the check during `next build` (CI sets it, so the build needs no secrets); the server still checks at startup.
 
