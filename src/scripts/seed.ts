@@ -1,35 +1,22 @@
-// Run with `pnpm db:seed`
-import { auth } from "@/lib/auth";
-import { env } from "@/lib/env";
+// Run with `pnpm db:seed`. The server does the same at every start
+// (src/instrumentation.ts); this is for creating the admin without starting it
+import { ensureDefaultAdmin } from "@/lib/default-admin";
 
-async function seedDefaultAdmin() {
-  const email = env.DEFAULT_ADMIN_EMAIL;
-  const password = env.DEFAULT_ADMIN_PASSWORD;
-  if (!email || !password) {
-    throw new Error(
-      "Set DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD in .env to seed the default admin",
-    );
-  }
-
-  const { user } = await auth.api.createUser({
-    body: {
-      email,
-      password,
-      name: "Admin User",
-      role: "admin",
-    },
-  });
-
-  console.log("Created admin:", user.email);
-
-  // The link verifies the address and logs in, like a new staff member would
-  await auth.api.sendVerificationEmail({ body: { email: user.email } });
-  console.log("Sent verification email to", user.email);
-}
+const MESSAGES = {
+  not_configured:
+    "Set DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD in .env to seed the default admin",
+  exists: "The default admin already exists; nothing to do",
+  created: "Created the default admin and sent the verification email",
+  created_email_failed:
+    "Created the default admin, but the verification email failed; signing in with the password sends a new one",
+} as const;
 
 // Exit explicitly: the database pool would otherwise keep the process alive
-seedDefaultAdmin().then(
-  () => process.exit(0),
+ensureDefaultAdmin().then(
+  (result) => {
+    console.log(MESSAGES[result]);
+    process.exit(result === "not_configured" ? 1 : 0);
+  },
   (error: unknown) => {
     console.error(
       "Seeding failed:",

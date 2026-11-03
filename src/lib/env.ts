@@ -10,7 +10,8 @@ export const env = createEnv({
     DATABASE_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(1),
 
-    // Only needed by the seed script (src/scripts/seed.ts)
+    // The first admin: created at server start when no account has this email
+    // (src/lib/default-admin.ts; also `pnpm db:seed`)
     DEFAULT_ADMIN_EMAIL: z.email().optional(),
     DEFAULT_ADMIN_PASSWORD: z.string().min(8).max(128).optional(),
 
