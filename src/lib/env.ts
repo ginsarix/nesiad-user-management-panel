@@ -3,6 +3,9 @@ import * as z from "zod";
 import { safeNumSchema } from "./zod-schemas/shared";
 
 export const env = createEnv({
+  // Set only for `next build` in CI, so the build doesn't need the production
+  // secrets; src/instrumentation.ts validates when the server starts
+  skipValidation: process.env.SKIP_ENV_VALIDATION === "true",
   server: {
     DATABASE_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(1),
