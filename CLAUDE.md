@@ -11,7 +11,7 @@ Use pnpm (there's a `pnpm-lock.yaml`).
 ```bash
 pnpm dev                        # Next dev server (Turbopack) on :3000
 pnpm build && pnpm start        # production build
-pnpm lint                       # biome check (src/components/ui/* is vendored shadcn and isn't lint-clean; judge only your own files)
+pnpm lint                       # biome check (skips src/components/ui/*, vendored shadcn; CI requires it to pass)
 pnpm exec biome check --write <paths>   # format + fix specific files
 pnpm exec tsc --noEmit          # typecheck
 pnpm test --run                 # all tests (vitest)
