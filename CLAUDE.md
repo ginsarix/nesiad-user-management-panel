@@ -10,7 +10,7 @@ Use pnpm (there's a `pnpm-lock.yaml`).
 
 ```bash
 pnpm dev                        # Next dev server (Turbopack) on :3000
-pnpm build && pnpm start        # production build
+pnpm build && pnpm start        # production build (start warns about standalone output; it still works. Deploys run .next/standalone/server.js, see docs/deploy.md)
 pnpm lint                       # biome check (skips src/components/ui/*, vendored shadcn; CI requires it to pass)
 pnpm exec biome check --write <paths>   # format + fix specific files
 pnpm exec tsc --noEmit          # typecheck
