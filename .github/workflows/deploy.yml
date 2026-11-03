@@ -1,0 +1,137 @@
+# Checks every push and pull request; deploys main to Plesk.
+# Setup (GitHub variables and secrets, Plesk side): docs/deploy.md
+
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Must match the Node.js version selected for the app in Plesk
+  NODE_VERSION: "24"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    # Tests run against a real database: a throwaway one here
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: nesiad
+          POSTGRES_PASSWORD: nesiad
+          POSTGRES_DB: nesiad_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Placeholders that pass env validation; tests mock email and SMS
+    # defaults to dry run, so nothing is sent
+    env:
+      DATABASE_URL: postgresql://nesiad:nesiad@localhost:5432/nesiad_ci
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-only-placeholder-not-a-real-secret-0123456789
+      SMTP_HOST: localhost
+      SMTP_USER: ci
+      SMTP_PASS: ci
+      SMTP_FROM: ci@example.com
+      NETGSM_USERNAME: ci
+      NETGSM_PASSWORD: ci
+      NETGSM_HEADER: CI
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+      - run: pnpm exec tsc --noEmit
+      # --force: never stop at a prompt; this database is thrown away
+      - run: pnpm exec drizzle-kit push --force
+      - run: pnpm test --run
+
+  deploy:
+    needs: check
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    # Never two deploys at once; a queued one waits for the running one
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    env:
+      SSH_TARGET: ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}
+      SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      APP_URL: ${{ vars.APP_URL }}
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Only the public URL is needed: it's baked into the client code. Every
+      # secret is set in Plesk and checked when the server starts. better-auth
+      # logs a "default secret" error during this build; it's harmless.
+      - name: Build
+        run: pnpm build
+        env:
+          SKIP_ENV_VALIDATION: "true"
+          NEXT_PUBLIC_APP_URL: ${{ vars.APP_URL }}
+
+      # The standalone server doesn't include static files; they go next to it
+      - name: Assemble the deploy folder
+        run: |
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+
+      - name: Set up SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
+
+      # --delete removes files from older builds. Excluded paths are never
+      # touched: Passenger's tmp/, and uploads/ in case UPLOAD_DIR was left
+      # relative (it should point outside this folder)
+      - name: Upload
+        run: >-
+          rsync -az --delete
+          --exclude=/tmp/ --exclude=/uploads/ --exclude=/.env
+          --exclude=/public/.well-known/
+          -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT"
+          .next/standalone/ "$SSH_TARGET:$DEPLOY_PATH/"
+
+      # Passenger restarts the app on the next request after this
+      - name: Restart
+        run: >-
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_TARGET"
+          "mkdir -p '$DEPLOY_PATH/tmp' && touch '$DEPLOY_PATH/tmp/restart.txt'"
+
+      # Fails the run if the new version doesn't start (e.g. a missing env
+      # variable makes every request a 500)
+      - name: Smoke test
+        run: curl -fsS -o /dev/null --retry 10 --retry-all-errors --retry-delay 3 "$APP_URL/login"
