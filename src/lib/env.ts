@@ -29,6 +29,10 @@ export const env = createEnv({
     // the Plesk scheduled task sends it to POST /api/cron/sms; without it the
     // endpoint refuses every call
     CRON_SECRET: z.string().min(32).optional(),
+
+    // Where member logos are stored (src/lib/file-storage.ts). Defaults to
+    // ./uploads; production sets an absolute path outside the deploy folder
+    UPLOAD_DIR: z.string().min(1).optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.url(),

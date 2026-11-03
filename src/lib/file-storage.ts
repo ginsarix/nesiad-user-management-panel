@@ -1,11 +1,23 @@
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { join as pathJoin, parse as pathParse } from "node:path";
+import {
+  join as pathJoin,
+  parse as pathParse,
+  resolve as pathResolve,
+} from "node:path";
 import { nanoid } from "nanoid";
+import { env } from "@/lib/env";
 
-const uploadDir = pathJoin(process.cwd(), "uploads");
+// A relative path resolves against the working directory, which for the
+// standalone production server is the deploy folder: production sets an
+// absolute UPLOAD_DIR outside it. Unset (e.g. during a CI build) = "uploads".
+// turbopackIgnore: a path from env would make the build trace (and copy into
+// .next/standalone) the whole project
+const uploadDir = pathResolve(
+  /*turbopackIgnore: true*/ env.UPLOAD_DIR ?? "uploads",
+);
 
 export function getFilePath(filename: string): string {
-  return pathJoin(process.cwd(), "uploads", filename);
+  return pathJoin(uploadDir, filename);
 }
 
 interface CreateFileParams {

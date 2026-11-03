@@ -44,7 +44,7 @@ pnpm db:seed                    # create the default admin from DEFAULT_ADMIN_* 
 
 **Tables** use TanStack Table v9 (`useTable`, `tableFeatures`, `createColumnHelper` — not the v8 API; the bundled skills in `.claude/skills/pnpm-@tanstack+react-table-*` are authoritative). Every table has the "Sütunlar" column toggle (`src/components/column-toggle.tsx`) with visibility stored in a cookie: the page reads it with `getSavedColumnVisibility(tableId)` and passes it to `usePersistedColumnVisibility`, so the server renders the right columns. Shared pieces: `SortableTableHeader`, `SearchCombobox` (Turkish-aware searchable select), `info-fields.tsx` (`orDash`, `formatDate`, `PassiveTag`, `InfoFields`). List filters are mirrored into the URL with `history.replaceState`, and `rememberListSearch` / `listHref` (`src/lib/list-href.ts`) make "… dön" links return to the same filtered list.
 
-**UI:** shadcn `base-nova` style on Base UI (not Radix): `render` props instead of `asChild`, `Select` takes an `items` prop. Add components with `pnpm dlx shadcn@latest add <name>`, declining overwrites of existing files. Member logos are stored in `uploads/` (gitignored) and served by the authenticated `/api/files/:filename` route.
+**UI:** shadcn `base-nova` style on Base UI (not Radix): `render` props instead of `asChild`, `Select` takes an `items` prop. Add components with `pnpm dlx shadcn@latest add <name>`, declining overwrites of existing files. Member logos are stored in `UPLOAD_DIR` (default `uploads/`, gitignored) and served by the authenticated `/api/files/:filename` route.
 
 ## Domain notes
 
