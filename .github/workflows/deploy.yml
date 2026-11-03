@@ -13,8 +13,9 @@ permissions:
   contents: read
 
 env:
-  # Must match the Node.js version selected for the app in Plesk
-  NODE_VERSION: "24"
+  # Must match the Node.js version selected for the app in Plesk (the server
+  # has 20 and 22)
+  NODE_VERSION: "22"
 
 jobs:
   check:

@@ -35,7 +35,7 @@ mkdir -p /var/www/vhosts/<domain>/httpdocs/public /var/www/vhosts/<domain>/nesia
 
 | Setting | Value |
 | --- | --- |
-| Node.js version | The `NODE_VERSION` in the workflow (24) |
+| Node.js version | The `NODE_VERSION` in the workflow (22) |
 | Application mode | production |
 | Application root | the app folder: `/httpdocs` here, while `DEPLOY_PATH` in GitHub is the full path |
 | Document root | `/httpdocs/public`. Not the app folder itself: Plesk serves the document root's files directly, which would expose the server code |
