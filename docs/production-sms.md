@@ -4,11 +4,7 @@ What the production server needs before the SMS page (`/sms`) sends real SMS, an
 
 ## 1. Database
 
-The SMS feature adds two tables: `sms_send` (one row per automatic SMS) and `sms_settings` (the Ayarlar tab). Apply the schema against the production database:
-
-```bash
-pnpm db:push
-```
+The SMS feature adds two tables: `sms_send` (one row per automatic SMS) and `sms_settings` (the Ayarlar tab). The deploy creates them with the other migrations ([deploy.md](deploy.md), section 4).
 
 Automatic SMS starts **off**: nothing is sent until someone ticks the switch on SMS → Ayarlar.
 

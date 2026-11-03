@@ -62,8 +62,15 @@ jobs:
       # PageProps / LayoutProps are generated into .next/types (gitignored)
       - run: pnpm exec next typegen
       - run: pnpm exec tsc --noEmit
-      # --force: never stop at a prompt; this database is thrown away
-      - run: pnpm exec drizzle-kit push --force
+      # A schema change committed without its migration (pnpm db:generate)
+      # would never reach production: check reports it as a warning
+      - name: Check that the migrations match the schema
+        run: |
+          result=$(pnpm exec drizzle-kit check --output json)
+          echo "$result"
+          echo "$result" | jq -e '.status == "ok" and ((.warnings // []) | length == 0)' > /dev/null
+      # The same migrations production runs, on an empty database
+      - run: pnpm db:migrate
       - run: pnpm test --run
       # Some breakage only shows in the build (e.g. code that runs when Next
       # loads the routes); catch it before main. Built the way deploy builds
@@ -120,6 +127,18 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
+
+      # Postgres only listens on the server: forward the runner's port 5432 to
+      # it over SSH, so the server's own DATABASE_URL works here unchanged.
+      # Runs before the upload: if a migration fails, the old version keeps
+      # running. The tunnel ends with the job
+      - name: Migrate the database
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o ExitOnForwardFailure=yes \
+            -fN -L 5432:localhost:5432 "$SSH_TARGET"
+          pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       # --delete removes files from older builds. Excluded paths are never
       # touched: Passenger's tmp/, and uploads/ in case UPLOAD_DIR was left

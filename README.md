@@ -47,7 +47,8 @@ pnpm build && pnpm start
 pnpm lint              # biome
 pnpm exec tsc --noEmit # typecheck
 pnpm test --run        # vitest, against the DATABASE_URL database
-pnpm db:push           # apply src/db/schema.ts
+pnpm db:push           # apply src/db/schema.ts to the development database
+pnpm db:generate       # write the migration for a schema change (commit it)
 pnpm db:seed           # create the default admin
 pnpm cron:sms          # call the SMS cron endpoint every minute (development)
 ```
@@ -58,7 +59,7 @@ Tests run against the real database in `DATABASE_URL` and clean up after themsel
 
 Runs as a Node.js app on Plesk behind nginx. GitHub Actions checks every push and deploys `main`: it builds the standalone server (`output: "standalone"`) and copies it to Plesk over SSH. Setup, schema changes, the first admin, and rollbacks: [docs/deploy.md](docs/deploy.md).
 
-- `pnpm db:push` against the production database is run by hand, before deploying code that needs it.
+- The deploy applies new migrations from `drizzle/` to the production database before it uploads the code. Never run `db:push` against production.
 - `UPLOAD_DIR` holds member logos. Keep it outside the app folder and back it up with the database.
 - nginx must set `X-Real-IP`; it's the only source of the client IP in the audit log.
 - Accounts are created from Panel Kullanıcıları; there is no sign-up.

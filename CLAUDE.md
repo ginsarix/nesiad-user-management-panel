@@ -16,13 +16,14 @@ pnpm exec biome check --write <paths>   # format + fix specific files
 pnpm exec tsc --noEmit          # typecheck
 pnpm test --run                 # all tests (vitest)
 pnpm test --run audit-logs      # tests whose path matches a pattern
-pnpm db:push                    # apply src/db/schema.ts to the database
+pnpm db:push                    # apply src/db/schema.ts to the development database
+pnpm db:generate                # write the migration for a schema change into drizzle/ (commit it; CI fails without it)
 pnpm db:seed                    # create the default admin from DEFAULT_ADMIN_* if missing (sends a real verification email); the server also does this at every start
 ```
 
 - Always run tests through `pnpm test`: it preloads `.env` (`dotenv/config`). Plain `vitest` fails on env validation.
 - Tests run against the real development database from `DATABASE_URL`. Test records are named `__test__…` and removed in `afterAll`; audit rows they cause are removed once by `src/test/global-teardown.ts`. Test files run in parallel, so never assert on whole-table counts or reuse unique names (sector names are unique) — scope assertions to the test's own records.
-- The schema is applied with `drizzle-kit push`, not migrations. When push stops with `missing_hints` (e.g. rename vs. create), rerun with `pnpm exec drizzle-kit push --output json --hints '[…]'`. Development data is disposable: don't write data conversions for schema changes.
+- Schema changes: `db:push` on the development database, then `db:generate` for the migration that production gets (the deploy runs `db:migrate` over an SSH tunnel, see `docs/deploy.md`). Don't run `db:migrate` on the development database: push built it, so the migrations would try to create existing tables. When push or generate stops with `missing_hints` (e.g. rename vs. create), rerun with `--output json --hints '[…]'`. Never edit or delete a migration that production has run; write a new one. Development data is disposable, production data isn't: when a change would lose or break existing rows (drop, rename, type change, new required column), put the conversion in the migration's SQL.
 - After adding or moving pages, `pnpm exec next typegen` regenerates the `PageProps<"/route">` types.
 
 ## Architecture
