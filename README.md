@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NESIAD Üye Yönetim Paneli
 
-## Getting Started
+Internal member management panel for NESIAD (Nevşehir Sanayici ve İş İnsanları Derneği): members, yetkililer, sectors, SMS, panel users, and an audit log.
 
-First, run the development server:
+Next.js 16 · Hono · better-auth · Drizzle · PostgreSQL · NetGSM
+
+## Requirements
+
+- Node.js and pnpm
+- PostgreSQL
+- An SMTP account (verification and password reset emails)
+- A NetGSM account (SMS)
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env   # then fill it in
+pnpm db:push           # create the tables
+pnpm db:seed           # create the first admin and email them a verification link
+pnpm dev               # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+All variables are validated at startup (`src/lib/env.ts`); the app won't start with a required one missing.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | |
+| --- | --- |
+| `NEXT_PUBLIC_APP_URL` | Public URL of the panel: base for auth, API calls, and email links. Read at build time |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Random secret, e.g. `openssl rand -hex 32` |
+| `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Outgoing mail. Optional: `SMTP_PORT`, `SMTP_SECURE` |
+| `NETGSM_USERNAME`, `NETGSM_PASSWORD`, `NETGSM_HEADER` | NetGSM API user and registered sender name. Required even in dry run |
+| `SMS_DRY_RUN` | Defaults to `true`: no SMS is sent. Set to `false` in production |
+| `CRON_SECRET` | 32+ characters. Needed for automatic SMS (`POST /api/cron/sms`) |
+| `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD` | Only for `pnpm db:seed` |
 
-## Learn More
+## Commands
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm dev               # dev server
+pnpm build && pnpm start
+pnpm lint              # biome
+pnpm exec tsc --noEmit # typecheck
+pnpm test --run        # vitest, against the DATABASE_URL database
+pnpm db:push           # apply src/db/schema.ts
+pnpm db:seed           # create the default admin
+pnpm cron:sms          # call the SMS cron endpoint every minute (development)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Tests run against the real database in `DATABASE_URL` and clean up after themselves. Don't point them at production.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Production
 
-## Deploy on Vercel
+Runs as a Node.js app on Plesk behind nginx.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `pnpm install && pnpm build && pnpm start`, after `pnpm db:push` against the production database.
+- `uploads/` holds member logos. Keep it across deploys and back it up with the database.
+- nginx must set `X-Real-IP`; it's the only source of the client IP in the audit log.
+- Accounts are created from Panel Kullanıcıları; there is no sign-up.
+- SMS setup (env, NetGSM IP restriction, Plesk scheduled task): [docs/production-sms.md](docs/production-sms.md).
