@@ -141,23 +141,39 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       # --delete removes files from older builds. Excluded paths are never
-      # touched: Passenger's tmp/, and uploads/ in case UPLOAD_DIR was left
-      # relative (it should point outside this folder)
+      # touched: tmp/ (restart.txt), uploads/ in case UPLOAD_DIR was left
+      # relative (it should point outside this folder), and Plesk's
+      # .plesk-secrets.cjs. Plesk starts the app through that file (it loads
+      # the environment variables, then server.js); without it every request
+      # is a 502 until Restart App writes it again
       - name: Upload
         run: >-
           rsync -az --delete
           --exclude=/tmp/ --exclude=/uploads/ --exclude=/.env
-          --exclude=/public/.well-known/
+          --exclude=/.plesk-secrets.cjs --exclude=/public/.well-known/
           -e "ssh -i ~/.ssh/deploy_key -p $SSH_PORT"
           .next/standalone/ "$SSH_TARGET:$DEPLOY_PATH/"
 
-      # Passenger restarts the app on the next request after this
+      # Plesk restarts the app on the next request after this (same as the
+      # Restart App button)
       - name: Restart
         run: >-
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" "$SSH_TARGET"
           "mkdir -p '$DEPLOY_PATH/tmp' && touch '$DEPLOY_PATH/tmp/restart.txt'"
 
-      # Fails the run if the new version doesn't start (e.g. a missing env
-      # variable makes every request a 500)
+      # Waits until the login page comes from this build: every build gets a
+      # random ID, which the page includes. The old version answering, or a
+      # new one that doesn't start (e.g. a missing env variable makes every
+      # request a 500), fails the run
       - name: Smoke test
-        run: curl -fsS -o /dev/null --retry 10 --retry-all-errors --retry-delay 3 "$APP_URL/login"
+        run: |
+          build_id=$(cat .next/BUILD_ID)
+          for attempt in $(seq 1 20); do
+            if curl -fsS "$APP_URL/login" | grep -qF "$build_id"; then
+              echo "Live: build $build_id"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::$APP_URL/login doesn't serve build $build_id after a minute"
+          exit 1

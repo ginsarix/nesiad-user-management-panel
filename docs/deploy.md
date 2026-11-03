@@ -3,7 +3,7 @@
 `.github/workflows/deploy.yml` runs on every push and pull request:
 
 1. **check**: lint, typecheck, and the tests against a throwaway Postgres.
-2. **deploy** (only `main`, only after check passes): builds the standalone server, applies new database migrations, copies the server to the Plesk app folder with `rsync` over SSH, and restarts the app. A smoke test then requests `/login` and fails the run if the new version doesn't answer.
+2. **deploy** (only `main`, only after check passes): builds the standalone server, applies new database migrations, copies the server to the Plesk app folder with `rsync` over SSH, and restarts the app. A smoke test then waits until `/login` is served by the new build, and fails the run if it isn't within a minute.
 
 Plesk only runs the app; nothing is installed or built there. Migrations run from GitHub through the same SSH connection (section 4); the app creates the first admin itself when it starts (section 5).
 
@@ -52,6 +52,8 @@ The app checks these when it starts. A missing or invalid one is printed in the 
 Also needed, from the README: nginx must set `X-Real-IP`, and for SMS see [production-sms.md](production-sms.md).
 
 Then click **Enable Node.js**; saving the settings doesn't turn the app on. If it's off, Plesk serves `public/` as a static site: `/login` gives Plesk's own 404 page and `/` a 403. After the first deploy has put `server.js` there, **Restart App** once.
+
+Plesk starts the app through `.plesk-secrets.cjs`, a file it writes into the app folder: it loads the environment variables, then `server.js`. The deploy leaves it in place (`--exclude` in the workflow's upload step). If it's ever missing, every request is a 502 and the log says `no startup file at …/.plesk-secrets.cjs`; **Restart App** writes it again.
 
 ## 3. GitHub: the production environment
 
@@ -108,7 +110,7 @@ The migration runs a few seconds before the new code is live. Adding tables or c
 Every time the app starts, it checks for an account with `DEFAULT_ADMIN_EMAIL`. If there is none, it creates one (name "Admin User", password `DEFAULT_ADMIN_PASSWORD`) and emails the verification link, which logs them in and leads to `/welcome` to choose their own password. The app log says `Default admin: created`. If the account exists, nothing happens. The tables exist by then: the deploy migrates before it starts the new version.
 
 - **The email didn't arrive** (the log says `created_email_failed`): sign in with the email and `DEFAULT_ADMIN_PASSWORD`. Login is refused until the address is verified, but each attempt sends a new link.
-- **It comes back:** as long as both variables are set, deleting that account on Panel Kullanıcıları recreates it at the next start, and Passenger starts the app again after every idle period. Remove the variables in Plesk once the admin has logged in, unless that's what you want.
+- **It comes back:** as long as both variables are set, deleting that account on Panel Kullanıcıları recreates it at the next start, and Plesk starts the app again after every idle period. Remove the variables in Plesk once the admin has logged in, unless that's what you want.
 - `pnpm db:seed` does the same check from a machine, using its `.env`.
 
 ## Deploying, retrying, rolling back
@@ -117,4 +119,4 @@ Every time the app starts, it checks for an account with `DEFAULT_ADMIN_EMAIL`. 
 - **Deploy again without a change:** Actions → CI / Deploy → Run workflow (branch `main`).
 - **Roll back:** open the run of an older good commit and **Re-run all jobs**; it rebuilds and deploys that commit. Migrations are never undone: the older code runs against the newer schema.
 - While `rsync` replaces the files, requests can fail for a few seconds.
-- A green smoke test is a good sign, not proof: Passenger can take a few seconds to notice `restart.txt`, so the first check may still reach the old version. If in doubt, check the app's log in Plesk.
+- A green smoke test means the new build is live: the login page includes each build's random ID (`.next/BUILD_ID`), and the test waits for this build's. When it fails, the app's log in Plesk says why.
