@@ -25,21 +25,21 @@ Plesk only runs the app; nothing is installed or built there. Migrations run fro
 
 ## 2. Plesk: the Node.js app
 
-Pick a folder for the app, e.g. `/var/www/vhosts/<domain>/nesiad-panel`, and one for logos **outside** it, e.g. `/var/www/vhosts/<domain>/nesiad-data/uploads`. Each deploy replaces the app folder's contents. Create both, and `<app folder>/public`, before the settings below (the document root has to exist):
+On a domain used only for the panel, the app folder is the domain's `httpdocs` (production: `/var/www/vhosts/yonetim.nesiad.org.tr/httpdocs`). Each deploy replaces that folder's contents, so never use the `httpdocs` of a domain that serves anything else. Logos go in a folder **outside** it. Create `<app folder>/public` and the logo folder before the settings below (the document root has to exist):
 
 ```bash
-mkdir -p /var/www/vhosts/<domain>/nesiad-panel/public /var/www/vhosts/<domain>/nesiad-data/uploads
+mkdir -p /var/www/vhosts/<domain>/httpdocs/public /var/www/vhosts/<domain>/nesiad-data/uploads
 ```
 
-**Websites & Domains → Node.js:**
+**Websites & Domains → Node.js.** The page shows folders relative to the domain's home (`/var/www/vhosts/<domain>`), so `httpdocs` appears as `/httpdocs`:
 
 | Setting | Value |
 | --- | --- |
 | Node.js version | The `NODE_VERSION` in the workflow (24) |
 | Application mode | production |
-| Application root | the app folder (= `DEPLOY_PATH`) |
-| Document root | `<app folder>/public`. Not the app folder itself: Plesk serves the document root's files directly, which would expose the server code |
-| Application startup file | `server.js` |
+| Application root | the app folder: `/httpdocs` here, while `DEPLOY_PATH` in GitHub is the full path |
+| Document root | `/httpdocs/public`. Not the app folder itself: Plesk serves the document root's files directly, which would expose the server code |
+| Application startup file | `server.js`. Plesk fills in `app.js`, which doesn't exist |
 
 **Environment variables** (same page): everything in the README's Environment table, plus:
 
@@ -51,7 +51,7 @@ The app checks these when it starts. A missing or invalid one is printed in the 
 
 Also needed, from the README: nginx must set `X-Real-IP`, and for SMS see [production-sms.md](production-sms.md).
 
-The app can't start before the first deploy has put `server.js` there.
+Then click **Enable Node.js**; saving the settings doesn't turn the app on. If it's off, Plesk serves `public/` as a static site: `/login` gives Plesk's own 404 page and `/` a 403. After the first deploy has put `server.js` there, **Restart App** once.
 
 ## 3. GitHub: the production environment
 
@@ -81,7 +81,15 @@ Optional: **Required reviewers** on the environment makes each deploy wait for a
 
 Schema changes ship as migrations: SQL files in `drizzle/`, written by `pnpm db:generate` and reviewed in the pull request. The deploy job applies the ones production hasn't run yet (`pnpm db:migrate`), after the build and before the upload. Applied migrations are recorded in the database table `drizzle.__drizzle_migrations`. The first deploy creates every table.
 
-**Setup:** the `DATABASE_URL` secret from section 3, with the same value as the Plesk variable. Postgres only listens on the server, so the deploy forwards the runner's `localhost:5432` to the server's `localhost:5432` over SSH. The URL therefore has to use `localhost` (or `127.0.0.1`) and port 5432, which a Plesk-created database on the same server does. The database user needs to be able to create a schema (`drizzle`); the database's owner can.
+**Setup:** the `DATABASE_URL` secret from section 3, with the same value as the Plesk variable. Postgres only listens on the server, so the deploy forwards the runner's `localhost:5432` to the server's `localhost:5432` over SSH. The URL therefore has to use `localhost` (or `127.0.0.1`) and port 5432, which a Plesk-created database on the same server does.
+
+The database user has to own the database: migrations create the `drizzle` schema and the tables. Plesk makes the Postgres admin the owner, so the first migration fails with `permission denied for database …`. Once, as root on the server (`sudo -u postgres psql`), or as the Postgres admin from **Tools & Settings → Database Servers**:
+
+```sql
+ALTER DATABASE <db name> OWNER TO <db user>;
+\c <db name>
+ALTER SCHEMA public OWNER TO <db user>;
+```
 
 **When a migration fails,** the run stops before the upload and the old version keeps running. The error is in the "Migrate the database" step. `channel … open failed: administratively prohibited` means the server's SSH doesn't allow port forwarding for this user (`AllowTcpForwarding`); the host has to allow it.
 
