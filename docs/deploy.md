@@ -20,12 +20,16 @@ Plesk only runs the app; nothing is installed or built there. Schema changes and
 - Get the server's host key for `SSH_KNOWN_HOSTS`, and compare its fingerprint with the one the server shows (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` there):
 
   ```bash
-  ssh-keyscan -p 22 <ssh-host>
+  ssh-keyscan -p 22 <ssh-host>   # your SSH_PORT if it isn't 22
   ```
 
 ## 2. Plesk: the Node.js app
 
-Pick a folder for the app, e.g. `/var/www/vhosts/<domain>/nesiad-panel`, and one for logos **outside** it, e.g. `/var/www/vhosts/<domain>/nesiad-data/uploads`. Each deploy replaces the app folder's contents.
+Pick a folder for the app, e.g. `/var/www/vhosts/<domain>/nesiad-panel`, and one for logos **outside** it, e.g. `/var/www/vhosts/<domain>/nesiad-data/uploads`. Each deploy replaces the app folder's contents. Create both, and `<app folder>/public`, before the settings below (the document root has to exist):
+
+```bash
+mkdir -p /var/www/vhosts/<domain>/nesiad-panel/public /var/www/vhosts/<domain>/nesiad-data/uploads
+```
 
 **Websites & Domains → Node.js:**
 
@@ -97,3 +101,4 @@ Delete the file afterwards. Running the seed again fails with "User already exis
 - **Deploy again without a change:** Actions → CI / Deploy → Run workflow (branch `main`).
 - **Roll back:** open the run of an older good commit and **Re-run all jobs**; it rebuilds and deploys that commit. Schema changes are not rolled back.
 - While `rsync` replaces the files, requests can fail for a few seconds.
+- A green smoke test is a good sign, not proof: Passenger can take a few seconds to notice `restart.txt`, so the first check may still reach the old version. If in doubt, check the app's log in Plesk.

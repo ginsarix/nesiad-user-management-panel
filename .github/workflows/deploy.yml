@@ -63,6 +63,11 @@ jobs:
       # --force: never stop at a prompt; this database is thrown away
       - run: pnpm exec drizzle-kit push --force
       - run: pnpm test --run
+      # Some breakage only shows in the build (e.g. code that runs when Next
+      # loads the routes); catch it before main. Built the way deploy builds
+      - run: pnpm build
+        env:
+          SKIP_ENV_VALIDATION: "true"
 
   deploy:
     needs: check
