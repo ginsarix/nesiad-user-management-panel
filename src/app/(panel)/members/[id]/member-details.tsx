@@ -9,6 +9,7 @@ import { getMember } from "@/lib/fetches/member";
 import { listHref } from "@/lib/list-href";
 import { isEstablished, MEMBER_STATUS_LABELS } from "@/lib/member-status";
 import { RepresentativeList, SeniorityBadge } from "../_components/member-info";
+import { ApplicationSections } from "./application-sections";
 import { DeleteMemberButton } from "./delete-member-button";
 import { MemberLogo } from "./member-logo";
 import { ToggleActiveButton } from "./toggle-active-button";
@@ -111,6 +112,8 @@ export function MemberDetails({ id }: { id: number }) {
                 <RepresentativeList representatives={member.representatives} />
               </div>
             </section>
+
+            <ApplicationSections member={member} />
           </div>
         </>
       )}

@@ -30,7 +30,10 @@ export async function getMember(id: number, options?: ClientRequestOptions) {
   return await res.json();
 }
 
-/** Text fields are always sent so clearing one in the form clears it in the DB */
+/**
+ * Text fields are always sent so clearing one in the form clears it in the DB.
+ * The TC number and documents are sent only when given, so they keep their value.
+ */
 function toMemberForm({
   logo,
   removeLogo,
@@ -39,24 +42,19 @@ function toMemberForm({
   foundingDate,
   sectorId,
   birthDate,
+  nationalId,
   identityDocument,
   activityDocument,
-  title,
   ...fields
 }: MemberFormValues) {
   return {
-    title,
-    // fields the form leaves out (undefined) are not sent, so they stay as stored
-    ...(Object.fromEntries(
-      Object.entries(fields).filter(([, value]) => value !== undefined),
-    ) as {
-      [K in keyof typeof fields]?: Exclude<(typeof fields)[K], undefined>;
-    }),
+    ...fields,
     sectorId: sectorId === null ? "" : String(sectorId),
     // the form holds gg.aa.yyyy, the API takes yyyy-aa-gg
     memberLoginDate: displayToIso(memberLoginDate),
     foundingDate: displayToIso(foundingDate),
-    ...(birthDate !== undefined && { birthDate: displayToIso(birthDate) }),
+    birthDate: displayToIso(birthDate),
+    ...(nationalId.trim() && { nationalId: nationalId.trim() }),
     ...(identityDocument && { identityDocument }),
     ...(activityDocument && { activityDocument }),
     ...(status && { status }),

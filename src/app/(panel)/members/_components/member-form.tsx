@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import {
   type Control,
   Controller,
+  type UseFormReturn,
   type UseFormTrigger,
   useController,
   useForm,
@@ -17,6 +18,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { isoToDisplay } from "@/lib/dates";
 import {
   createMember,
@@ -31,10 +40,29 @@ import {
   type MemberFormValues,
   memberFormSchema,
 } from "@/lib/zod-schemas/member";
+import { DocumentField } from "./document-field";
 import { LogoDropZone } from "./logo-drop-zone";
 import { SectorCombobox } from "./sector-combobox";
 
-type DateFieldName = "memberLoginDate" | "foundingDate";
+type DateFieldName = "memberLoginDate" | "foundingDate" | "birthDate";
+
+type TextFieldName =
+  | "applicantFirstName"
+  | "applicantLastName"
+  | "applicantRole"
+  | "mobilePhone"
+  | "email"
+  | "birthPlace"
+  | "education"
+  | "referenceName"
+  | "employeeCount"
+  | "website";
+
+const GENDER_ITEMS = [
+  { value: "", label: "Belirtilmedi" },
+  { value: "male", label: "Erkek" },
+  { value: "female", label: "Kadın" },
+];
 
 /** Create form without a member, edit form with one */
 export function MemberForm({ member }: { member?: MemberDetails }) {
@@ -58,6 +86,25 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
           : ((member?.status as "active" | "passive" | undefined) ?? "active"),
       logo: null,
       removeLogo: false,
+      applicantFirstName: member?.applicantFirstName ?? "",
+      applicantLastName: member?.applicantLastName ?? "",
+      applicantRole: member?.applicantRole ?? "",
+      employeeCount:
+        member?.employeeCount == null ? "" : String(member.employeeCount),
+      website: member?.website ?? "",
+      email: member?.email ?? "",
+      mobilePhone: member?.mobilePhone ?? "",
+      birthDate: isoToDisplay(member?.birthDate),
+      birthPlace: member?.birthPlace ?? "",
+      // the stored number is never sent to the browser; blank keeps it
+      nationalId: "",
+      education: member?.education ?? "",
+      otherAssociations: member?.otherAssociations ?? "",
+      companyIntro: member?.companyIntro ?? "",
+      gender: member?.gender ?? "",
+      referenceName: member?.referenceName ?? "",
+      identityDocument: null,
+      activityDocument: null,
     },
   });
   const { errors } = form.formState;
@@ -191,6 +238,119 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
           )}
         </div>
 
+        <h3 className="border-y bg-muted/40 px-4 py-2 text-sm font-medium">
+          Başvuru Bilgileri
+        </h3>
+        <div className="grid gap-x-5 gap-y-4 p-4 sm:grid-cols-2">
+          <TextField
+            form={form}
+            name="applicantFirstName"
+            label="Başvuran Adı"
+          />
+          <TextField
+            form={form}
+            name="applicantLastName"
+            label="Başvuran Soyadı"
+          />
+          <TextField form={form} name="applicantRole" label="Görev / Ünvan" />
+          <TextField
+            form={form}
+            name="mobilePhone"
+            label="Cep Telefonu"
+            type="tel"
+          />
+          <TextField form={form} name="email" label="E-posta" type="email" />
+          <DateField
+            control={form.control}
+            name="birthDate"
+            label="Doğum Tarihi"
+          />
+          <TextField form={form} name="birthPlace" label="Doğum Yeri" />
+
+          <Field data-invalid={!!errors.nationalId}>
+            <FieldLabel htmlFor="nationalId">TC Kimlik No</FieldLabel>
+            <Input
+              id="nationalId"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder={member?.nationalIdMasked ?? undefined}
+              aria-invalid={!!errors.nationalId}
+              {...form.register("nationalId")}
+            />
+            {member?.nationalIdMasked && (
+              <p className="text-xs text-muted-foreground">
+                Değiştirmek için yeni numarayı yazın
+              </p>
+            )}
+            <FieldError errors={[errors.nationalId]} />
+          </Field>
+
+          <Controller
+            control={form.control}
+            name="gender"
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="gender">Cinsiyet</FieldLabel>
+                <Select
+                  items={GENDER_ITEMS}
+                  value={field.value}
+                  onValueChange={(value) => field.onChange(value ?? "")}
+                >
+                  <SelectTrigger id="gender" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GENDER_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          />
+
+          <TextField form={form} name="education" label="Eğitim Durumu" />
+          <TextField form={form} name="referenceName" label="Referans" />
+
+          <Field className="sm:col-span-2">
+            <FieldLabel htmlFor="otherAssociations">Diğer Dernekler</FieldLabel>
+            <Textarea
+              id="otherAssociations"
+              {...form.register("otherAssociations")}
+            />
+          </Field>
+
+          <TextField
+            form={form}
+            name="employeeCount"
+            label="İstihdam Sayısı"
+            inputMode="numeric"
+          />
+          <TextField form={form} name="website" label="Web Sitesi" />
+
+          <Field className="sm:col-span-2">
+            <FieldLabel htmlFor="companyIntro">Tanıtım Yazısı</FieldLabel>
+            <Textarea id="companyIntro" {...form.register("companyIntro")} />
+          </Field>
+
+          <DocumentFormField
+            control={form.control}
+            trigger={form.trigger}
+            name="identityDocument"
+            label="Kimlik Belgesi"
+            currentFilename={member?.identityDocument ?? null}
+          />
+          <DocumentFormField
+            control={form.control}
+            trigger={form.trigger}
+            name="activityDocument"
+            label="Faaliyet Belgesi / Sicil Gazetesi"
+            currentFilename={member?.activityDocument ?? null}
+          />
+        </div>
+
         <div className="flex items-center justify-end gap-3 border-t px-4 py-3">
           {error && (
             <FieldError className="mr-auto">{error.message}</FieldError>
@@ -274,6 +434,69 @@ function LogoField({
         }}
       />
       <FieldError errors={[logo.fieldState.error]} />
+    </Field>
+  );
+}
+
+function TextField({
+  form,
+  name,
+  label,
+  type,
+  inputMode,
+}: {
+  form: UseFormReturn<MemberFormValues>;
+  name: TextFieldName;
+  label: string;
+  type?: string;
+  inputMode?: "numeric";
+}) {
+  const error = form.formState.errors[name];
+
+  return (
+    <Field data-invalid={!!error}>
+      <FieldLabel htmlFor={name}>{label}</FieldLabel>
+      <Input
+        id={name}
+        type={type}
+        inputMode={inputMode}
+        autoComplete="off"
+        aria-invalid={!!error}
+        {...form.register(name)}
+      />
+      <FieldError errors={[error]} />
+    </Field>
+  );
+}
+
+function DocumentFormField({
+  control,
+  trigger,
+  name,
+  label,
+  currentFilename,
+}: {
+  control: Control<MemberFormValues>;
+  trigger: UseFormTrigger<MemberFormValues>;
+  name: "identityDocument" | "activityDocument";
+  label: string;
+  currentFilename: string | null;
+}) {
+  const { field, fieldState } = useController({ control, name });
+
+  return (
+    <Field data-invalid={!!fieldState.error}>
+      <FieldLabel htmlFor={name}>{label}</FieldLabel>
+      <DocumentField
+        id={name}
+        file={field.value}
+        currentFilename={currentFilename}
+        onPick={(file) => {
+          field.onChange(file);
+          void trigger(name);
+        }}
+      />
+      <FieldError errors={[fieldState.error]} />
     </Field>
   );
 }

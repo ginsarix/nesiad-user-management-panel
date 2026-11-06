@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { isoToDisplay } from "@/lib/dates";
 import { MEMBER_STATUS_LABELS, type MemberStatus } from "@/lib/member-status";
 
@@ -40,18 +41,22 @@ export function StatusTag({ status }: { status: MemberStatus }) {
   );
 }
 
-/** Label/value rows of a details section; empty values show a dash */
+/** Label/value rows of a details section; empty text shows a dash, elements show as given */
 export function InfoFields({
   fields,
 }: {
-  fields: { label: string; value: string | null }[];
+  fields: { label: string; value: ReactNode }[];
 }) {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
       {fields.map((field) => (
         <div key={field.label} className="contents">
           <dt className="text-muted-foreground">{field.label}</dt>
-          <dd className="whitespace-pre-line">{orDash(field.value)}</dd>
+          <dd className="whitespace-pre-line">
+            {typeof field.value === "string" || field.value == null
+              ? orDash(field.value)
+              : field.value}
+          </dd>
         </div>
       ))}
     </dl>

@@ -209,25 +209,25 @@ export const memberFormSchema = z.object({
   logo: logoFileSchema.nullable(),
   removeLogo: z.boolean(),
 
-  // Applicant fields: the staff form doesn't show them yet, and a field left
-  // out (undefined) is not sent, so it keeps its stored value
-  applicantFirstName: z.string().optional(),
-  applicantLastName: z.string().optional(),
-  applicantRole: z.string().optional(),
-  employeeCount: z.string().optional(),
-  website: z.string().optional(),
-  email: z.string().optional(),
-  mobilePhone: z.string().optional(),
-  birthDate: optionalDisplayDateSchema.optional(),
-  birthPlace: z.string().optional(),
-  nationalId: z.string().optional(),
-  education: z.string().optional(),
-  otherAssociations: z.string().optional(),
-  companyIntro: z.string().optional(),
-  gender: z.enum(["", "male", "female"]).optional(),
-  referenceName: z.string().optional(),
-  identityDocument: documentFileSchema.nullable().optional(),
-  activityDocument: documentFileSchema.nullable().optional(),
+  // Applicant fields. Text is sent as typed, so blank clears the stored value;
+  // a blank TC number and no document keep what is stored
+  applicantFirstName: z.string(),
+  applicantLastName: z.string(),
+  applicantRole: z.string(),
+  employeeCount: z.string(),
+  website: z.string(),
+  email: z.string(),
+  mobilePhone: z.string(),
+  birthDate: optionalDisplayDateSchema,
+  birthPlace: z.string(),
+  nationalId: z.string(),
+  education: z.string(),
+  otherAssociations: z.string(),
+  companyIntro: z.string(),
+  gender: z.enum(["", "male", "female"]),
+  referenceName: z.string(),
+  identityDocument: documentFileSchema.nullable(),
+  activityDocument: documentFileSchema.nullable(),
 });
 
 export type MemberFormValues = z.infer<typeof memberFormSchema>;
