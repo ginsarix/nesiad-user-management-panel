@@ -138,7 +138,9 @@ export function Sectors({
   const columnCount = table.getVisibleLeafColumns().length;
 
   return (
-    <div className="flex max-w-3xl flex-col gap-3">
+    <section className="flex max-w-3xl flex-col gap-3">
+      <h2 className="font-medium">Sektörler</h2>
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -163,7 +165,7 @@ export function Sectors({
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card [&_[data-slot=table-container]]:max-h-[calc(100svh-9.5rem)]">
+      <div className="overflow-hidden rounded-lg border bg-card [&_[data-slot=table-container]]:max-h-[calc(100svh-11.75rem)]">
         <Table>
           <SortableTableHeader headerGroups={table.getHeaderGroups()} />
           <TableBody>
@@ -202,6 +204,6 @@ export function Sectors({
           setDialog((previous) => ({ ...previous, open }))
         }
       />
-    </div>
+    </section>
   );
 }

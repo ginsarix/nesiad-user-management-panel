@@ -5,7 +5,7 @@ import { getSavedColumnVisibility } from "@/lib/saved-column-visibility";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import { Sectors } from "./sectors";
 
-export default async function SectorsPage() {
+export default async function SettingsPage() {
   await requireSession();
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();

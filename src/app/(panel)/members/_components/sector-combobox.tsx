@@ -7,7 +7,7 @@ import { getSectors, type Sector } from "@/lib/fetches/sector";
 
 const emptySectors: Sector[] = [];
 
-/** One of the sectors from the Sektörler page, or none */
+/** One of the sectors from the Ayarlar page, or none */
 export function SectorCombobox({
   id,
   value,
