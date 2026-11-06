@@ -1,10 +1,32 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { auditLogTable, memberTable, sectorTable } from "@/db/schema";
+import { getApplicationNoticeSettings } from "@/lib/application-notice-settings";
 import { deleteFile, readStoredFile } from "@/lib/file-storage";
+import type { NetgsmClient } from "@/lib/sms/netgsm";
+import { fillTemplate } from "@/lib/sms/templates";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
+
+const mail = vi.hoisted(() => ({ sendEmail: vi.fn() }));
+vi.mock("@/lib/mail", () => mail);
+
+// Tests never reach NetGSM; a test may swap in another fake
+const netgsm = vi.hoisted(() => ({ client: null as NetgsmClient | null }));
+vi.mock("@/lib/sms/netgsm", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/lib/sms/netgsm")>();
+  return { ...mod, netgsmClient: () => netgsm.client ?? mod.fakeNetgsmClient };
+});
+
+const sentSms: { no: string; msg: string }[] = [];
+
+afterEach(() => {
+  netgsm.client = null;
+  sentSms.length = 0;
+  mail.sendEmail.mockReset();
+  mail.sendEmail.mockResolvedValue(undefined);
+});
 
 // 1x1 transparent PNG
 const PNG = Buffer.from(
@@ -669,5 +691,340 @@ describe("GET /api/files/:filename", () => {
   ])("refuses %s", async (name) => {
     const res = await filesRoute.request(`/${name}`);
     expect(res.status).toBe(404);
+  });
+});
+
+describe("POST /api/members/:id/decision", () => {
+  const MAIL = "basvuran@example.com";
+
+  /** A recording NetGSM fake that answers like a success unless told otherwise */
+  function useNetgsm(
+    answer: () => Promise<{ status: number; body: unknown }> = async () => ({
+      status: 200,
+      body: { code: "00", jobid: "J-1" },
+    }),
+  ) {
+    netgsm.client = {
+      dryRun: false,
+      send: async (messages) => {
+        sentSms.push(...messages);
+        return answer();
+      },
+    };
+  }
+
+  async function createApplicant(
+    status: "candidate" | "rejected" | "active" | "passive",
+    extra: Partial<typeof memberTable.$inferInsert> = {},
+  ) {
+    const [member] = await db
+      .insert(memberTable)
+      .values({
+        title: "__test__ Karar Firması",
+        status,
+        applicantFirstName: "Ayşe",
+        applicantLastName: "Yılmaz",
+        email: MAIL,
+        mobilePhone: "0532 111 22 33",
+        ...extra,
+      })
+      .returning({ id: memberTable.id });
+    createdIds.push(member.id);
+    return member.id;
+  }
+
+  function decide(id: number, body: unknown) {
+    return membersRoute.request(`/${id}/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  const ACCEPT = {
+    decision: "accept",
+    memberLoginDate: "2026-01-15",
+    sectorId: null,
+  };
+
+  async function statusOf(id: number) {
+    const [row] = await db
+      .select({ status: memberTable.status })
+      .from(memberTable)
+      .where(eq(memberTable.id, id));
+    return row.status;
+  }
+
+  async function auditRows(id: number, action: string) {
+    return db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "member"),
+          eq(auditLogTable.entityId, String(id)),
+          eq(auditLogTable.action, action),
+        ),
+      );
+  }
+
+  async function createSector() {
+    const [sector] = await db
+      .insert(sectorTable)
+      .values({
+        name: `__test__ Karar Sektörü ${Date.now()}${Math.random()}`,
+        nameKey: `__test__ karar ${Date.now()}${Math.random()}`,
+      })
+      .returning();
+    createdSectorIds.push(sector.id);
+    return sector;
+  }
+
+  it("accepts a candidate", async () => {
+    useNetgsm();
+    const sector = await createSector();
+    const id = await createApplicant("candidate");
+
+    const res = await decide(id, {
+      decision: "accept",
+      memberLoginDate: "2026-01-15",
+      sectorId: sector.id,
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      status: "active",
+      notices: { email: "sent", sms: "sent" },
+    });
+    const [row] = await db
+      .select()
+      .from(memberTable)
+      .where(eq(memberTable.id, id));
+    expect(row.status).toBe("active");
+    expect(row.memberLoginDate).toBe("2026-01-15");
+    expect(row.sectorId).toBe(sector.id);
+
+    const settings = await getApplicationNoticeSettings();
+    const values = { ad: "Ayşe Yılmaz", firma: "__test__ Karar Firması" };
+    expect(mail.sendEmail).toHaveBeenCalledTimes(1);
+    expect(mail.sendEmail).toHaveBeenCalledWith({
+      to: MAIL,
+      subject: fillTemplate(settings.acceptedEmailSubject, values),
+      text: fillTemplate(settings.acceptedEmailBody, values),
+    });
+    expect(sentSms).toEqual([
+      { no: "5321112233", msg: fillTemplate(settings.acceptedSms, values) },
+    ]);
+
+    const [audit] = await auditRows(id, "application_accept");
+    expect(audit.changes).toEqual([
+      { label: "Durum", from: "Aday", to: "Aktif" },
+      { label: "Üye Giriş Tarihi", from: "—", to: "15.01.2026" },
+      { label: "Sektör", from: "—", to: sector.name },
+    ]);
+    expect(JSON.stringify(audit)).not.toContain(MAIL);
+    expect(JSON.stringify(audit)).not.toContain("Ayşe");
+  });
+
+  it("rejects a candidate", async () => {
+    useNetgsm();
+    const id = await createApplicant("candidate");
+
+    const res = await decide(id, { decision: "reject" });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      status: "rejected",
+      notices: { email: "sent", sms: "sent" },
+    });
+    expect(await statusOf(id)).toBe("rejected");
+    const settings = await getApplicationNoticeSettings();
+    const values = { ad: "Ayşe Yılmaz", firma: "__test__ Karar Firması" };
+    expect(mail.sendEmail).toHaveBeenCalledWith({
+      to: MAIL,
+      subject: fillTemplate(settings.rejectedEmailSubject, values),
+      text: fillTemplate(settings.rejectedEmailBody, values),
+    });
+    expect(sentSms[0].msg).toBe(fillTemplate(settings.rejectedSms, values));
+    const [audit] = await auditRows(id, "application_reject");
+    expect(audit.changes).toEqual([
+      { label: "Durum", from: "Aday", to: "Reddedildi" },
+    ]);
+  });
+
+  it("adds a candidate as passive with no notice", async () => {
+    useNetgsm();
+    const id = await createApplicant("candidate");
+
+    const res = await decide(id, { ...ACCEPT, decision: "add_passive" });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "passive", notices: null });
+    expect(mail.sendEmail).not.toHaveBeenCalled();
+    expect(sentSms).toHaveLength(0);
+    expect(await auditRows(id, "application_add_passive")).toHaveLength(1);
+    expect(await auditRows(id, "application_notice")).toHaveLength(0);
+  });
+
+  it("reopens a rejected member with no notice", async () => {
+    useNetgsm();
+    const id = await createApplicant("rejected");
+
+    const res = await decide(id, { decision: "reopen" });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "candidate", notices: null });
+    expect(mail.sendEmail).not.toHaveBeenCalled();
+    expect(sentSms).toHaveLength(0);
+    const [audit] = await auditRows(id, "application_reopen");
+    expect(audit.changes).toEqual([
+      { label: "Durum", from: "Reddedildi", to: "Aday" },
+    ]);
+  });
+
+  it("then accepts it normally", async () => {
+    useNetgsm();
+    const id = await createApplicant("candidate");
+
+    expect((await decide(id, { decision: "reject" })).status).toBe(200);
+    expect((await decide(id, { decision: "reopen" })).status).toBe(200);
+    mail.sendEmail.mockClear();
+    sentSms.length = 0;
+
+    const res = await decide(id, ACCEPT);
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).notices).toEqual({ email: "sent", sms: "sent" });
+    const settings = await getApplicationNoticeSettings();
+    expect(mail.sendEmail).toHaveBeenCalledTimes(1);
+    expect(mail.sendEmail.mock.calls[0][0].subject).toBe(
+      fillTemplate(settings.acceptedEmailSubject, {
+        ad: "Ayşe Yılmaz",
+        firma: "__test__ Karar Firması",
+      }),
+    );
+    expect(sentSms).toHaveLength(1);
+    expect(await statusOf(id)).toBe("active");
+  });
+
+  it.each([
+    ["accept", "rejected", ACCEPT],
+    ["accept", "active", ACCEPT],
+    ["reject", "passive", { decision: "reject" }],
+    ["reopen", "candidate", { decision: "reopen" }],
+  ] as const)("refuses %s on a %s member", async (_decision, status, body) => {
+    useNetgsm();
+    const id = await createApplicant(status);
+
+    const res = await decide(id, body);
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu başvurunun durumu değişmiş. Sayfayı yenileyin.",
+    );
+    expect(await statusOf(id)).toBe(status);
+    expect(mail.sendEmail).not.toHaveBeenCalled();
+    expect(sentSms).toHaveLength(0);
+  });
+
+  it("answers 404 for a missing member", async () => {
+    const res = await decide(2_000_000_000, { decision: "reject" });
+    expect(res.status).toBe(404);
+  });
+
+  it("sends one set of notices for concurrent accepts", async () => {
+    useNetgsm();
+    const id = await createApplicant("candidate");
+
+    const results = await Promise.all([decide(id, ACCEPT), decide(id, ACCEPT)]);
+
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(mail.sendEmail).toHaveBeenCalledTimes(1);
+    expect(sentSms).toHaveLength(1);
+    expect(await auditRows(id, "application_accept")).toHaveLength(1);
+    expect(await auditRows(id, "application_notice")).toHaveLength(1);
+  });
+
+  it("requires a date to accept", async () => {
+    const id = await createApplicant("candidate");
+    const res = await decide(id, { decision: "accept", sectorId: null });
+    expect(res.status).toBe(400);
+    expect(await statusOf(id)).toBe("candidate");
+  });
+
+  it("refuses a future date", async () => {
+    const id = await createApplicant("candidate");
+    const res = await decide(id, {
+      ...ACCEPT,
+      memberLoginDate: "2999-01-01",
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Tarih gelecekte olamaz");
+    expect(await statusOf(id)).toBe("candidate");
+  });
+
+  it("keeps the decision when notices fail", async () => {
+    useNetgsm(async () => ({ status: 406, body: { code: "40" } }));
+    mail.sendEmail.mockRejectedValue(new Error("smtp down"));
+    const id = await createApplicant("candidate");
+
+    const res = await decide(id, ACCEPT);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      status: "active",
+      notices: { email: "failed", sms: "failed" },
+    });
+    expect(await statusOf(id)).toBe("active");
+  });
+
+  it("handles a deleted sector", async () => {
+    useNetgsm();
+    const sector = await createSector();
+    await db.delete(sectorTable).where(eq(sectorTable.id, sector.id));
+    const id = await createApplicant("candidate");
+
+    const res = await decide(id, { ...ACCEPT, sectorId: sector.id });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Seçilen sektör bulunamadı");
+    expect(await statusOf(id)).toBe("candidate");
+    expect(mail.sendEmail).not.toHaveBeenCalled();
+    expect(sentSms).toHaveLength(0);
+    expect(await auditRows(id, "application_accept")).toHaveLength(0);
+  });
+
+  it("logs notice outcomes without contact details", async () => {
+    useNetgsm(async () => {
+      throw new Error("timeout");
+    });
+    const id = await createApplicant("candidate");
+
+    await decide(id, ACCEPT);
+
+    const [audit] = await auditRows(id, "application_notice");
+    expect(audit.details).toEqual([
+      { label: "E-posta", value: "Gönderildi" },
+      { label: "SMS", value: "Yanıt alınamadı" },
+    ]);
+    const text = JSON.stringify(audit);
+    const settings = await getApplicationNoticeSettings();
+    expect(text).not.toContain(MAIL);
+    expect(text).not.toContain("5321112233");
+    expect(text).not.toContain("0532");
+    expect(text).not.toContain(settings.acceptedSms.slice(0, 20));
+  });
+
+  it("notes the dry-run mode in the notice entry", async () => {
+    const id = await createApplicant("candidate", { email: null });
+
+    await decide(id, ACCEPT);
+
+    const [audit] = await auditRows(id, "application_notice");
+    expect(audit.details).toEqual([
+      { label: "E-posta", value: "Adres yok" },
+      { label: "SMS", value: "Gönderildi" },
+      { label: "Mod", value: "Deneme (SMS gönderilmedi)" },
+    ]);
   });
 });

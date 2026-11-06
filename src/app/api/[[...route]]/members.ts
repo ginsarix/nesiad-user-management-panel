@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { asc, eq, getColumns } from "drizzle-orm";
+import { and, asc, eq, getColumns } from "drizzle-orm";
 import { fileTypeFromBuffer } from "file-type";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -10,6 +10,10 @@ import {
   memberTable,
   sectorTable,
 } from "@/db/schema";
+import {
+  type NoticeOutcome,
+  sendDecisionNotices,
+} from "@/lib/application-notices";
 import { recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
@@ -20,14 +24,19 @@ import {
   formatAudit,
 } from "@/lib/audit-diff";
 import { createFile, deleteFile } from "@/lib/file-storage";
-import { isEstablished } from "@/lib/member-status";
+import { isEstablished, type MemberStatus } from "@/lib/member-status";
 import { maskNationalId } from "@/lib/national-id";
+import { netgsmClient } from "@/lib/sms/netgsm";
 import { DOCUMENT_MIME_TYPES, storeUpload } from "@/lib/uploads";
 import {
   createMemberSchema,
   MAX_REQUEST_SIZE,
   updateMemberSchema,
 } from "@/lib/zod-schemas/member";
+import {
+  type MemberDecision,
+  memberDecisionSchema,
+} from "@/lib/zod-schemas/member-decision";
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
@@ -175,6 +184,113 @@ async function sectorName(executor: Executor, id: number | null | undefined) {
     .from(sectorTable)
     .where(eq(sectorTable.id, id));
   return sector?.name ?? null;
+}
+
+/** What each decision needs, where it leads and which notice it sends */
+const DECISIONS = {
+  accept: {
+    from: "candidate",
+    to: "active",
+    action: "application_accept",
+    notice: "accepted",
+  },
+  add_passive: {
+    from: "candidate",
+    to: "passive",
+    action: "application_add_passive",
+    notice: null,
+  },
+  reject: {
+    from: "candidate",
+    to: "rejected",
+    action: "application_reject",
+    notice: "rejected",
+  },
+  reopen: {
+    from: "rejected",
+    to: "candidate",
+    action: "application_reopen",
+    notice: null,
+  },
+} as const satisfies Record<
+  MemberDecision["decision"],
+  {
+    from: MemberStatus;
+    to: MemberStatus;
+    action: string;
+    notice: "accepted" | "rejected" | null;
+  }
+>;
+
+const NOTICE_OUTCOME_LABELS: Record<NoticeOutcome, string> = {
+  sent: "Gönderildi",
+  failed: "Gönderilemedi",
+  skipped: "Adres yok",
+  unknown: "Yanıt alınamadı",
+};
+
+const STALE_DECISION_ERROR =
+  "Bu başvurunun durumu değişmiş. Sayfayı yenileyin.";
+
+type DecisionResult =
+  | { kind: "missing" }
+  | { kind: "stale" }
+  | { kind: "done"; member: typeof memberTable.$inferSelect };
+
+/**
+ * The status change and its audit entry, in one transaction. The update only
+ * matches while the member still has the status the decision starts from, so
+ * of two simultaneous decisions exactly one gets through.
+ */
+async function applyDecision(
+  id: number,
+  decision: MemberDecision,
+  actor: ReturnType<typeof actorOf>,
+): Promise<DecisionResult> {
+  const rule = DECISIONS[decision.decision];
+  const details =
+    "memberLoginDate" in decision
+      ? {
+          memberLoginDate: decision.memberLoginDate,
+          sectorId: decision.sectorId,
+        }
+      : {};
+
+  return await db.transaction(async (tx) => {
+    const [existing] = await selectFullMember(tx).where(eq(memberTable.id, id));
+    if (!existing) return { kind: "missing" } as const;
+
+    const [member] = await tx
+      .update(memberTable)
+      .set({ status: rule.to, ...details })
+      .where(and(eq(memberTable.id, id), eq(memberTable.status, rule.from)))
+      .returning();
+    if (!member) return { kind: "stale" } as const;
+
+    await recordAudit(tx, {
+      actor,
+      action: rule.action,
+      entityType: "member",
+      entityId: id,
+      entityLabel: member.title,
+      changes: [
+        ...diffFields(memberAuditSpec, existing, {
+          status: rule.to,
+          ...("memberLoginDate" in details && {
+            memberLoginDate: details.memberLoginDate,
+          }),
+        }),
+        ...("sectorId" in details
+          ? change(
+              "Sektör",
+              existing.sector,
+              await sectorName(tx, details.sectorId),
+            )
+          : []),
+      ],
+    });
+    return { kind: "done", member } as const;
+  });
 }
 
 type MemberRepresentative = Omit<
@@ -467,5 +583,57 @@ export const membersRoute = new Hono<AppEnv>()
       }
 
       return c.json({ message: "Üye silindi" }, 200);
+    },
+  )
+  .post(
+    "/:id/decision",
+    zValidator("param", idParamSchema, respondWithFirstIssue),
+    zValidator("json", memberDecisionSchema, respondWithFirstIssue),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const decision = c.req.valid("json");
+      const rule = DECISIONS[decision.decision];
+
+      let result: DecisionResult;
+      try {
+        result = await applyDecision(id, decision, actorOf(c));
+      } catch (error) {
+        if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+          return c.json({ error: MISSING_SECTOR_ERROR }, 400);
+        }
+        throw error;
+      }
+      if (result.kind === "missing") {
+        return c.json({ error: "Üye bulunamadı" }, 404);
+      }
+      if (result.kind === "stale") {
+        return c.json({ error: STALE_DECISION_ERROR }, 409);
+      }
+
+      // the decision is committed; from here on nothing may undo it
+      if (!rule.notice) return c.json({ status: rule.to, notices: null }, 200);
+
+      const { member } = result;
+      const notices = await sendDecisionNotices(rule.notice, member);
+      try {
+        await recordAudit(db, {
+          actor: actorOf(c),
+          action: "application_notice",
+          entityType: "member",
+          entityId: id,
+          entityLabel: member.title,
+          details: [
+            { label: "E-posta", value: NOTICE_OUTCOME_LABELS[notices.email] },
+            { label: "SMS", value: NOTICE_OUTCOME_LABELS[notices.sms] },
+            ...(netgsmClient().dryRun
+              ? [{ label: "Mod", value: "Deneme (SMS gönderilmedi)" }]
+              : []),
+          ],
+        });
+      } catch (error) {
+        console.error("Application notice audit entry failed", error);
+      }
+
+      return c.json({ status: rule.to, notices }, 200);
     },
   );

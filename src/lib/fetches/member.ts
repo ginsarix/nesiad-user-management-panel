@@ -2,6 +2,7 @@ import type { ClientRequestOptions } from "hono/client";
 import { displayToIso } from "../dates";
 import { rpcClient } from "../rpc-client";
 import type { MemberFormValues } from "../zod-schemas/member";
+import type { MemberDecision } from "../zod-schemas/member-decision";
 import { throwResponseError } from "./errors";
 
 export function logoUrl(filename: string) {
@@ -103,6 +104,18 @@ export async function setMemberStatus(
   });
 
   if (!res.ok) await throwResponseError(res, "Üye durumu değiştirilemedi");
+}
+
+/** Decides an application; the notices say what reached the applicant */
+export async function decideMember(id: number, decision: MemberDecision) {
+  const res = await rpcClient.api.members[":id"].decision.$post({
+    param: { id: String(id) },
+    json: decision,
+  });
+
+  if (!res.ok) await throwResponseError(res, "Karar kaydedilemedi");
+
+  return await res.json();
 }
 
 /** Replaces the logo; the API deletes the old file */

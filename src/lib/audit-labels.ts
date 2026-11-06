@@ -14,6 +14,11 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     create: "Üye eklendi",
     update: "Üye güncellendi",
     delete: "Üye silindi",
+    application_accept: "Başvuru kabul edildi",
+    application_add_passive: "Başvuru pasif üye olarak eklendi",
+    application_reject: "Başvuru reddedildi",
+    application_reopen: "Başvuru tekrar adaya alındı",
+    application_notice: "Başvuru bildirimi gönderildi",
   },
   representative: {
     create: "Yetkili eklendi",
