@@ -5,7 +5,7 @@ import { auditLogTable, memberTable, userTable } from "@/db/schema";
 import { deleteFile, readStoredFile } from "@/lib/file-storage";
 import { sendEmail } from "@/lib/mail";
 import { MAX_REQUEST_SIZE } from "@/lib/zod-schemas/member";
-import { applicationLimiter, applicationsRoute } from "./applications";
+import { applicationsRoute } from "./applications";
 
 vi.mock("@/lib/mail", () => ({ sendEmail: vi.fn(async () => {}) }));
 
@@ -221,20 +221,41 @@ describe("POST /api/applications", () => {
     expect(await findByTitle(title)).toBeUndefined();
   });
 
-  it("removes the stored files when the insert fails", async () => {
-    const title = newTitle();
+  it("fails cleanly when the insert fails, without logging personal data", async () => {
+    const ip = newIp();
     const before = storedFiles.length;
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const spy = vi.spyOn(db, "insert").mockImplementationOnce(() => {
-      throw new Error("boom");
+      throw new Error("insert ... params: 10000000146, 0532 123 45 67");
     });
 
-    const res = await submit(fields(title));
+    const res = await submit(fields(newTitle()), ip);
     spy.mockRestore();
+    const logged = JSON.stringify(log.mock.calls);
+    log.mockRestore();
 
     expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: "Başvuru kaydedilemedi. Lütfen tekrar deneyin.",
+    });
+    expect(logged).not.toContain("10000000146");
+    expect(logged).not.toContain("0532");
     const written = storedFiles.slice(before);
     expect(written).toHaveLength(3);
     for (const name of written) expect(await readStoredFile(name)).toBeNull();
+    // the failure didn't use up the allowance
+    for (let i = 0; i < 5; i++) {
+      expect((await submit(fields(newTitle()), ip)).status).toBe(201);
+    }
+  });
+
+  it("refuses control characters in title with the field", async () => {
+    for (const title of ["A\u0000B", "A\u0007\u202eB"]) {
+      const res = await submit(fields(title));
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).field).toBe("title");
+    }
   });
 
   it("saves nothing when the trap field is filled", async () => {
@@ -270,7 +291,9 @@ describe("POST /api/applications", () => {
       expect(res.status).toBe(400);
     }
 
-    for (let i = 0; i < 5; i++) applicationLimiter.record(ip);
+    for (let i = 0; i < 5; i++) {
+      expect((await submit(fields(newTitle()), ip)).status).toBe(201);
+    }
     const title = newTitle();
     const limited = await submit(fields(title), ip);
 
@@ -283,13 +306,35 @@ describe("POST /api/applications", () => {
     expect(unlimited.status).toBe(201);
   });
 
-  it("counts a saved submission toward the limit", async () => {
+  it("doesn't use up the allowance on a refused upload", async () => {
     const ip = newIp();
+    for (let i = 0; i < 6; i++) {
+      const res = await submit(fields(newTitle(), { logo: pdf("l.png") }), ip);
+      expect(res.status).toBe(415);
+    }
+
     for (let i = 0; i < 5; i++) {
       expect((await submit(fields(newTitle()), ip)).status).toBe(201);
     }
+  });
 
-    expect((await submit(fields(newTitle()), ip)).status).toBe(429);
+  it("holds the limit under a parallel burst", async () => {
+    const ip = newIp();
+    const burst = Array.from({ length: 7 }, () => newTitle());
+    const before = storedFiles.length;
+
+    const responses = await Promise.all(
+      burst.map((title) => submit(fields(title), ip)),
+    );
+
+    const statuses = responses.map((res) => res.status).sort();
+    expect(statuses).toEqual([201, 201, 201, 201, 201, 429, 429]);
+    const rows = await db
+      .select({ title: memberTable.title })
+      .from(memberTable)
+      .where(inArray(memberTable.title, burst));
+    expect(rows).toHaveLength(5);
+    expect(storedFiles.length - before).toBe(15);
   });
 
   it("still succeeds when the panel email fails", async () => {

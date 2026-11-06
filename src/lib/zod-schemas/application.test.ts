@@ -162,6 +162,26 @@ describe("applicationApiSchema", () => {
     expect(result.error?.issues[0].path[0]).toBe("nationalId");
   });
 
+  it("accepts an omitted otherAssociations", () => {
+    const { otherAssociations: _omit, ...without } = apiValues;
+
+    expect(applicationApiSchema.safeParse(without).data).toMatchObject({
+      otherAssociations: null,
+    });
+  });
+
+  it("refuses control characters but keeps line breaks in long text", () => {
+    const parse = (overrides: object) =>
+      applicationApiSchema.safeParse({ ...apiValues, ...overrides });
+
+    for (const title of ["A\u0000B", "A\u0007\u202eB", "A\u200bB"]) {
+      expect(parse({ title }).error?.issues[0].path[0]).toBe("title");
+    }
+    expect(parse({ address: "Sokak 1\nNevşehir\t" }).success).toBe(true);
+    expect(parse({ address: "Sokak\u0000" }).success).toBe(false);
+    expect(parse({ otherAssociations: "A\u0000" }).success).toBe(false);
+  });
+
   it("refuses a missing consent", () => {
     expect(
       applicationApiSchema.safeParse({ ...apiValues, consentData: "false" })

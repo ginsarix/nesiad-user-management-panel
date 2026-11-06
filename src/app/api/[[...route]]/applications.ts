@@ -13,6 +13,7 @@ import {
 } from "@/lib/uploads";
 import { applicationApiSchema } from "@/lib/zod-schemas/application";
 import { MAX_REQUEST_SIZE } from "@/lib/zod-schemas/member";
+import { pgErrorCode } from "./db-errors";
 import { respondWithFirstField } from "./validation";
 
 /** 5 saved applications per IP per hour; resets when the server restarts */
@@ -22,6 +23,9 @@ export const applicationLimiter = createRateLimiter({
 });
 
 const LOGO_ERROR = "Logo PNG veya JPG olmalıdır";
+const LIMITED_RESPONSE = {
+  error: "Çok fazla başvuru gönderildi. Lütfen daha sonra tekrar deneyin.",
+};
 const DOCUMENT_ERROR = "Sadece PDF, PNG veya JPG dosyaları kabul edilir";
 
 /**
@@ -35,15 +39,10 @@ export const applicationsRoute = new Hono().post(
     onError: (c) => c.json({ error: "Dosyalar 5 MB'dan küçük olmalıdır" }, 413),
   }),
   async (c, next) => {
-    // set by the Plesk nginx front end; absent locally and in tests
+    // cheap early refusal; the real check is `reserve` below. The IP is set by
+    // the Plesk nginx front end and is absent locally and in tests
     if (applicationLimiter.isLimited(c.req.header("x-real-ip"))) {
-      return c.json(
-        {
-          error:
-            "Çok fazla başvuru gönderildi. Lütfen daha sonra tekrar deneyin.",
-        },
-        429,
-      );
+      return c.json(LIMITED_RESPONSE, 429);
     }
     await next();
   },
@@ -55,6 +54,13 @@ export const applicationsRoute = new Hono().post(
 
     // a bot filled the hidden field: look successful, save nothing
     if (faxNumber) return c.json({ message: "Başvurunuz alındı" }, 201);
+
+    // checks and counts in one step, so a parallel burst can't pass together;
+    // given back below when nothing is saved
+    const ip = c.req.header("x-real-ip");
+    if (!applicationLimiter.reserve(ip)) {
+      return c.json(LIMITED_RESPONSE, 429);
+    }
 
     const stored: string[] = [];
     try {
@@ -77,6 +83,7 @@ export const applicationsRoute = new Hono().post(
       for (const { field, file, allowed, base } of uploads) {
         const name = await storeUpload(file, allowed, base);
         if (!name) {
+          applicationLimiter.release(ip);
           await Promise.all(stored.map(deleteFile));
           return c.json(
             { error: field === "logo" ? LOGO_ERROR : DOCUMENT_ERROR, field },
@@ -99,16 +106,24 @@ export const applicationsRoute = new Hono().post(
         })
         .returning({ id: memberTable.id });
 
-      // only saved applications count, so a rejected attempt can be corrected
-      applicationLimiter.record(c.req.header("x-real-ip"));
       void notifyPanelUsersOfApplication(member.id).catch(console.error);
 
       return c.json({ message: "Başvurunuz alındı" }, 201);
     } catch (error) {
+      applicationLimiter.release(ip);
       // never leave an upload behind: a failure in the second or third
       // store, or in the insert
       await Promise.all(stored.map(deleteFile));
-      throw error;
+      // the error text can embed the submitted values (TC number, phones), so
+      // only the Postgres code is logged
+      console.error(
+        "Saving a membership application failed, code:",
+        pgErrorCode(error) ?? "none",
+      );
+      return c.json(
+        { error: "Başvuru kaydedilemedi. Lütfen tekrar deneyin." },
+        500,
+      );
     }
   },
 );

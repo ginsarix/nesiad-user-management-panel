@@ -5,12 +5,23 @@ describe("createRateLimiter", () => {
   it("limits after `limit` records within the window", () => {
     const limiter = createRateLimiter({ limit: 2, windowMs: 1000 });
 
-    limiter.record("a");
+    expect(limiter.reserve("a")).toBe(true);
     expect(limiter.isLimited("a")).toBe(false);
-    limiter.record("a");
+    expect(limiter.reserve("a")).toBe(true);
 
     expect(limiter.isLimited("a")).toBe(true);
+    expect(limiter.reserve("a")).toBe(false);
     expect(limiter.isLimited("b")).toBe(false);
+  });
+
+  it("gives an allowance back on release", () => {
+    const limiter = createRateLimiter({ limit: 1, windowMs: 1000 });
+
+    limiter.reserve("a");
+    limiter.release("a");
+
+    expect(limiter.isLimited("a")).toBe(false);
+    expect(limiter.reserve("a")).toBe(true);
   });
 
   it("frees the key after the window", () => {
@@ -21,7 +32,7 @@ describe("createRateLimiter", () => {
       now: () => time,
     });
 
-    limiter.record("a");
+    limiter.reserve("a");
     time = 999;
     expect(limiter.isLimited("a")).toBe(true);
     time = 1000;
@@ -31,8 +42,9 @@ describe("createRateLimiter", () => {
   it("never limits an undefined key", () => {
     const limiter = createRateLimiter({ limit: 1, windowMs: 1000 });
 
-    limiter.record(undefined);
-    limiter.record(undefined);
+    expect(limiter.reserve(undefined)).toBe(true);
+    expect(limiter.reserve(undefined)).toBe(true);
+    limiter.release(undefined);
 
     expect(limiter.isLimited(undefined)).toBe(false);
   });

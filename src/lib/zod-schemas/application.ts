@@ -9,6 +9,11 @@ import { FUTURE_DATE_MESSAGE, INVALID_DATE_MESSAGE } from "./shared";
 
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
 
+// control and format characters (NUL, bidi overrides, zero-width marks…)
+const CONTROL_IN_LINE = /[\p{Cc}\p{Cf}]/u;
+
+const controlMessage = (label: string) => `${label} geçersiz karakter içeriyor`;
+
 /** A required one-line field: every run of whitespace becomes one space */
 function singleLine(label: string, max: number) {
   return z
@@ -18,8 +23,14 @@ function singleLine(label: string, max: number) {
       z
         .string()
         .min(1, `${label} boş olamaz`)
-        .max(max, `${label} en fazla ${max} karakter olabilir`),
+        .max(max, `${label} en fazla ${max} karakter olabilir`)
+        .refine((v) => !CONTROL_IN_LINE.test(v), controlMessage(label)),
     );
+}
+
+/** Control characters other than \n, \r and \t are refused */
+function hasBadControl(value: string) {
+  return /[\p{Cc}\p{Cf}]/u.test(value.replace(/[\n\r\t]/g, ""));
 }
 
 /** A required field that may span lines */
@@ -28,7 +39,8 @@ function multiLine(label: string, max: number) {
     .string()
     .trim()
     .min(1, `${label} boş olamaz`)
-    .max(max, `${label} en fazla ${max} karakter olabilir`);
+    .max(max, `${label} en fazla ${max} karakter olabilir`)
+    .refine((v) => !hasBadControl(v), controlMessage(label));
 }
 
 const emailSchema = singleLine("E-posta", 254).pipe(
@@ -112,7 +124,8 @@ const sharedFields = {
   otherAssociations: z
     .string()
     .trim()
-    .max(2000, "Diğer dernekler en fazla 2000 karakter olabilir"),
+    .max(2000, "Diğer dernekler en fazla 2000 karakter olabilir")
+    .refine((v) => !hasBadControl(v), controlMessage("Diğer dernekler")),
   email: emailSchema,
   mobilePhone: mobilePhoneSchema,
   nationalId: nationalIdSchema,
@@ -142,7 +155,9 @@ export const applicationApiSchema = z.object({
   companyIntro: sharedFields.companyIntro,
 
   referenceName: sharedFields.referenceName,
-  otherAssociations: sharedFields.otherAssociations.transform((v) => v || null),
+  otherAssociations: sharedFields.otherAssociations
+    .optional()
+    .transform((v) => v || null),
 
   logo: publicLogoSchema,
   identityDocument: documentFileSchema,
