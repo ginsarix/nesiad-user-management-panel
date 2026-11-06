@@ -135,6 +135,76 @@ describe("sendDecisionNotices", () => {
     });
   });
 
+  it("falls back to the company name when both names are blank", async () => {
+    netgsm.client = fakeClient(okAnswer);
+    mail.sendEmail.mockResolvedValue(undefined);
+    const settings = await getApplicationNoticeSettings();
+    const values = { ad: applicant.title, firma: applicant.title };
+
+    await sendDecisionNotices("accepted", {
+      ...applicant,
+      applicantFirstName: null,
+      applicantLastName: "  ",
+    });
+
+    expect(sent[0].msg).toBe(fillTemplate(settings.acceptedSms, values));
+    expect(mail.sendEmail.mock.calls[0][0].text).toBe(
+      fillTemplate(settings.acceptedEmailBody, values),
+    );
+  });
+
+  it("logs no address, number or message text when sending fails", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const leaky = Object.assign(
+        new Error("550 rejected ayse@example.com 5321112233"),
+        {
+          code: "EENVELOPE",
+          responseCode: 550,
+          rejected: ["ayse@example.com"],
+          response: "550 no such user ayse@example.com",
+        },
+      );
+      mail.sendEmail.mockRejectedValue(leaky);
+      const settings = await getApplicationNoticeSettings();
+      const text = fillTemplate(settings.acceptedSms, {
+        ad: "Ayşe Yılmaz",
+        firma: applicant.title,
+      });
+
+      // NetGSM unreachable, with an error that echoes the request
+      netgsm.client = fakeClient(async () => {
+        throw Object.assign(new Error(`failed for 5321112233: ${text}`), {
+          code: "ETIMEDOUT",
+        });
+      });
+      await sendDecisionNotices("accepted", applicant);
+      // NetGSM refuses
+      netgsm.client = fakeClient(async () => ({
+        status: 406,
+        body: { code: "40", echo: `5321112233 ${text}` },
+      }));
+      await sendDecisionNotices("accepted", applicant);
+
+      expect(log).toHaveBeenCalled();
+      const logged = JSON.stringify(
+        log.mock.calls.flat().map((a) => (a instanceof Error ? a.message : a)),
+      );
+      expect(logged).toContain("EENVELOPE");
+      for (const secret of [
+        "ayse@example.com",
+        "5321112233",
+        "0532",
+        "Ayşe",
+        text.slice(0, 30),
+      ]) {
+        expect(logged).not.toContain(secret);
+      }
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("fails an SMS longer than the limit without calling NetGSM", async () => {
     netgsm.client = fakeClient(okAnswer);
     mail.sendEmail.mockResolvedValue(undefined);

@@ -14,8 +14,14 @@ const CONTROL_IN_LINE = /[\p{Cc}\p{Cf}]/u;
 
 const controlMessage = (label: string) => `${label} geçersiz karakter içeriyor`;
 
+// Names go into messages sent from NESİAD's own sender, so a link typed here
+// would be delivered with its authority. Bare ".org" and ".tr" stay allowed:
+// Turkish company names abbreviate ("Tur.Org.San.Ltd.Şti.").
+const LINK_LIKE =
+  /https?:\/\/|www\.|\w\.(?:com|net|info|biz|xyz|link|site|online|io|org\.tr|com\.tr)(?![\p{L}\p{N}])/iu;
+
 /** A required one-line field: every run of whitespace becomes one space */
-function singleLine(label: string, max: number) {
+function singleLine(label: string, max: number, options?: { noLinks?: true }) {
   return z
     .string()
     .transform(collapseWhitespace)
@@ -24,7 +30,11 @@ function singleLine(label: string, max: number) {
         .string()
         .min(1, `${label} boş olamaz`)
         .max(max, `${label} en fazla ${max} karakter olabilir`)
-        .refine((v) => !CONTROL_IN_LINE.test(v), controlMessage(label)),
+        .refine((v) => !CONTROL_IN_LINE.test(v), controlMessage(label))
+        .refine(
+          (v) => !options?.noLinks || !LINK_LIKE.test(v),
+          `${label} bağlantı içeremez`,
+        ),
     );
 }
 
@@ -111,11 +121,11 @@ const publicLogoSchema = z
 
 /** Fields whose rules are the same on the form and on the server */
 const sharedFields = {
-  applicantFirstName: singleLine("Ad", 100),
-  applicantLastName: singleLine("Soyad", 100),
+  applicantFirstName: singleLine("Ad", 100, { noLinks: true }),
+  applicantLastName: singleLine("Soyad", 100, { noLinks: true }),
   birthPlace: singleLine("Doğum yeri", 100),
   education: singleLine("Eğitim durumu", 200),
-  title: singleLine("Firma adı", 200),
+  title: singleLine("Firma adı", 200, { noLinks: true }),
   applicantRole: singleLine("Görev ve ünvan", 200),
   address: multiLine("İş adresi", 1000),
   phone: singleLine("İş telefonu", 30),

@@ -1012,7 +1012,14 @@ describe("POST /api/members/:id/decision", () => {
     expect(text).not.toContain(MAIL);
     expect(text).not.toContain("5321112233");
     expect(text).not.toContain("0532");
-    expect(text).not.toContain(settings.acceptedSms.slice(0, 20));
+    const filled = { ad: "Ayşe Yılmaz", firma: "__test__ Karar Firması" };
+    for (const template of [
+      settings.acceptedSms,
+      settings.acceptedEmailSubject,
+      settings.acceptedEmailBody,
+    ]) {
+      expect(text).not.toContain(fillTemplate(template, filled));
+    }
   });
 
   it("notes the dry-run mode in the notice entry", async () => {

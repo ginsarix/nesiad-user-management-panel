@@ -9,6 +9,25 @@ import { applicationsRoute } from "./applications";
 
 vi.mock("@/lib/mail", () => ({ sendEmail: vi.fn(async () => {}) }));
 
+// The route sends the panel notification without waiting for it, so a test
+// can end while its email is still on the way. Remember each notification so
+// the next test can wait for it before looking at `sendEmail`.
+const pendingNotifications: Promise<unknown>[] = [];
+vi.mock("@/lib/application-emails", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/lib/application-emails")>();
+  return {
+    ...original,
+    notifyPanelUsersOfApplication: (
+      ...args: Parameters<typeof original.notifyPanelUsersOfApplication>
+    ) => {
+      const done = original.notifyPanelUsersOfApplication(...args);
+      pendingNotifications.push(done.catch(() => {}));
+      return done;
+    },
+  };
+});
+
 // remember every stored file so the tests can check and clean up
 const storedFiles: string[] = [];
 vi.mock("@/lib/file-storage", async (importOriginal) => {
@@ -50,7 +69,8 @@ afterAll(async () => {
   await Promise.all(storedFiles.map(deleteFile));
 });
 
-beforeEach(() => {
+beforeEach(async () => {
+  await Promise.all(pendingNotifications.splice(0));
   vi.mocked(sendEmail).mockClear();
 });
 
@@ -396,7 +416,8 @@ describe("POST /api/applications", () => {
     expect(sent.map((m) => m.to).sort()).toEqual(
       [users[0].email, users[3].email].sort(),
     );
-    for (const mail of vi.mocked(sendEmail).mock.calls.map(([m]) => m)) {
+    // only this test's emails: others' recipients are real panel users
+    for (const mail of sent) {
       expect(mail.subject).toBe("Yeni başvuru");
       expect(mail.text).toMatch(new RegExp(`/members/${member.id}$`));
       for (const secret of [title, "Ayşe", "Yılmaz", "10000000146", "kimlik"]) {

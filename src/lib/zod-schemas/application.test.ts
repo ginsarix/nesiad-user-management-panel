@@ -134,6 +134,44 @@ describe("applicationFormSchema", () => {
   });
 });
 
+describe("link-like names", () => {
+  const withName = (field: string, value: string) =>
+    applicationFormSchema.safeParse({ ...validFormValues, [field]: value });
+
+  it.each([
+    "Evil https://x.y",
+    "www.x.y",
+    "Kapadokya.com.tr",
+    "abc.COM",
+  ])("refuses %s in the name, surname and company", (value) => {
+    for (const field of ["applicantFirstName", "applicantLastName", "title"]) {
+      const result = withName(field, value);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]).toMatchObject({ path: [field] });
+      expect(result.error?.issues[0].message).toMatch(/bağlantı içeremez$/);
+    }
+  });
+
+  it.each([
+    "Kapadokya Tur.Org.San.Ltd.Şti.",
+    "Avanos Seramik A.Ş.",
+    "Örnek San. ve Tic. Ltd. Şti.",
+  ])("accepts %s", (value) => {
+    expect(withName("title", value).success).toBe(true);
+  });
+
+  it("also refuses them on the server", () => {
+    const result = applicationApiSchema.safeParse({
+      ...validFormValues,
+      birthDate: "1990-02-01",
+      consentRules: "true",
+      consentData: "true",
+      title: "Evil https://x.y",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("applicationApiSchema", () => {
   const apiValues = {
     ...validFormValues,

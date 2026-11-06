@@ -19,6 +19,18 @@ export type NoticeApplicant = {
 
 export type NoticeOutcomes = { email: NoticeOutcome; sms: NoticeOutcome };
 
+/**
+ * What may be logged about a failure. Error messages and nodemailer's
+ * `rejected`/`response` hold addresses, numbers or message text, so only
+ * short codes are kept.
+ */
+function safeErrorInfo(error: unknown) {
+  const { code, responseCode } = (error ?? {}) as Record<string, unknown>;
+  const pick = (v: unknown) =>
+    typeof v === "string" || typeof v === "number" ? v : undefined;
+  return { code: pick(code), responseCode: pick(responseCode) };
+}
+
 const EMAIL_TIMEOUT_MS = 30_000;
 
 const emailSchema = z.email();
@@ -51,7 +63,7 @@ async function sendNoticeEmail(
     );
     return "sent";
   } catch (error) {
-    console.error("Application notice email failed", error);
+    console.error("Application notice email failed", safeErrorInfo(error));
     return "failed";
   }
 }
@@ -69,12 +81,18 @@ async function sendNoticeSms(
   try {
     raw = await netgsmClient().send([{ no: phone.phone, msg: message }]);
   } catch (error) {
-    console.error("Application notice SMS: NetGSM gave no answer", error);
+    console.error(
+      "Application notice SMS: NetGSM gave no answer",
+      safeErrorInfo(error),
+    );
     return "unknown";
   }
   const result = decodeSendResponse(raw);
   if (!result.ok) {
-    console.error("Application notice SMS refused by NetGSM", raw);
+    console.error(
+      "Application notice SMS refused by NetGSM, code:",
+      result.code,
+    );
     return "failed";
   }
   return "sent";
@@ -90,8 +108,10 @@ export async function sendDecisionNotices(
 ): Promise<NoticeOutcomes> {
   try {
     const settings = await getApplicationNoticeSettings();
+    // staff can blank the names later; "Sayın , …" would read badly
     const ad =
-      `${applicant.applicantFirstName ?? ""} ${applicant.applicantLastName ?? ""}`.trim();
+      `${applicant.applicantFirstName ?? ""} ${applicant.applicantLastName ?? ""}`.trim() ||
+      applicant.title;
     const values = { ad, firma: applicant.title };
 
     const [smsTemplate, subjectTemplate, bodyTemplate] =
@@ -117,7 +137,7 @@ export async function sendDecisionNotices(
     ]);
     return { email, sms };
   } catch (error) {
-    console.error("Application notices failed", error);
+    console.error("Application notices failed", safeErrorInfo(error));
     return { email: "failed", sms: "failed" };
   }
 }
