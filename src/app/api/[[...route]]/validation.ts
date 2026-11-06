@@ -21,6 +21,31 @@ export function respondWithFirstIssue(
   }
 }
 
+/**
+ * zValidator hook for forms the client can map to an input: responds with
+ * `{ error, field }`, the first issue's message and the field it is about.
+ */
+export function respondWithFirstField(
+  result: {
+    success: boolean;
+    error?: {
+      issues: readonly { message: string; path: readonly PropertyKey[] }[];
+    };
+  },
+  c: Context,
+) {
+  if (!result.success) {
+    const issue = result.error?.issues[0];
+    return c.json(
+      {
+        error: issue?.message ?? "Geçersiz istek",
+        field: issue?.path[0] === undefined ? undefined : String(issue.path[0]),
+      },
+      400,
+    );
+  }
+}
+
 export const idParamSchema = z.object({
   id: safeNumSchema(z.number().int().positive()),
 });

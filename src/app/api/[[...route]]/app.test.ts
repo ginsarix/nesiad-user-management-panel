@@ -26,6 +26,17 @@ describe("session check on /api", () => {
     expect(await res.json()).toEqual({ error: "Oturum açmanız gerekiyor" });
   });
 
+  it("leaves POST /api/applications open to the public", async () => {
+    getSession.mockClear();
+    const res = await app.request("/api/applications", {
+      method: "POST",
+      body: new FormData(),
+    });
+
+    expect(res.status).not.toBe(401);
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
   it("passes the request's cookies to better-auth", async () => {
     getSession.mockResolvedValueOnce(null);
 

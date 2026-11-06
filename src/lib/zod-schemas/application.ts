@@ -1,0 +1,249 @@
+// Imported by the public application form in the browser: nothing here may
+// pull in the database, file storage or server-only environment variables.
+import { z } from "zod";
+import { isFutureDate, parseDisplayDate, parseIsoDate } from "../dates";
+import { isValidNationalId } from "../national-id";
+import { checkPhone } from "../sms/recipients";
+import { documentFileSchema, MAX_LOGO_SIZE, normalizeWebsite } from "./member";
+import { FUTURE_DATE_MESSAGE, INVALID_DATE_MESSAGE } from "./shared";
+
+const collapseWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
+
+/** A required one-line field: every run of whitespace becomes one space */
+function singleLine(label: string, max: number) {
+  return z
+    .string()
+    .transform(collapseWhitespace)
+    .pipe(
+      z
+        .string()
+        .min(1, `${label} boş olamaz`)
+        .max(max, `${label} en fazla ${max} karakter olabilir`),
+    );
+}
+
+/** A required field that may span lines */
+function multiLine(label: string, max: number) {
+  return z
+    .string()
+    .trim()
+    .min(1, `${label} boş olamaz`)
+    .max(max, `${label} en fazla ${max} karakter olabilir`);
+}
+
+const emailSchema = singleLine("E-posta", 254).pipe(
+  z
+    .string()
+    .refine((v) => z.email().safeParse(v).success, "Geçerli bir e-posta girin"),
+);
+
+const mobilePhoneSchema = singleLine("Cep telefonu", 30).pipe(
+  z.string().refine((v) => checkPhone(v).ok, "Geçerli bir cep telefonu girin"),
+);
+
+const nationalIdSchema = z
+  .string()
+  .trim()
+  .min(1, "TC Kimlik No boş olamaz")
+  .refine(isValidNationalId, "Geçerli bir TC Kimlik No girin");
+
+const genderSchema = z
+  .enum(["", "male", "female"])
+  .refine((value) => value !== "", "Cinsiyet seçin");
+
+const websiteTextSchema = singleLine("Web sitesi", 300).pipe(
+  z
+    .string()
+    .refine(
+      (v) => normalizeWebsite(v) !== null,
+      "Geçerli bir web adresi girin",
+    ),
+);
+
+const EMPLOYEE_COUNT_MESSAGE =
+  "Çalışan sayısı en fazla 7 haneli bir tam sayı olmalıdır";
+const employeeCountTextSchema = z
+  .string()
+  .trim()
+  .refine((v) => /^\d{1,7}$/.test(v), EMPLOYEE_COUNT_MESSAGE);
+
+/** A required past-or-today date in the given format */
+function requiredDate(parse: (text: string) => Date | null) {
+  return z
+    .string()
+    .trim()
+    .superRefine((value, ctx) => {
+      if (!value) {
+        ctx.addIssue({ code: "custom", message: "Doğum tarihi boş olamaz" });
+        return;
+      }
+      const date = parse(value);
+      if (!date) {
+        ctx.addIssue({ code: "custom", message: INVALID_DATE_MESSAGE });
+      } else if (isFutureDate(date)) {
+        ctx.addIssue({ code: "custom", message: FUTURE_DATE_MESSAGE });
+      }
+    });
+}
+
+/**
+ * The logo as a public applicant sends it. Unlike the staff logo schema it
+ * doesn't trust the declared type (browsers may send none): the name is a
+ * hint and the server checks the contents.
+ */
+const publicLogoSchema = z
+  .instanceof(File, { error: "Logo seçin" })
+  .refine((f) => f.size > 0, "Dosya boş olamaz")
+  .refine((f) => f.size <= MAX_LOGO_SIZE, "Dosyalar 5 MB'dan küçük olmalıdır")
+  .refine((f) => /\.(png|jpe?g)$/i.test(f.name), "Logo PNG veya JPG olmalıdır");
+
+/** Fields whose rules are the same on the form and on the server */
+const sharedFields = {
+  applicantFirstName: singleLine("Ad", 100),
+  applicantLastName: singleLine("Soyad", 100),
+  birthPlace: singleLine("Doğum yeri", 100),
+  education: singleLine("Eğitim durumu", 200),
+  title: singleLine("Firma adı", 200),
+  applicantRole: singleLine("Görev ve ünvan", 200),
+  address: multiLine("İş adresi", 1000),
+  phone: singleLine("İş telefonu", 30),
+  companyIntro: multiLine("Firma tanıtım yazısı", 5000),
+  referenceName: singleLine("Referans", 200),
+  otherAssociations: z
+    .string()
+    .trim()
+    .max(2000, "Diğer dernekler en fazla 2000 karakter olabilir"),
+  email: emailSchema,
+  mobilePhone: mobilePhoneSchema,
+  nationalId: nationalIdSchema,
+  gender: genderSchema,
+};
+
+const CONSENT_MESSAGE = "Devam etmek için onaylamanız gerekir";
+
+/** Multipart fields as the server receives them (dates yyyy-aa-gg, consents "true") */
+export const applicationApiSchema = z.object({
+  applicantFirstName: sharedFields.applicantFirstName,
+  applicantLastName: sharedFields.applicantLastName,
+  birthDate: requiredDate(parseIsoDate),
+  birthPlace: sharedFields.birthPlace,
+  nationalId: sharedFields.nationalId,
+  gender: sharedFields.gender.pipe(z.enum(["male", "female"])),
+  education: sharedFields.education,
+  mobilePhone: sharedFields.mobilePhone,
+  email: sharedFields.email,
+
+  title: sharedFields.title,
+  applicantRole: sharedFields.applicantRole,
+  employeeCount: employeeCountTextSchema.transform(Number),
+  address: sharedFields.address,
+  phone: sharedFields.phone,
+  website: websiteTextSchema.transform((v) => normalizeWebsite(v) as string),
+  companyIntro: sharedFields.companyIntro,
+
+  referenceName: sharedFields.referenceName,
+  otherAssociations: sharedFields.otherAssociations.transform((v) => v || null),
+
+  logo: publicLogoSchema,
+  identityDocument: documentFileSchema,
+  activityDocument: documentFileSchema,
+
+  consentRules: z.literal("true", CONSENT_MESSAGE),
+  consentData: z.literal("true", CONSENT_MESSAGE),
+
+  /** Hidden from people, filled in by bots */
+  faxNumber: z.string().optional(),
+});
+
+/** Client-side form values (date as gg.aa.yyyy, files as chosen) */
+export const applicationFormSchema = z.object({
+  applicantFirstName: sharedFields.applicantFirstName,
+  applicantLastName: sharedFields.applicantLastName,
+  birthDate: requiredDate(parseDisplayDate),
+  birthPlace: sharedFields.birthPlace,
+  nationalId: sharedFields.nationalId,
+  gender: sharedFields.gender,
+  education: sharedFields.education,
+  mobilePhone: sharedFields.mobilePhone,
+  email: sharedFields.email,
+
+  title: sharedFields.title,
+  applicantRole: sharedFields.applicantRole,
+  employeeCount: employeeCountTextSchema,
+  address: sharedFields.address,
+  phone: sharedFields.phone,
+  website: websiteTextSchema,
+  companyIntro: sharedFields.companyIntro,
+
+  referenceName: sharedFields.referenceName,
+  otherAssociations: sharedFields.otherAssociations,
+
+  logo: publicLogoSchema.nullable().refine((f) => f !== null, "Logo seçin"),
+  identityDocument: documentFileSchema
+    .nullable()
+    .refine((f) => f !== null, "Kimlik belgesi seçin"),
+  activityDocument: documentFileSchema
+    .nullable()
+    .refine((f) => f !== null, "Faaliyet belgesi seçin"),
+
+  consentRules: z.boolean().refine((v) => v, CONSENT_MESSAGE),
+  consentData: z.boolean().refine((v) => v, CONSENT_MESSAGE),
+
+  /** Hidden from people, filled in by bots; sent as typed */
+  faxNumber: z.string(),
+});
+
+export type ApplicationFormValues = z.infer<typeof applicationFormSchema>;
+
+export const APPLICATION_STEPS: readonly {
+  id: "personal" | "company" | "association" | "documents" | "consent";
+  title: string;
+  fields: readonly (keyof ApplicationFormValues)[];
+}[] = [
+  {
+    id: "personal",
+    title: "Kişisel",
+    fields: [
+      "applicantFirstName",
+      "applicantLastName",
+      "birthDate",
+      "birthPlace",
+      "nationalId",
+      "gender",
+      "education",
+      "mobilePhone",
+      "email",
+    ],
+  },
+  {
+    id: "company",
+    title: "Firma",
+    fields: [
+      "title",
+      "applicantRole",
+      "employeeCount",
+      "address",
+      "phone",
+      "website",
+      "companyIntro",
+    ],
+  },
+  {
+    id: "association",
+    title: "Dernek",
+    fields: ["referenceName", "otherAssociations"],
+  },
+  {
+    id: "documents",
+    title: "Belgeler",
+    fields: ["logo", "identityDocument", "activityDocument"],
+  },
+  { id: "consent", title: "Onay", fields: ["consentRules", "consentData"] },
+];
+
+/** Index of the step holding a field, or -1 for an unknown field */
+export function stepOfField(field: string): number {
+  return APPLICATION_STEPS.findIndex((step) =>
+    (step.fields as readonly string[]).includes(field),
+  );
+}
