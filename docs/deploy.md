@@ -113,6 +113,10 @@ Every time the app starts, it checks for an account with `DEFAULT_ADMIN_EMAIL`. 
 - **It comes back:** as long as both variables are set, deleting that account on Panel Kullanıcıları recreates it at the next start, and Plesk starts the app again after every idle period. Remove the variables in Plesk once the admin has logged in, unless that's what you want.
 - `pnpm db:seed` does the same check from a machine, using its `.env`.
 
+## 6. After the first deploy with the membership application
+
+Submit one real application at `/uyelik` with three files of about 5 MB each, to confirm nothing in front of the app (LiteSpeed, nginx) rejects a request of roughly 16 MB. Accept or delete it afterwards. Once it works, point the old site's form link to `/uyelik`.
+
 ## Deploying, retrying, rolling back
 
 - **Deploy:** merge or push to `main`.

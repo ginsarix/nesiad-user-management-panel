@@ -1,5 +1,7 @@
 import type { ClientRequestOptions } from "hono/client";
 import { displayToIso } from "../dates";
+import type { MemberStatus } from "../member-status";
+import type { NoticeOutcomes } from "../notice-outcome";
 import { rpcClient } from "../rpc-client";
 import type { MemberFormValues } from "../zod-schemas/member";
 import type { MemberDecision } from "../zod-schemas/member-decision";
@@ -115,7 +117,10 @@ export async function decideMember(id: number, decision: MemberDecision) {
 
   if (!res.ok) await throwResponseError(res, "Karar kaydedilemedi");
 
-  return await res.json();
+  return (await res.json()) as {
+    status: MemberStatus;
+    notices: NoticeOutcomes | null;
+  };
 }
 
 /** Replaces the logo; the API deletes the old file */

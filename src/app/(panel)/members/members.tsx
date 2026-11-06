@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
-import { membershipYears } from "@/lib/dates";
+import { membershipYears, todayInIstanbul } from "@/lib/dates";
 import { getMembers, type MemberListItem } from "@/lib/fetches/member";
 import { getSectors, type Sector } from "@/lib/fetches/sector";
 import { rememberListSearch } from "@/lib/list-href";
@@ -103,6 +103,18 @@ const columns = helper.columns([
       </button>
     ),
   }),
+  helper.accessor(
+    (member) =>
+      [member.applicantFirstName, member.applicantLastName]
+        .filter(Boolean)
+        .join(" "),
+    {
+      id: "applicant",
+      header: "Başvuran",
+      sortFn: sortTr,
+      cell: (info) => orDash(info.getValue()),
+    },
+  ),
   helper.accessor("sector", {
     header: "Sektör",
     sortFn: sortTr,
@@ -153,10 +165,45 @@ const columns = helper.columns([
     enableSorting: false,
     cell: (info) => formatDate(info.getValue()),
   }),
+  helper.accessor("createdAt", {
+    id: "appliedAt",
+    header: "Başvuru Tarihi",
+    sortFn: sortByValue,
+    // the timestamp shown as the Istanbul calendar day
+    cell: (info) => formatDate(todayInIstanbul(new Date(info.getValue()))),
+  }),
 ]);
 
 // Extra details that can be switched on from "Sütunlar"
-const DEFAULT_COLUMN_VISIBILITY = { address: false, foundingDate: false };
+const DEFAULT_COLUMN_VISIBILITY = {
+  address: false,
+  foundingDate: false,
+  applicant: false,
+  appliedAt: false,
+};
+
+/**
+ * Under Adaylar and Reddedilenler exactly these columns show, whatever the
+ * saved choice: the member columns (login date, kıdem, sektör…) are empty for
+ * an applicant. The saved cookie is left alone, so other filters keep it.
+ */
+const APPLICATION_COLUMNS = ["title", "applicant", "phone", "appliedAt"];
+const ALL_COLUMNS = [
+  ...APPLICATION_COLUMNS,
+  "sector",
+  "representatives",
+  "memberLoginDate",
+  "seniority",
+  "address",
+  "foundingDate",
+];
+const APPLICATION_COLUMN_VISIBILITY: ColumnVisibilityState = Object.fromEntries(
+  ALL_COLUMNS.map((id) => [id, APPLICATION_COLUMNS.includes(id)]),
+);
+
+function isApplicationStatus(status: StatusFilter) {
+  return status === "candidate" || status === "rejected";
+}
 
 type StatusFilter = MemberStatus | "all";
 
@@ -177,18 +224,36 @@ function matchesStatus(member: MemberListItem, status: StatusFilter) {
   return status === "all" || member.status === status;
 }
 
-const SORTABLE_COLUMNS = ["title", "sector", "memberLoginDate", "seniority"];
-const DEFAULT_SORTING: SortingState = [{ id: "title", desc: false }];
+const SORTABLE_COLUMNS = [
+  "title",
+  "applicant",
+  "sector",
+  "memberLoginDate",
+  "seniority",
+  "appliedAt",
+];
 
-/** `?sort=title` / `?sort=-sector` <-> table sorting state */
-function parseSort(value: string | null): SortingState {
-  const desc = value?.startsWith("-") ?? false;
-  const id = desc ? value?.slice(1) : value;
-  return id && SORTABLE_COLUMNS.includes(id) ? [{ id, desc }] : DEFAULT_SORTING;
+/** Applications are read newest first; members by name */
+function defaultSorting(status: StatusFilter): SortingState {
+  return isApplicationStatus(status)
+    ? [{ id: "appliedAt", desc: true }]
+    : [{ id: "title", desc: false }];
 }
 
-function serializeSort([sort]: SortingState) {
-  if (!sort || (sort.id === "title" && !sort.desc)) return null;
+/** `?sort=title` / `?sort=-sector` <-> table sorting state */
+function parseSort(value: string | null, status: StatusFilter): SortingState {
+  const desc = value?.startsWith("-") ?? false;
+  const id = desc ? value?.slice(1) : value;
+  return id && SORTABLE_COLUMNS.includes(id)
+    ? [{ id, desc }]
+    : defaultSorting(status);
+}
+
+function serializeSort([sort]: SortingState, status: StatusFilter) {
+  const [fallback] = defaultSorting(status);
+  if (!sort || (sort.id === fallback?.id && sort.desc === fallback.desc)) {
+    return null;
+  }
   return `${sort.desc ? "-" : ""}${sort.id}`;
 }
 
@@ -215,7 +280,10 @@ export function Members({
     parseStatus(searchParams.get("status")),
   );
   const [sorting, setSorting] = useState(() =>
-    parseSort(searchParams.get("sort")),
+    parseSort(
+      searchParams.get("sort"),
+      parseStatus(searchParams.get("status")),
+    ),
   );
 
   // Mirror the list state into the URL without a server round trip, so
@@ -225,7 +293,7 @@ export function Members({
     if (query) params.set("q", query);
     if (sector) params.set("sector", String(sector));
     if (status !== "active") params.set("status", status);
-    const sort = serializeSort(sorting);
+    const sort = serializeSort(sorting, status);
     if (sort) params.set("sort", sort);
 
     const search = params.toString();
@@ -255,6 +323,28 @@ export function Members({
     [sectors],
   );
 
+  const candidateCount = useMemo(
+    () => members.filter((member) => member.status === "candidate").length,
+    [members],
+  );
+
+  const statusItems = useMemo(
+    () =>
+      STATUS_ITEMS.map((item) =>
+        item.value === "candidate" && candidateCount > 0
+          ? { ...item, label: `${item.label} (${candidateCount})` }
+          : item,
+      ),
+    [candidateCount],
+  );
+
+  const changeStatus = (next: StatusFilter) => {
+    // a sort the user didn't choose follows the filter
+    if (serializeSort(sorting, status) === null)
+      setSorting(defaultSorting(next));
+    setStatus(next);
+  };
+
   const searchIndex = useMemo(
     () =>
       members.map((member) => ({
@@ -262,6 +352,8 @@ export function Members({
         text: foldTr(
           [
             member.title,
+            member.applicantFirstName,
+            member.applicantLastName,
             member.sector,
             member.phone,
             // lets "2123650" match "212 36 50"
@@ -293,13 +385,20 @@ export function Members({
     savedColumnVisibility,
   );
 
+  const applicationView = isApplicationStatus(status);
+
   const table = useTable({
     features,
     columns,
     data: filteredMembers,
     getRowId: (member) => String(member.id),
     getRowCanExpand: () => true,
-    state: { sorting, columnVisibility },
+    state: {
+      sorting,
+      columnVisibility: applicationView
+        ? APPLICATION_COLUMN_VISIBILITY
+        : columnVisibility,
+    },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     enableSortingRemoval: false,
@@ -335,15 +434,15 @@ export function Members({
           </SelectContent>
         </Select>
         <Select
-          items={STATUS_ITEMS}
+          items={statusItems}
           value={status}
-          onValueChange={(value) => setStatus(value ?? "active")}
+          onValueChange={(value) => changeStatus(value ?? "active")}
         >
           <SelectTrigger aria-label="Durum" className="min-w-36 bg-card">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {STATUS_ITEMS.map((item) => (
+            {statusItems.map((item) => (
               <SelectItem key={item.value} value={item.value}>
                 {item.label}
               </SelectItem>
@@ -355,7 +454,10 @@ export function Members({
             ? `${members.length} üye`
             : `${filteredMembers.length} / ${members.length} üye`}
         </span>
-        <ColumnToggle columns={table.getAllLeafColumns()} />
+        {/* the application views show a fixed set of columns */}
+        {!applicationView && (
+          <ColumnToggle columns={table.getAllLeafColumns()} />
+        )}
         <Link href="/members/new" className={buttonVariants()}>
           <Plus />
           Üye Ekle

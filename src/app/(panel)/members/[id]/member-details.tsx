@@ -10,6 +10,7 @@ import { listHref } from "@/lib/list-href";
 import { isEstablished, MEMBER_STATUS_LABELS } from "@/lib/member-status";
 import { RepresentativeList, SeniorityBadge } from "../_components/member-info";
 import { ApplicationSections } from "./application-sections";
+import { DecisionButtons } from "./decision-buttons";
 import { DeleteMemberButton } from "./delete-member-button";
 import { MemberLogo } from "./member-logo";
 import { ToggleActiveButton } from "./toggle-active-button";
@@ -50,7 +51,8 @@ export function MemberDetails({ id }: { id: number }) {
                 <p className="text-sm text-muted-foreground">{member.sector}</p>
               )}
             </div>
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex flex-wrap gap-2">
+              <DecisionButtons member={member} />
               {isEstablished(member.status) && (
                 <ToggleActiveButton member={member} />
               )}
