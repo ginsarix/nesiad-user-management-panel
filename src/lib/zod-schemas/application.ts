@@ -18,7 +18,7 @@ const controlMessage = (label: string) => `${label} geçersiz karakter içeriyor
 // would be delivered with its authority. Bare ".org" and ".tr" stay allowed:
 // Turkish company names abbreviate ("Tur.Org.San.Ltd.Şti.").
 const LINK_LIKE =
-  /[a-z][a-z0-9+.-]*:\/\/|www\.|[\p{L}\p{M}\p{N}_]\.(?:com|net|info|biz|xyz|link|site|online|io|org\.tr|com\.tr)(?![\p{L}\p{N}])/iu;
+  /[a-z][a-z0-9+.-]*:\/\/|www\.|[^\s.]\.(?:com|net|info|biz|xyz|link|site|online|io|ly|me|app|org\.tr|com\.tr|net\.tr|gen\.tr|web\.tr)(?![\p{L}\p{N}])|[^\s.]\.[a-z]{2,}\//iu;
 
 /**
  * Tested on a normalized copy, because browsers fold fullwidth letters and

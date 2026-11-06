@@ -155,6 +155,15 @@ describe("link-like names", () => {
     "kampanya\u2024com",
     "kampanya\u0301.com",
     "kampanya_.com",
+    "kampanya-.com",
+    "x😀.com",
+    "bit.ly",
+    "t.me",
+    "ornek.app",
+    "ornek.net.tr",
+    "ornek.gen.tr",
+    "ornek.web.tr",
+    "ornek.co/kampanya",
   ])("refuses %s in the name, surname and company", (value) => {
     for (const field of ["applicantFirstName", "applicantLastName", "title"]) {
       const result = withName(field, value);
