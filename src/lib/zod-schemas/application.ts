@@ -209,6 +209,8 @@ export const applicationFormSchema = z.object({
 });
 
 export type ApplicationFormValues = z.infer<typeof applicationFormSchema>;
+/** What the form holds while it is being filled in (no gender or files yet) */
+export type ApplicationFormInput = z.input<typeof applicationFormSchema>;
 
 export const APPLICATION_STEPS: readonly {
   id: "personal" | "company" | "association" | "documents" | "consent";

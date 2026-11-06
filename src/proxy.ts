@@ -2,12 +2,14 @@ import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 
 // /welcome checks the session itself: a failed verification link lands
-// there without one and is sent on to the login page with an explanation
+// there without one and is sent on to the login page with an explanation.
+// /uyelik is the public membership application
 const PUBLIC_PATHS = [
   "/login",
   "/forgot-password",
   "/reset-password",
   "/welcome",
+  "/uyelik",
 ];
 
 /**
