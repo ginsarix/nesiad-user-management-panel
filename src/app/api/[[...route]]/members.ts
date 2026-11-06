@@ -16,21 +16,39 @@ import {
   change,
   describeFields,
   diffFields,
+  diffRedacted,
   formatAudit,
 } from "@/lib/audit-diff";
 import { createFile, deleteFile } from "@/lib/file-storage";
 import { isEstablished } from "@/lib/member-status";
+import { maskNationalId } from "@/lib/national-id";
+import { DOCUMENT_MIME_TYPES, storeUpload } from "@/lib/uploads";
 import {
   createMemberSchema,
-  MAX_LOGO_SIZE,
+  MAX_REQUEST_SIZE,
   updateMemberSchema,
 } from "@/lib/zod-schemas/member";
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
-/** Members with their sector's name next to its id */
+const {
+  nationalId: _nationalId,
+  identityDocument: _identityDocument,
+  activityDocument: _activityDocument,
+  ...listColumns
+} = getColumns(memberTable);
+
+/** Members with their sector's name next to its id; no TC number or documents */
 function selectMembers(executor: Executor = db) {
+  return executor
+    .select({ ...listColumns, sector: sectorTable.name })
+    .from(memberTable)
+    .leftJoin(sectorTable, eq(memberTable.sectorId, sectorTable.id));
+}
+
+/** Every column, TC number included: for the detail, PATCH and DELETE, never sent out whole */
+function selectFullMember(executor: Executor = db) {
   return executor
     .select({ ...getColumns(memberTable), sector: sectorTable.name })
     .from(memberTable)
@@ -67,8 +85,8 @@ function selectRepresentatives(memberId?: number, executor: Executor = db) {
 }
 
 /**
- * Stores an uploaded logo after checking its actual contents are an image.
- * Resolves to null when the file is not an image.
+ * Stores a staff-uploaded logo after checking its actual contents are an
+ * image. Resolves to null when the file is not an image.
  */
 async function saveLogo(logo: File) {
   const buffer = await logo.arrayBuffer();
@@ -82,11 +100,63 @@ async function saveLogo(logo: File) {
   });
 }
 
-const logoBodyLimit = bodyLimit({
-  // the logo plus some room for the text fields
-  maxSize: MAX_LOGO_SIZE + 1024 * 1024,
-  onError: (c) => c.json({ error: "Logo 5 MB'dan küçük olmalıdır" }, 413),
+const requestBodyLimit = bodyLimit({
+  // a logo and two documents plus some room for the text fields
+  maxSize: MAX_REQUEST_SIZE,
+  onError: (c) => c.json({ error: "Dosyalar 5 MB'dan küçük olmalıdır" }, 413),
 });
+
+const NOT_A_DOCUMENT_ERROR = "Sadece PDF, PNG veya JPG dosyaları kabul edilir";
+
+/**
+ * Applicant fields in the audit log. Their values are personal data: staff
+ * edits record only that a value was set or cleared (see `diffRedacted`), and
+ * none of them is in `memberAuditSpec`, so create and delete entries skip them.
+ */
+const applicantAuditLabels: Record<string, string> = {
+  applicantFirstName: "Başvuran Adı",
+  applicantLastName: "Başvuran Soyadı",
+  applicantRole: "Başvuran Görevi",
+  employeeCount: "Çalışan Sayısı",
+  website: "Web Sitesi",
+  email: "E-posta",
+  mobilePhone: "Cep Telefonu",
+  birthDate: "Doğum Tarihi",
+  birthPlace: "Doğum Yeri",
+  nationalId: "TC Kimlik No",
+  education: "Eğitim Durumu",
+  otherAssociations: "Üye Olunan Diğer Dernekler",
+  companyIntro: "Firma Tanıtımı",
+  gender: "Cinsiyet",
+  referenceName: "Referans",
+  identityDocument: "Kimlik Belgesi",
+  activityDocument: "Faaliyet Belgesi",
+};
+
+type DocumentField = "identityDocument" | "activityDocument";
+const DOCUMENT_FIELDS: DocumentField[] = [
+  "identityDocument",
+  "activityDocument",
+];
+
+/**
+ * Stores the uploaded documents. When one isn't a PDF/PNG/JPG, the ones
+ * already stored are deleted again and `rejected` is true.
+ */
+async function storeDocuments(files: Partial<Record<DocumentField, File>>) {
+  const stored: Partial<Record<DocumentField, string>> = {};
+  for (const field of DOCUMENT_FIELDS) {
+    const file = files[field];
+    if (!file) continue;
+    const name = await storeUpload(file, DOCUMENT_MIME_TYPES, "document");
+    if (!name) {
+      await Promise.all(Object.values(stored).map(deleteFile));
+      return { stored: {}, rejected: true };
+    }
+    stored[field] = name;
+  }
+  return { stored, rejected: false };
+}
 
 /** A member's own fields in the audit log; sector and logo are added apart */
 const memberAuditSpec: AuditSpec = {
@@ -139,34 +209,70 @@ export const membersRoute = new Hono<AppEnv>()
     async (c) => {
       const { id } = c.req.valid("param");
 
-      const [member] = await selectMembers().where(eq(memberTable.id, id));
+      const [full] = await selectFullMember().where(eq(memberTable.id, id));
 
-      if (!member) return c.json({ error: "Üye bulunamadı" }, 404);
+      if (!full) return c.json({ error: "Üye bulunamadı" }, 404);
 
       const representatives = (await selectRepresentatives(id)).map(
         ({ memberId: _, ...representative }) => representative,
       );
 
-      return c.json({ ...member, representatives }, 200);
+      const { nationalId, ...member } = full;
+      return c.json(
+        {
+          ...member,
+          nationalIdMasked: nationalId ? maskNationalId(nationalId) : null,
+          representatives,
+        },
+        200,
+      );
+    },
+  )
+  .get(
+    "/:id/national-id",
+    zValidator("param", idParamSchema, respondWithFirstIssue),
+    async (c) => {
+      const { id } = c.req.valid("param");
+
+      const [member] = await db
+        .select({ nationalId: memberTable.nationalId })
+        .from(memberTable)
+        .where(eq(memberTable.id, id));
+
+      if (!member) return c.json({ error: "Üye bulunamadı" }, 404);
+
+      return c.json({ nationalId: member.nationalId }, 200, {
+        "Cache-Control": "no-store",
+      });
     },
   )
   .post(
     "/",
-    logoBodyLimit,
+    requestBodyLimit,
     zValidator("form", createMemberSchema, respondWithFirstIssue),
     async (c) => {
-      const { logo, ...fields } = c.req.valid("form");
+      const { logo, identityDocument, activityDocument, ...fields } =
+        c.req.valid("form");
 
       const logoFilename = logo ? await saveLogo(logo) : null;
       if (logo && !logoFilename) {
         return c.json({ error: "Sadece resim dosyaları kabul edilir" }, 415);
       }
 
+      const documents = await storeDocuments({
+        identityDocument,
+        activityDocument,
+      });
+      if (documents.rejected) {
+        if (logoFilename) await deleteFile(logoFilename);
+        return c.json({ error: NOT_A_DOCUMENT_ERROR }, 415);
+      }
+
       try {
         const id = await db.transaction(async (tx) => {
           const [member] = await tx
             .insert(memberTable)
-            .values({ ...fields, logo: logoFilename })
+            .values({ ...fields, ...documents.stored, logo: logoFilename })
             .returning();
 
           await recordAudit(tx, {
@@ -190,6 +296,7 @@ export const membersRoute = new Hono<AppEnv>()
         return c.json({ id, message: "Üye başarıyla kaydedildi" }, 201);
       } catch (error) {
         if (logoFilename) await deleteFile(logoFilename);
+        await Promise.all(Object.values(documents.stored).map(deleteFile));
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
           return c.json({ error: MISSING_SECTOR_ERROR }, 400);
         }
@@ -199,14 +306,20 @@ export const membersRoute = new Hono<AppEnv>()
   )
   .patch(
     "/:id",
-    logoBodyLimit,
+    requestBodyLimit,
     zValidator("param", idParamSchema, respondWithFirstIssue),
     zValidator("form", updateMemberSchema, respondWithFirstIssue),
     async (c) => {
       const { id } = c.req.valid("param");
-      const { logo, removeLogo, ...fields } = c.req.valid("form");
+      const {
+        logo,
+        removeLogo,
+        identityDocument,
+        activityDocument,
+        ...fields
+      } = c.req.valid("form");
 
-      const [existing] = await selectMembers().where(eq(memberTable.id, id));
+      const [existing] = await selectFullMember().where(eq(memberTable.id, id));
 
       if (!existing) return c.json({ error: "Üye bulunamadı" }, 404);
 
@@ -228,18 +341,37 @@ export const membersRoute = new Hono<AppEnv>()
         newLogo = null;
       }
 
+      const documents = await storeDocuments({
+        identityDocument,
+        activityDocument,
+      });
+      if (documents.rejected) {
+        if (newLogo) await deleteFile(newLogo);
+        return c.json({ error: NOT_A_DOCUMENT_ERROR }, 415);
+      }
+      const newDocuments = documents.stored;
+
       try {
         await db.transaction(async (tx) => {
+          const values = {
+            ...fields,
+            ...newDocuments,
+            ...(newLogo !== undefined && { logo: newLogo }),
+          };
+          // a blank TC number alone leaves nothing to set
+          if (Object.values(values).every((v) => v === undefined)) return;
+
           await tx
             .update(memberTable)
-            .set({
-              ...fields,
-              ...(newLogo !== undefined && { logo: newLogo }),
-            })
+            .set(values)
             .where(eq(memberTable.id, id));
 
           const changes = [
             ...diffFields(memberAuditSpec, existing, fields),
+            ...diffRedacted(applicantAuditLabels, existing, {
+              ...fields,
+              ...newDocuments,
+            }),
             ...(fields.sectorId !== undefined
               ? change(
                   "Sektör",
@@ -268,6 +400,7 @@ export const membersRoute = new Hono<AppEnv>()
         });
       } catch (error) {
         if (newLogo) await deleteFile(newLogo);
+        await Promise.all(Object.values(newDocuments).map(deleteFile));
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
           return c.json({ error: MISSING_SECTOR_ERROR }, 400);
         }
@@ -276,6 +409,10 @@ export const membersRoute = new Hono<AppEnv>()
 
       if (newLogo !== undefined && existing.logo) {
         await deleteFile(existing.logo);
+      }
+      for (const field of DOCUMENT_FIELDS) {
+        const old = existing[field];
+        if (newDocuments[field] && old) await deleteFile(old);
       }
 
       return c.json({ id, message: "Üye güncellendi" }, 200);
@@ -288,7 +425,9 @@ export const membersRoute = new Hono<AppEnv>()
       const { id } = c.req.valid("param");
 
       const deleted = await db.transaction(async (tx) => {
-        const [member] = await selectMembers(tx).where(eq(memberTable.id, id));
+        const [member] = await selectFullMember(tx).where(
+          eq(memberTable.id, id),
+        );
         if (!member) return null;
 
         // the links cascade away with the member, so name them now
@@ -319,7 +458,13 @@ export const membersRoute = new Hono<AppEnv>()
 
       if (!deleted) return c.json({ error: "Üye bulunamadı" }, 404);
 
-      if (deleted.logo) await deleteFile(deleted.logo);
+      for (const file of [
+        deleted.logo,
+        deleted.identityDocument,
+        deleted.activityDocument,
+      ]) {
+        if (file) await deleteFile(file);
+      }
 
       return c.json({ message: "Üye silindi" }, 200);
     },

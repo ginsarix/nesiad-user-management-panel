@@ -1,0 +1,625 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "52ab483b-eb6c-4a80-9619-34cef59ee9b7",
+  "prevIds": [
+    "92274ba2-d1e7-4b79-9d1f-c9d993229ee6"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "applicant_first_name"
+      ],
+      "writes": [
+        "s|col|public.member.applicant_first_name",
+        "n|col|public.member.applicant_first_name",
+        "e|col|public.member.applicant_first_name"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "applicant_last_name"
+      ],
+      "writes": [
+        "s|col|public.member.applicant_last_name",
+        "n|col|public.member.applicant_last_name",
+        "e|col|public.member.applicant_last_name"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "applicant_role"
+      ],
+      "writes": [
+        "s|col|public.member.applicant_role",
+        "n|col|public.member.applicant_role",
+        "e|col|public.member.applicant_role"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "employee_count"
+      ],
+      "writes": [
+        "s|col|public.member.employee_count",
+        "n|col|public.member.employee_count",
+        "e|col|public.member.employee_count"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "website"
+      ],
+      "writes": [
+        "s|col|public.member.website",
+        "n|col|public.member.website",
+        "e|col|public.member.website"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "email"
+      ],
+      "writes": [
+        "s|col|public.member.email",
+        "n|col|public.member.email",
+        "e|col|public.member.email"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "mobile_phone"
+      ],
+      "writes": [
+        "s|col|public.member.mobile_phone",
+        "n|col|public.member.mobile_phone",
+        "e|col|public.member.mobile_phone"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "birth_date"
+      ],
+      "writes": [
+        "s|col|public.member.birth_date",
+        "n|col|public.member.birth_date",
+        "e|col|public.member.birth_date"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "birth_place"
+      ],
+      "writes": [
+        "s|col|public.member.birth_place",
+        "n|col|public.member.birth_place",
+        "e|col|public.member.birth_place"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "national_id"
+      ],
+      "writes": [
+        "s|col|public.member.national_id",
+        "n|col|public.member.national_id",
+        "e|col|public.member.national_id"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "education"
+      ],
+      "writes": [
+        "s|col|public.member.education",
+        "n|col|public.member.education",
+        "e|col|public.member.education"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "other_associations"
+      ],
+      "writes": [
+        "s|col|public.member.other_associations",
+        "n|col|public.member.other_associations",
+        "e|col|public.member.other_associations"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "company_intro"
+      ],
+      "writes": [
+        "s|col|public.member.company_intro",
+        "n|col|public.member.company_intro",
+        "e|col|public.member.company_intro"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "gender"
+      ],
+      "writes": [
+        "s|col|public.member.gender",
+        "n|col|public.member.gender",
+        "e|col|public.member.gender"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "reference_name"
+      ],
+      "writes": [
+        "s|col|public.member.reference_name",
+        "n|col|public.member.reference_name",
+        "e|col|public.member.reference_name"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "identity_document"
+      ],
+      "writes": [
+        "s|col|public.member.identity_document",
+        "n|col|public.member.identity_document",
+        "e|col|public.member.identity_document"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "activity_document"
+      ],
+      "writes": [
+        "s|col|public.member.activity_document",
+        "n|col|public.member.activity_document",
+        "e|col|public.member.activity_document"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "consented_at"
+      ],
+      "writes": [
+        "s|col|public.member.consented_at",
+        "n|col|public.member.consented_at",
+        "e|col|public.member.consented_at"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "applicant_first_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "applicant_last_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "applicant_role",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "employee_count",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "website",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "email",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "mobile_phone",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "birth_date",
+        "type": "date",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "birth_place",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "national_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "education",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "other_associations",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "company_intro",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "gender",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "reference_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "identity_document",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "activity_document",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "consented_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

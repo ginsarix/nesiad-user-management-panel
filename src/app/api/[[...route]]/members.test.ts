@@ -1,7 +1,7 @@
-import { inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { memberTable, sectorTable } from "@/db/schema";
+import { auditLogTable, memberTable, sectorTable } from "@/db/schema";
 import { deleteFile, readStoredFile } from "@/lib/file-storage";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
@@ -32,6 +32,12 @@ function form(fields: Record<string, string | File>) {
   const body = new FormData();
   for (const [key, value] of Object.entries(fields)) body.append(key, value);
   return body;
+}
+
+const PDF = Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
+
+function pdfFile(name = "belge.pdf") {
+  return new File([PDF], name, { type: "application/pdf" });
 }
 
 function pngFile(name = "logo.png") {
@@ -368,7 +374,277 @@ describe("DELETE /api/members/:id", () => {
   });
 });
 
+const TC = "10000000146";
+const TC_2 = "10000000220"; // not necessarily valid; only used where unchecked
+
+async function patchMember(id: number, fields: Record<string, string | File>) {
+  const res = await membersRoute.request(`/${id}`, {
+    method: "PATCH",
+    body: form(fields),
+  });
+  return { res, body: await res.json() };
+}
+
+describe("applicant fields", () => {
+  it("never returns the TC number in list or detail", async () => {
+    const { body } = await createMember({
+      title: "__test__ TC Gizli",
+      nationalId: TC,
+    });
+
+    const { body: member } = await getMember(body.id);
+    expect(member.nationalIdMasked).toBe("100••••••••");
+    expect(member).not.toHaveProperty("nationalId");
+
+    const list = await (await membersRoute.request("/")).json();
+    const item = list.find((m: { id: number }) => m.id === body.id);
+    expect(item).toBeDefined();
+    expect(item).not.toHaveProperty("nationalId");
+    expect(item).not.toHaveProperty("nationalIdMasked");
+    expect(item).not.toHaveProperty("identityDocument");
+    expect(item).not.toHaveProperty("activityDocument");
+    expect(JSON.stringify(item)).not.toContain(TC);
+    expect(JSON.stringify(member)).not.toContain(TC);
+  });
+
+  it("returns null masked when there is no TC number", async () => {
+    const { body } = await createMember({ title: "__test__ TC Yok" });
+    const { body: member } = await getMember(body.id);
+    expect(member.nationalIdMasked).toBeNull();
+  });
+
+  it("reveals the TC number on its own endpoint", async () => {
+    const { body } = await createMember({
+      title: "__test__ TC Göster",
+      nationalId: TC,
+    });
+    const res = await membersRoute.request(`/${body.id}/national-id`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ nationalId: TC });
+
+    const missing = await membersRoute.request("/999999999/national-id");
+    expect(missing.status).toBe(404);
+  });
+
+  it("keeps the TC number when PATCH sends it blank", async () => {
+    const { body } = await createMember({
+      title: "__test__ TC Korunur",
+      nationalId: TC,
+    });
+    const { res } = await patchMember(body.id, { nationalId: "" });
+    expect(res.status).toBe(200);
+
+    const reveal = await membersRoute.request(`/${body.id}/national-id`);
+    expect(await reveal.json()).toEqual({ nationalId: TC });
+  });
+
+  it("refuses an invalid TC number", async () => {
+    const { res } = await createMember({
+      title: "__test__ TC Hatalı",
+      nationalId: "10000000147",
+    });
+    expect(res.status).toBe(400);
+
+    const { body } = await createMember({ title: "__test__ TC Hatalı 2" });
+    const patched = await patchMember(body.id, { nationalId: `${TC_2}9` });
+    expect(patched.res.status).toBe(400);
+  });
+
+  it("stores the applicant's text fields and a normalized website", async () => {
+    const { res, body } = await createMember({
+      title: "__test__ Başvuran",
+      applicantFirstName: " Ayşe ",
+      applicantLastName: "Yılmaz",
+      email: "ayse@ornek.com",
+      mobilePhone: "0532 111 22 33",
+      employeeCount: "12",
+      gender: "female",
+      birthDate: "1990-02-03",
+      website: "ornek.com",
+      education: "",
+    });
+    expect(res.status).toBe(201);
+
+    const { body: member } = await getMember(body.id);
+    expect(member.applicantFirstName).toBe("Ayşe");
+    expect(member.employeeCount).toBe(12);
+    expect(member.gender).toBe("female");
+    expect(member.birthDate).toBe("1990-02-03");
+    expect(member.website).toBe("https://ornek.com");
+    expect(member.education).toBeNull();
+    expect(member.consentedAt).toBeNull();
+  });
+
+  it("refuses a javascript: website", async () => {
+    const { res } = await createMember({
+      title: "__test__ Kötü Site",
+      website: "javascript:alert(1)",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it.each([
+    ["email", "değil"],
+    ["mobilePhone", "0212 111 22 33"],
+    ["employeeCount", "-1"],
+    ["employeeCount", "1.5"],
+    ["gender", "x"],
+  ])("refuses an invalid %s", async (field, value) => {
+    const { res } = await createMember({
+      title: "__test__ Geçersiz Alan",
+      [field]: value,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("ignores consentedAt from staff", async () => {
+    const { body } = await createMember({
+      title: "__test__ Onay",
+      consentedAt: "2020-01-01T00:00:00Z",
+    });
+    const { body: member } = await getMember(body.id);
+    expect(member.consentedAt).toBeNull();
+  });
+
+  it("stores documents and replaces them, removing the old file", async () => {
+    const { body } = await createMember({
+      title: "__test__ Belge",
+      identityDocument: pdfFile(),
+    });
+    const { body: before } = await getMember(body.id);
+    expect(before.identityDocument).toMatch(/^document_.+\.pdf$/);
+    createdFiles.push(before.identityDocument);
+
+    await patchMember(body.id, { identityDocument: pngFile("kimlik.png") });
+    const { body: after } = await getMember(body.id);
+    createdFiles.push(after.identityDocument);
+    expect(after.identityDocument).toMatch(/^document_.+\.png$/);
+    expect(await readStoredFile(before.identityDocument)).toBeNull();
+    expect(await readStoredFile(after.identityDocument)).not.toBeNull();
+  });
+
+  it("rejects a non-document upload and changes nothing", async () => {
+    const { body } = await createMember({ title: "__test__ Sahte Belge" });
+    const { res } = await patchMember(body.id, {
+      title: "__test__ Sahte Belge Yeni",
+      identityDocument: new File(["düz metin"], "a.pdf", {
+        type: "application/pdf",
+      }),
+    });
+    expect(res.status).toBe(415);
+
+    const { body: member } = await getMember(body.id);
+    expect(member.title).toBe("__test__ Sahte Belge");
+    expect(member.identityDocument).toBeNull();
+  });
+
+  it("logs applicant field changes without values", async () => {
+    const { body } = await createMember({ title: "__test__ Denetim" });
+    await patchMember(body.id, {
+      birthPlace: "Nevşehir-Gizli",
+      email: "gizli@ornek.com",
+      nationalId: TC,
+    });
+
+    const [entry] = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "member"),
+          eq(auditLogTable.action, "update"),
+          eq(auditLogTable.entityId, String(body.id)),
+        ),
+      )
+      .orderBy(desc(auditLogTable.id))
+      .limit(1);
+
+    expect(entry.changes).toEqual(
+      expect.arrayContaining([
+        { label: "Doğum Yeri", from: "—", to: "•••" },
+        { label: "E-posta", from: "—", to: "•••" },
+        { label: "TC Kimlik No", from: "—", to: "•••" },
+      ]),
+    );
+    expect(entry.changes).toHaveLength(3);
+    const json = JSON.stringify(entry);
+    expect(json).not.toContain("Nevşehir-Gizli");
+    expect(json).not.toContain("gizli@ornek.com");
+    expect(json).not.toContain(TC);
+  });
+
+  it("leaves applicant data out of the delete entry", async () => {
+    const { body } = await createMember({
+      title: "__test__ Silinen Başvuran",
+      birthPlace: "Nevşehir-Gizli",
+      nationalId: TC,
+      identityDocument: pdfFile(),
+      activityDocument: pdfFile("faaliyet.pdf"),
+    });
+    const { body: member } = await getMember(body.id);
+    createdFiles.push(member.identityDocument, member.activityDocument);
+
+    const res = await membersRoute.request(`/${body.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(200);
+
+    const [entry] = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "member"),
+          eq(auditLogTable.action, "delete"),
+          eq(auditLogTable.entityId, String(body.id)),
+        ),
+      );
+    expect(entry.details?.map((d) => d.label)).toEqual([
+      "Ünvan",
+      "Durum",
+      "Telefon",
+      "Adres",
+      "Üye Giriş Tarihi",
+      "Kuruluş Tarihi",
+      "Sektör",
+      "Logo",
+      "Yetkililer",
+    ]);
+    expect(JSON.stringify(entry)).not.toContain(TC);
+    expect(await readStoredFile(member.identityDocument)).toBeNull();
+    expect(await readStoredFile(member.activityDocument)).toBeNull();
+  });
+});
+
 describe("GET /api/files/:filename", () => {
+  it("serves a PDF as application/pdf, uncached for documents", async () => {
+    const { body } = await createMember({
+      title: "__test__ PDF Servis",
+      identityDocument: pdfFile(),
+    });
+    const { body: member } = await getMember(body.id);
+    createdFiles.push(member.identityDocument);
+
+    const res = await filesRoute.request(`/${member.identityDocument}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/pdf");
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("keeps the immutable cache header on logos", async () => {
+    const { body } = await createMember({
+      title: "__test__ Logo Önbellek",
+      logo: pngFile(),
+    });
+    const { body: member } = await getMember(body.id);
+    createdFiles.push(member.logo);
+
+    const res = await filesRoute.request(`/${member.logo}`);
+    expect(res.headers.get("Cache-Control")).toBe(
+      "private, max-age=31536000, immutable",
+    );
+  });
+
   it("serves a stored logo with an image content type", async () => {
     const { body } = await createMember({
       title: "__test__ Dosya",

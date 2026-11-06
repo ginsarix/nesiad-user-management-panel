@@ -38,17 +38,42 @@ function toMemberForm({
   memberLoginDate,
   foundingDate,
   sectorId,
+  birthDate,
+  identityDocument,
+  activityDocument,
+  title,
   ...fields
 }: MemberFormValues) {
   return {
-    ...fields,
+    title,
+    // fields the form leaves out (undefined) are not sent, so they stay as stored
+    ...(Object.fromEntries(
+      Object.entries(fields).filter(([, value]) => value !== undefined),
+    ) as {
+      [K in keyof typeof fields]?: Exclude<(typeof fields)[K], undefined>;
+    }),
     sectorId: sectorId === null ? "" : String(sectorId),
     // the form holds gg.aa.yyyy, the API takes yyyy-aa-gg
     memberLoginDate: displayToIso(memberLoginDate),
     foundingDate: displayToIso(foundingDate),
+    ...(birthDate !== undefined && { birthDate: displayToIso(birthDate) }),
+    ...(identityDocument && { identityDocument }),
+    ...(activityDocument && { activityDocument }),
     ...(status && { status }),
     ...(logo ? { logo } : removeLogo && { removeLogo: "true" }),
   };
+}
+
+/** The full TC number, shown only when a staff member asks for it */
+export async function getMemberNationalId(id: number) {
+  const res = await rpcClient.api.members[":id"]["national-id"].$get({
+    param: { id: String(id) },
+  });
+
+  if (!res.ok) await throwResponseError(res, "TC Kimlik No alınamadı");
+
+  const body = (await res.json()) as { nationalId: string | null };
+  return body.nationalId;
 }
 
 export async function createMember(values: MemberFormValues) {

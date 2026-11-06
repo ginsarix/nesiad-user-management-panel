@@ -59,3 +59,31 @@ export function change(
   const after = to?.trim() ? to : EMPTY;
   return before === after ? [] : [{ label, from: before, to: after }];
 }
+
+const REDACTED = "•••";
+
+/**
+ * Changes to personal data: only whether a value was set is recorded, never
+ * the value. Compares the raw values and, like `diffFields`, only looks at
+ * fields present in `update`.
+ */
+export function diffRedacted(
+  labels: Record<string, string>,
+  before: Record<string, unknown>,
+  update: Record<string, unknown>,
+): AuditChange[] {
+  const isSet = (value: unknown) =>
+    value != null && !(typeof value === "string" && !value.trim());
+
+  return Object.entries(labels).flatMap(([key, label]) => {
+    if (!(key in update) || update[key] === undefined) return [];
+    const was = before[key] ?? null;
+    const now = update[key] ?? null;
+    if (was === now) return [];
+    const from = isSet(was) ? REDACTED : EMPTY;
+    const to = isSet(now) ? REDACTED : EMPTY;
+    // "" -> null is no change worth a line; both sides empty
+    if (from === EMPTY && to === EMPTY) return [];
+    return [{ label, from, to }];
+  });
+}

@@ -4,6 +4,7 @@ import {
   change,
   describeFields,
   diffFields,
+  diffRedacted,
   formatAudit,
 } from "./audit-diff";
 
@@ -65,5 +66,31 @@ describe("change", () => {
     expect(change("Sektör", "İnşaat", null)).toEqual([
       { label: "Sektör", from: "İnşaat", to: "—" },
     ]);
+  });
+});
+
+describe("diffRedacted", () => {
+  const labels = { nationalId: "TC Kimlik No" };
+
+  it("hides both values of a changed field", () => {
+    expect(
+      diffRedacted(labels, { nationalId: "1" }, { nationalId: "2" }),
+    ).toEqual([{ label: "TC Kimlik No", from: "•••", to: "•••" }]);
+  });
+
+  it("shows only whether a value was set", () => {
+    expect(
+      diffRedacted(labels, { nationalId: null }, { nationalId: "2" }),
+    ).toEqual([{ label: "TC Kimlik No", from: "—", to: "•••" }]);
+    expect(
+      diffRedacted(labels, { nationalId: "2" }, { nationalId: null }),
+    ).toEqual([{ label: "TC Kimlik No", from: "•••", to: "—" }]);
+  });
+
+  it("ignores fields missing from the update and unchanged ones", () => {
+    expect(diffRedacted(labels, { nationalId: "1" }, {})).toEqual([]);
+    expect(
+      diffRedacted(labels, { nationalId: "1" }, { nationalId: "1" }),
+    ).toEqual([]);
   });
 });

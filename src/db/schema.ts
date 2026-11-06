@@ -50,6 +50,27 @@ export const memberTable = pgTable(
     }),
     foundingDate: date("founding_date", { mode: "string" }),
 
+    // Applicant details, filled in by the public membership application
+    applicantFirstName: text("applicant_first_name"),
+    applicantLastName: text("applicant_last_name"),
+    applicantRole: text("applicant_role"),
+    employeeCount: integer("employee_count"),
+    website: text(),
+    email: text(),
+    mobilePhone: text("mobile_phone"),
+    birthDate: date("birth_date", { mode: "string" }),
+    birthPlace: text("birth_place"),
+    // never returned by the list or detail API, and never written to the audit log
+    nationalId: text("national_id"),
+    education: text(),
+    otherAssociations: text("other_associations"),
+    companyIntro: text("company_intro"),
+    gender: text().$type<"male" | "female">(),
+    referenceName: text("reference_name"),
+    identityDocument: text("identity_document"),
+    activityDocument: text("activity_document"),
+    consentedAt: timestamp("consented_at", { withTimezone: true }),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
