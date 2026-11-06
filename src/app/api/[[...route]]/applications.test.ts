@@ -358,6 +358,15 @@ describe("POST /api/applications", () => {
   });
 
   it("still succeeds when the panel email fails", async () => {
+    // CI's database starts empty, and with no recipient no email is attempted
+    const id = `__test__${crypto.randomUUID()}`;
+    userIds.push(id);
+    await db.insert(userTable).values({
+      id,
+      name: "__test__ Panel User",
+      email: `${id}@example.com`,
+      emailVerified: true,
+    });
     vi.mocked(sendEmail).mockRejectedValue(new Error("smtp down"));
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
