@@ -149,6 +149,12 @@ describe("link-like names", () => {
     "kampanya｡com",
     "kampanya。com",
     "kampanya．com",
+    "kampanya．ｃｏｍ",
+    "ｈｔｔｐ：／／x",
+    "kampanya\uFE52com",
+    "kampanya\u2024com",
+    "kampanya\u0301.com",
+    "kampanya_.com",
   ])("refuses %s in the name, surname and company", (value) => {
     for (const field of ["applicantFirstName", "applicantLastName", "title"]) {
       const result = withName(field, value);

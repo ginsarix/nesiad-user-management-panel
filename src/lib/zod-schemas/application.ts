@@ -18,11 +18,15 @@ const controlMessage = (label: string) => `${label} geçersiz karakter içeriyor
 // would be delivered with its authority. Bare ".org" and ".tr" stay allowed:
 // Turkish company names abbreviate ("Tur.Org.San.Ltd.Şti.").
 const LINK_LIKE =
-  /[a-z][a-z0-9+.-]*:\/\/|www\.|[\p{L}\p{N}]\.(?:com|net|info|biz|xyz|link|site|online|io|org\.tr|com\.tr)(?![\p{L}\p{N}])/iu;
+  /[a-z][a-z0-9+.-]*:\/\/|www\.|[\p{L}\p{M}\p{N}_]\.(?:com|net|info|biz|xyz|link|site|online|io|org\.tr|com\.tr)(?![\p{L}\p{N}])/iu;
 
-/** Ideographic and fullwidth full stops count as dots in a browser's address bar */
+/**
+ * Tested on a normalized copy, because browsers fold fullwidth letters and
+ * lookalike dots into a real address. NFKC doesn't map the ideographic full
+ * stop, so that one is replaced by hand. What's stored stays as typed.
+ */
 function looksLikeLink(value: string) {
-  return LINK_LIKE.test(value.replace(/[\u3002\uFF0E\uFF61]/g, "."));
+  return LINK_LIKE.test(value.normalize("NFKC").replace(/\u3002/g, "."));
 }
 
 /** A required one-line field: every run of whitespace becomes one space */
