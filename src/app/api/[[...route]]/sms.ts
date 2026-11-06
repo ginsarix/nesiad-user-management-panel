@@ -3,11 +3,16 @@ import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "@/db";
 import {
+  applicationNoticeSettingsTable,
   authorizedRepresentativeTable,
   memberTable,
   smsSendTable,
   smsSettingsTable,
 } from "@/db/schema";
+import {
+  type ApplicationNoticeSettings,
+  getApplicationNoticeSettings,
+} from "@/lib/application-notice-settings";
 import { recordAudit } from "@/lib/audit";
 import { type AuditSpec, diffFields, formatAudit } from "@/lib/audit-diff";
 import { loadCelebrationsOn } from "@/lib/sms/load-celebrations";
@@ -19,6 +24,7 @@ import {
 import { buildRecipients, type Contact } from "@/lib/sms/recipients";
 import { getSmsSettings, type SmsSettings } from "@/lib/sms/settings";
 import { compareTr } from "@/lib/turkish";
+import { noticeSettingsSchema } from "@/lib/zod-schemas/application-notices";
 import {
   celebrationsQuerySchema,
   smsSendSchema,
@@ -100,6 +106,30 @@ function settingsResponse(settings: SmsSettings) {
   return { autoEnabled, sendTime, foundingMessage, birthdayMessage };
 }
 
+const noticeAuditSpec: AuditSpec = {
+  acceptedSms: { label: "Kabul SMS'i", format: formatAudit.text },
+  acceptedEmailSubject: {
+    label: "Kabul e-postası konusu",
+    format: formatAudit.text,
+  },
+  acceptedEmailBody: {
+    label: "Kabul e-postası metni",
+    format: formatAudit.text,
+  },
+  rejectedSms: { label: "Red SMS'i", format: formatAudit.text },
+  rejectedEmailSubject: {
+    label: "Red e-postası konusu",
+    format: formatAudit.text,
+  },
+  rejectedEmailBody: { label: "Red e-postası metni", format: formatAudit.text },
+};
+
+/** The templates the Ayarlar form edits */
+function noticeSettingsResponse(settings: ApplicationNoticeSettings) {
+  const { id, updatedAt, ...templates } = settings;
+  return templates;
+}
+
 export const smsRoute = new Hono<AppEnv>()
   /** Who can be picked on the Manuel tab */
   .get("/contacts", async (c) => {
@@ -165,6 +195,39 @@ export const smsRoute = new Hono<AppEnv>()
       });
 
       return c.json(settingsResponse(updated));
+    },
+  )
+  /** The Ayarlar tab: templates for the application accepted/rejected notices */
+  .get("/notice-settings", async (c) => {
+    return c.json(noticeSettingsResponse(await getApplicationNoticeSettings()));
+  })
+  .put(
+    "/notice-settings",
+    zValidator("json", noticeSettingsSchema, respondWithFirstIssue),
+    async (c) => {
+      const values = c.req.valid("json");
+      const before = await getApplicationNoticeSettings();
+
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(applicationNoticeSettingsTable)
+          .set(values)
+          .where(eq(applicationNoticeSettingsTable.id, 1))
+          .returning();
+        const changes = diffFields(noticeAuditSpec, before, values);
+        if (changes.length > 0) {
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "notice_settings_update",
+            entityType: "sms",
+            entityLabel: "Başvuru bildirim şablonları",
+            changes,
+          });
+        }
+        return row;
+      });
+
+      return c.json(noticeSettingsResponse(updated));
     },
   )
   .post(

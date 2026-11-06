@@ -323,3 +323,25 @@ export const smsSettingsTable = pgTable(
   },
   (table) => [check("sms_settings_single_row", sql`${table.id} = 1`)],
 );
+
+/** The one row of application notice templates (Ayarlar tab), {ad} and {firma} */
+export const applicationNoticeSettingsTable = pgTable(
+  "application_notice_settings",
+  {
+    id: integer().primaryKey().default(1),
+    acceptedSms: text("accepted_sms").notNull(),
+    rejectedSms: text("rejected_sms").notNull(),
+    acceptedEmailSubject: text("accepted_email_subject").notNull(),
+    acceptedEmailBody: text("accepted_email_body").notNull(),
+    rejectedEmailSubject: text("rejected_email_subject").notNull(),
+    rejectedEmailBody: text("rejected_email_body").notNull(),
+
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("application_notice_settings_single_row", sql`${table.id} = 1`),
+  ],
+);

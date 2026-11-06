@@ -365,3 +365,99 @@ describe("/api/sms/settings", () => {
     expect(await res.json()).toEqual({ error });
   });
 });
+
+describe("/api/sms/notice-settings", () => {
+  function put(body: unknown) {
+    return smsRoute.request("/notice-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async function cleanAudit(maxId: number | null) {
+    await db
+      .delete(auditLogTable)
+      .where(
+        and(
+          gt(auditLogTable.id, maxId ?? 0),
+          eq(auditLogTable.action, "notice_settings_update"),
+        ),
+      );
+  }
+
+  it("creates the notice settings with the defaults", async () => {
+    const res = await smsRoute.request("/notice-settings");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // another test (or staff) may have edited them; the keys are what matters
+    expect(Object.keys(body).sort()).toEqual([
+      "acceptedEmailBody",
+      "acceptedEmailSubject",
+      "acceptedSms",
+      "rejectedEmailBody",
+      "rejectedEmailSubject",
+      "rejectedSms",
+    ]);
+    expect(body.acceptedSms).toContain("{ad}");
+  });
+
+  it("refuses an unknown placeholder", async () => {
+    const original = await (await smsRoute.request("/notice-settings")).json();
+    const res = await put({ ...original, acceptedSms: "Sayın {ad} {yil}" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Tanınmayan alan: {yil}. Kullanılabilenler: {ad}, {firma}",
+    });
+  });
+
+  it("audits a template change", async () => {
+    const original = await (await smsRoute.request("/notice-settings")).json();
+    const [{ maxId }] = await db
+      .select({ maxId: max(auditLogTable.id) })
+      .from(auditLogTable);
+    try {
+      const values = { ...original, rejectedSms: "__test__ {ad} {firma}" };
+      const res = await put(values);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual(values);
+
+      const [audit] = await db
+        .select()
+        .from(auditLogTable)
+        .where(
+          and(
+            gt(auditLogTable.id, maxId ?? 0),
+            eq(auditLogTable.action, "notice_settings_update"),
+          ),
+        );
+      expect(audit.changes).toEqual([
+        {
+          label: "Red SMS'i",
+          from: original.rejectedSms,
+          to: values.rejectedSms,
+        },
+      ]);
+    } finally {
+      await put(original);
+      await cleanAudit(maxId);
+    }
+  });
+
+  it("doesn't affect the celebration settings", async () => {
+    const celebration = await (await smsRoute.request("/settings")).json();
+    const original = await (await smsRoute.request("/notice-settings")).json();
+    const [{ maxId }] = await db
+      .select({ maxId: max(auditLogTable.id) })
+      .from(auditLogTable);
+    try {
+      await put({ ...original, acceptedSms: "__test__ {ad}" });
+      expect(await (await smsRoute.request("/settings")).json()).toEqual(
+        celebration,
+      );
+    } finally {
+      await put(original);
+      await cleanAudit(maxId);
+    }
+  });
+});

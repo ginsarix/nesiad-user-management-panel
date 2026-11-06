@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ClientRequestOptions } from "hono/client";
 import { rpcClient } from "../rpc-client";
+import type { NoticeSettingsValues } from "../zod-schemas/application-notices";
 import type { SmsSendValues, SmsSettingsValues } from "../zod-schemas/sms";
 import { throwResponseError } from "./errors";
 
@@ -58,6 +59,28 @@ export async function updateSmsSettings(values: SmsSettingsValues) {
   const res = await rpcClient.api.sms.settings.$put({ json: values });
 
   if (!res.ok) return throwResponseError(res, "SMS ayarları kaydedilemedi");
+
+  return await res.json();
+}
+
+export async function getNoticeSettings(options?: ClientRequestOptions) {
+  const res = await rpcClient.api.sms["notice-settings"].$get(
+    undefined,
+    options,
+  );
+
+  if (!res.ok)
+    return throwResponseError(res, "Bildirim şablonları yüklenemedi");
+
+  return await res.json();
+}
+
+export async function updateNoticeSettings(values: NoticeSettingsValues) {
+  const res = await rpcClient.api.sms["notice-settings"].$put({ json: values });
+
+  if (!res.ok) {
+    return throwResponseError(res, "Bildirim şablonları kaydedilemedi");
+  }
 
   return await res.json();
 }

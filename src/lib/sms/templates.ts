@@ -6,8 +6,6 @@ export const TEMPLATE_PLACEHOLDERS = {
   yil: "kaçıncı yıl dönümü / yaş günü (sayı)",
 } as const;
 
-export type TemplateValues = Record<keyof typeof TEMPLATE_PLACEHOLDERS, string>;
-
 export const DEFAULT_MESSAGES: Record<CelebrationKind, string> = {
   founding:
     "Sayın {ad}, kuruluşunuzun {yil}. yıl dönümünü kutlar, nice başarılı yıllar dileriz. NESİAD",
@@ -15,19 +13,45 @@ export const DEFAULT_MESSAGES: Record<CelebrationKind, string> = {
     "Sayın {ad}, doğum gününüzü kutlar, sağlıklı ve mutlu nice yıllar dileriz. NESİAD",
 };
 
+/** What an application notice can contain */
+export const NOTICE_PLACEHOLDERS = {
+  ad: "başvuranın adı soyadı",
+  firma: "firma adı",
+} as const;
+
+/** The notice texts shipped before staff edit them (Ayarlar tab) */
+export const DEFAULT_NOTICE_TEMPLATES = {
+  acceptedSms:
+    "Sayın {ad}, {firma} adına yaptığınız NESİAD üyelik başvurunuz kabul edilmiştir. Aramıza hoş geldiniz. NESİAD",
+  rejectedSms:
+    "Sayın {ad}, {firma} adına yaptığınız NESİAD üyelik başvurunuz olumlu sonuçlanmamıştır. İlginiz için teşekkür ederiz. NESİAD",
+  acceptedEmailSubject: "NESİAD üyelik başvurunuz kabul edildi",
+  acceptedEmailBody:
+    "Sayın {ad},\n\n{firma} adına yaptığınız NESİAD üyelik başvurunuz kabul edilmiştir. Aramıza hoş geldiniz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
+  rejectedEmailSubject: "NESİAD üyelik başvurunuz hakkında",
+  rejectedEmailBody:
+    "Sayın {ad},\n\n{firma} adına yaptığınız NESİAD üyelik başvurunuz olumlu sonuçlanmamıştır. İlginiz için teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
+} as const;
+
 const PLACEHOLDER = /\{([^{}]*)\}/g;
 
-/** "{ad}" → the name, "{yil}" → the year; anything else is left as typed */
-export function fillTemplate(template: string, values: TemplateValues) {
+/**
+ * "{ad}" → the name, "{yil}" → the year; anything else is left as typed.
+ * Values are inserted in one pass, so text inside a value is never expanded.
+ */
+export function fillTemplate(template: string, values: Record<string, string>) {
   return template.replace(PLACEHOLDER, (match, name: string) =>
-    name in values ? values[name as keyof TemplateValues] : match,
+    Object.hasOwn(values, name) ? values[name] : match,
   );
 }
 
-/** Placeholders in `template` that fillTemplate doesn't know, e.g. ["{isim}"] */
-export function unknownPlaceholders(template: string) {
+/** Placeholders in `template` that aren't in `known`, e.g. ["{isim}"] */
+export function unknownPlaceholders(
+  template: string,
+  known: Record<string, unknown> = TEMPLATE_PLACEHOLDERS,
+) {
   return [...template.matchAll(PLACEHOLDER)]
-    .filter(([, name]) => !(name in TEMPLATE_PLACEHOLDERS))
+    .filter(([, name]) => !Object.hasOwn(known, name))
     .map(([match]) => match);
 }
 

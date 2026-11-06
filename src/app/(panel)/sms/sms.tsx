@@ -3,6 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AutoSms } from "./auto-sms";
 import { ManualSms } from "./manual-sms";
+import { NoticeSettings } from "./notice-settings";
 import { SmsSettings } from "./sms-settings";
 
 export function Sms() {
@@ -19,8 +20,9 @@ export function Sms() {
       <TabsContent value="auto">
         <AutoSms />
       </TabsContent>
-      <TabsContent value="settings">
+      <TabsContent value="settings" className="flex flex-col gap-6">
         <SmsSettings />
+        <NoticeSettings />
       </TabsContent>
     </Tabs>
   );
