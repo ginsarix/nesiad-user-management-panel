@@ -94,3 +94,24 @@ export async function deleteFile(filename: string) {
     if (!isNotFound(error)) throw error;
   }
 }
+
+/**
+ * Deletes every file, attempting all even when some fail (a missing one is
+ * fine), and never throws: cleanup must not turn a refusal into a 500 or
+ * leave the rest of the files behind. Failures are logged by filename and
+ * error code only.
+ */
+export async function deleteFiles(filenames: (string | null | undefined)[]) {
+  const names = filenames.filter((name): name is string => !!name);
+  const results = await Promise.allSettled(names.map(deleteFile));
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      const code = (result.reason as NodeJS.ErrnoException | undefined)?.code;
+      console.error(
+        "Deleting a stored file failed:",
+        names[index],
+        code ?? "none",
+      );
+    }
+  });
+}

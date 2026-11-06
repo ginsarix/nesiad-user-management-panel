@@ -282,7 +282,7 @@ describe("POST /api/applications", () => {
     const title = newTitle();
     const before = storedFiles.length;
 
-    const res = await submit(fields(title, { faxNumber: "123" }));
+    const res = await submit(fields(title, { leaveBlank: "123" }));
 
     expect(res.status).toBe(201);
     expect(await findByTitle(title)).toBeUndefined();

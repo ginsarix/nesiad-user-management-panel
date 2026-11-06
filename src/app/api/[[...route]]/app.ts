@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
+import { HTTPException } from "hono/http-exception";
 import { auth } from "@/lib/auth";
 import { applicationsRoute } from "./applications";
 import { auditLogsRoute } from "./audit-logs";
 import { cronRoute } from "./cron";
+import { pgErrorCode } from "./db-errors";
 import type { AppEnv } from "./env";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
@@ -36,6 +38,16 @@ export const app = new Hono<AppEnv>()
   .route("/panel-users", panelUsersRoute)
   .route("/audit-logs", auditLogsRoute)
   .route("/sms", smsRoute)
-  .route("/files", filesRoute);
+  .route("/files", filesRoute)
+  // Hono's default handler prints the raw error, and a Postgres constraint
+  // error's DETAIL holds the whole row (TC number included)
+  .onError((err, c) => {
+    if (err instanceof HTTPException) return err.getResponse();
+    console.error(
+      "Unexpected API error, code:",
+      pgErrorCode(err) ?? (err instanceof Error ? err.name : "unknown"),
+    );
+    return c.json({ error: "Bir hata oluştu. Lütfen tekrar deneyin." }, 500);
+  });
 
 export type AppType = typeof app;

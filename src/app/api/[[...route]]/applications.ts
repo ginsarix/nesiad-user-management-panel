@@ -4,7 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { db } from "@/db";
 import { memberTable } from "@/db/schema";
 import { notifyPanelUsersOfApplication } from "@/lib/application-emails";
-import { deleteFile } from "@/lib/file-storage";
+import { deleteFiles } from "@/lib/file-storage";
 import { createRateLimiter } from "@/lib/rate-limit";
 import {
   DOCUMENT_MIME_TYPES,
@@ -48,12 +48,12 @@ export const applicationsRoute = new Hono().post(
   },
   zValidator("form", applicationApiSchema, respondWithFirstField),
   async (c) => {
-    const { faxNumber, logo, identityDocument, activityDocument, ...fields } =
+    const { leaveBlank, logo, identityDocument, activityDocument, ...fields } =
       c.req.valid("form");
     const { consentRules: _rules, consentData: _data, ...values } = fields;
 
     // a bot filled the hidden field: look successful, save nothing
-    if (faxNumber) return c.json({ message: "Başvurunuz alındı" }, 201);
+    if (leaveBlank) return c.json({ message: "Başvurunuz alındı" }, 201);
 
     // checks and counts in one step, so a parallel burst can't pass together;
     // given back below when nothing is saved
@@ -84,7 +84,7 @@ export const applicationsRoute = new Hono().post(
         const name = await storeUpload(file, allowed, base);
         if (!name) {
           applicationLimiter.release(ip);
-          await Promise.all(stored.map(deleteFile));
+          await deleteFiles(stored);
           return c.json(
             { error: field === "logo" ? LOGO_ERROR : DOCUMENT_ERROR, field },
             415,
@@ -113,7 +113,7 @@ export const applicationsRoute = new Hono().post(
       applicationLimiter.release(ip);
       // never leave an upload behind: a failure in the second or third
       // store, or in the insert
-      await Promise.all(stored.map(deleteFile));
+      await deleteFiles(stored);
       // the error text can embed the submitted values (TC number, phones), so
       // only the Postgres code is logged
       console.error(

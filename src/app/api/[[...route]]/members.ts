@@ -23,7 +23,7 @@ import {
   diffRedacted,
   formatAudit,
 } from "@/lib/audit-diff";
-import { createFile, deleteFile } from "@/lib/file-storage";
+import { createFile, deleteFiles } from "@/lib/file-storage";
 import { isEstablished, type MemberStatus } from "@/lib/member-status";
 import { maskNationalId } from "@/lib/national-id";
 import { netgsmClient } from "@/lib/sms/netgsm";
@@ -159,7 +159,7 @@ async function storeDocuments(files: Partial<Record<DocumentField, File>>) {
     if (!file) continue;
     const name = await storeUpload(file, DOCUMENT_MIME_TYPES, "document");
     if (!name) {
-      await Promise.all(Object.values(stored).map(deleteFile));
+      await deleteFiles(Object.values(stored));
       return { stored: {}, rejected: true };
     }
     stored[field] = name;
@@ -380,7 +380,7 @@ export const membersRoute = new Hono<AppEnv>()
         activityDocument,
       });
       if (documents.rejected) {
-        if (logoFilename) await deleteFile(logoFilename);
+        await deleteFiles([logoFilename]);
         return c.json({ error: NOT_A_DOCUMENT_ERROR }, 415);
       }
 
@@ -411,8 +411,7 @@ export const membersRoute = new Hono<AppEnv>()
 
         return c.json({ id, message: "Üye başarıyla kaydedildi" }, 201);
       } catch (error) {
-        if (logoFilename) await deleteFile(logoFilename);
-        await Promise.all(Object.values(documents.stored).map(deleteFile));
+        await deleteFiles([logoFilename, ...Object.values(documents.stored)]);
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
           return c.json({ error: MISSING_SECTOR_ERROR }, 400);
         }
@@ -462,7 +461,7 @@ export const membersRoute = new Hono<AppEnv>()
         activityDocument,
       });
       if (documents.rejected) {
-        if (newLogo) await deleteFile(newLogo);
+        await deleteFiles([newLogo]);
         return c.json({ error: NOT_A_DOCUMENT_ERROR }, 415);
       }
       const newDocuments = documents.stored;
@@ -515,21 +514,19 @@ export const membersRoute = new Hono<AppEnv>()
           });
         });
       } catch (error) {
-        if (newLogo) await deleteFile(newLogo);
-        await Promise.all(Object.values(newDocuments).map(deleteFile));
+        await deleteFiles([newLogo, ...Object.values(newDocuments)]);
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
           return c.json({ error: MISSING_SECTOR_ERROR }, 400);
         }
         throw error;
       }
 
-      if (newLogo !== undefined && existing.logo) {
-        await deleteFile(existing.logo);
-      }
-      for (const field of DOCUMENT_FIELDS) {
-        const old = existing[field];
-        if (newDocuments[field] && old) await deleteFile(old);
-      }
+      await deleteFiles([
+        newLogo !== undefined ? existing.logo : null,
+        ...DOCUMENT_FIELDS.map((field) =>
+          newDocuments[field] ? existing[field] : null,
+        ),
+      ]);
 
       return c.json({ id, message: "Üye güncellendi" }, 200);
     },
@@ -574,13 +571,11 @@ export const membersRoute = new Hono<AppEnv>()
 
       if (!deleted) return c.json({ error: "Üye bulunamadı" }, 404);
 
-      for (const file of [
+      await deleteFiles([
         deleted.logo,
         deleted.identityDocument,
         deleted.activityDocument,
-      ]) {
-        if (file) await deleteFile(file);
-      }
+      ]);
 
       return c.json({ message: "Üye silindi" }, 200);
     },

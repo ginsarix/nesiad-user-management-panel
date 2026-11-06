@@ -416,20 +416,23 @@ export function ConsentStep({ form }: { form: Form }) {
   );
 }
 
-/** Off-screen trap for bots: people never see or reach it */
+/**
+ * Off-screen trap for bots: people never see or reach it. Only mounted on
+ * the Onay step (no text inputs), so address autofill can't fill it.
+ */
 export function TrapField({ form }: { form: Form }) {
   return (
     <div
       aria-hidden="true"
       className="pointer-events-none absolute -left-[10000px] top-auto size-px overflow-hidden"
     >
-      <label htmlFor="faxNumber">Faks</label>
+      <label htmlFor="leaveBlank">Bu alanı boş bırakın</label>
       <input
-        id="faxNumber"
+        id="leaveBlank"
         type="text"
         tabIndex={-1}
         autoComplete="off"
-        {...form.register("faxNumber")}
+        {...form.register("leaveBlank")}
       />
     </div>
   );

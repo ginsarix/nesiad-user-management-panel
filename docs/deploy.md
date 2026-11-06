@@ -117,10 +117,15 @@ Every time the app starts, it checks for an account with `DEFAULT_ADMIN_EMAIL`. 
 
 Submit one real application at `/uyelik` with three files of about 5 MB each, to confirm nothing in front of the app (LiteSpeed, nginx) rejects a request of roughly 16 MB. Accept or delete it afterwards. Once it works, point the old site's form link to `/uyelik`.
 
+Also check:
+
+- `curl -sI https://<domain>/uyelik`: `Cache-Control` must be `private, no-store` and there must be no `x-litespeed-cache: hit`. A cached page would load broken after the next deploy, which deletes the old `/_next/static` chunks.
+- Accept one application with `SMS_DRY_RUN` off, using an email address and a phone number you own, and confirm the acceptance email and SMS actually arrive. The automated tests prove those paths only with mocks.
+
 ## Deploying, retrying, rolling back
 
 - **Deploy:** merge or push to `main`.
 - **Deploy again without a change:** Actions → CI / Deploy → Run workflow (branch `main`).
-- **Roll back:** open the run of an older good commit and **Re-run all jobs**; it rebuilds and deploys that commit. Migrations are never undone: the older code runs against the newer schema.
+- **Roll back:** open the run of an older good commit and **Re-run all jobs**; it rebuilds and deploys that commit. Migrations are never undone: the older code runs against the newer schema. That stops holding past the release that replaced `member.active` with `status`: older code selects the dropped column and fails, so after that release, roll forward only.
 - While `rsync` replaces the files, requests can fail for a few seconds.
 - A green smoke test means the new build is live: the login page includes each build's random ID (`.next/BUILD_ID`), and the test waits for this build's. When it fails, the app's log in Plesk says why.

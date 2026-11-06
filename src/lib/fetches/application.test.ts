@@ -26,7 +26,7 @@ const values: ApplicationFormValues = {
   activityDocument: new File([new Uint8Array([1])], "act.jpg"),
   consentRules: true,
   consentData: true,
-  faxNumber: "",
+  leaveBlank: "",
 };
 
 afterEach(() => vi.unstubAllGlobals());

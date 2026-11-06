@@ -18,7 +18,12 @@ const controlMessage = (label: string) => `${label} geçersiz karakter içeriyor
 // would be delivered with its authority. Bare ".org" and ".tr" stay allowed:
 // Turkish company names abbreviate ("Tur.Org.San.Ltd.Şti.").
 const LINK_LIKE =
-  /https?:\/\/|www\.|\w\.(?:com|net|info|biz|xyz|link|site|online|io|org\.tr|com\.tr)(?![\p{L}\p{N}])/iu;
+  /[a-z][a-z0-9+.-]*:\/\/|www\.|[\p{L}\p{N}]\.(?:com|net|info|biz|xyz|link|site|online|io|org\.tr|com\.tr)(?![\p{L}\p{N}])/iu;
+
+/** Ideographic and fullwidth full stops count as dots in a browser's address bar */
+function looksLikeLink(value: string) {
+  return LINK_LIKE.test(value.replace(/[\u3002\uFF0E\uFF61]/g, "."));
+}
 
 /** A required one-line field: every run of whitespace becomes one space */
 function singleLine(label: string, max: number, options?: { noLinks?: true }) {
@@ -32,7 +37,7 @@ function singleLine(label: string, max: number, options?: { noLinks?: true }) {
         .max(max, `${label} en fazla ${max} karakter olabilir`)
         .refine((v) => !CONTROL_IN_LINE.test(v), controlMessage(label))
         .refine(
-          (v) => !options?.noLinks || !LINK_LIKE.test(v),
+          (v) => !options?.noLinks || !looksLikeLink(v),
           `${label} bağlantı içeremez`,
         ),
     );
@@ -176,8 +181,8 @@ export const applicationApiSchema = z.object({
   consentRules: z.literal("true", CONSENT_MESSAGE),
   consentData: z.literal("true", CONSENT_MESSAGE),
 
-  /** Hidden from people, filled in by bots */
-  faxNumber: z.string().optional(),
+  /** Hidden from people, filled in by bots (only mounted on the last step) */
+  leaveBlank: z.string().optional(),
 });
 
 /** Client-side form values (date as gg.aa.yyyy, files as chosen) */
@@ -214,8 +219,8 @@ export const applicationFormSchema = z.object({
   consentRules: z.boolean().refine((v) => v, CONSENT_MESSAGE),
   consentData: z.boolean().refine((v) => v, CONSENT_MESSAGE),
 
-  /** Hidden from people, filled in by bots; sent as typed */
-  faxNumber: z.string(),
+  /** Hidden from people, filled in by bots (only mounted on the last step); sent as typed */
+  leaveBlank: z.string(),
 });
 
 export type ApplicationFormValues = z.infer<typeof applicationFormSchema>;

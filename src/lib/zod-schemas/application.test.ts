@@ -34,14 +34,14 @@ const validFormValues = {
   activityDocument: png(),
   consentRules: true,
   consentData: true,
-  faxNumber: "",
+  leaveBlank: "",
 };
 
 describe("APPLICATION_STEPS", () => {
   it("maps every form field to exactly one step", () => {
     const fields = APPLICATION_STEPS.flatMap((step) => [...step.fields]).sort();
     const expected = Object.keys(applicationFormSchema.shape)
-      .filter((key) => key !== "faxNumber")
+      .filter((key) => key !== "leaveBlank")
       .sort();
 
     expect(fields).toEqual(expected);
@@ -89,7 +89,7 @@ describe("applicationFormSchema", () => {
 
     expect([...failed].sort()).toEqual(
       Object.keys(blank)
-        .filter((key) => key !== "otherAssociations" && key !== "faxNumber")
+        .filter((key) => key !== "otherAssociations" && key !== "leaveBlank")
         .sort(),
     );
   });
@@ -143,6 +143,12 @@ describe("link-like names", () => {
     "www.x.y",
     "Kapadokya.com.tr",
     "abc.COM",
+    "Güneş.com.tr",
+    "kampanyaş.com",
+    "ftp://x.y",
+    "kampanya｡com",
+    "kampanya。com",
+    "kampanya．com",
   ])("refuses %s in the name, surname and company", (value) => {
     for (const field of ["applicantFirstName", "applicantLastName", "title"]) {
       const result = withName(field, value);
@@ -156,6 +162,7 @@ describe("link-like names", () => {
     "Kapadokya Tur.Org.San.Ltd.Şti.",
     "Avanos Seramik A.Ş.",
     "Örnek San. ve Tic. Ltd. Şti.",
+    "Çağlar Şişman Öğüt",
   ])("accepts %s", (value) => {
     expect(withName("title", value).success).toBe(true);
   });

@@ -373,13 +373,21 @@ describe("PATCH /api/members/:id", () => {
 });
 
 describe("DELETE /api/members/:id", () => {
-  it("deletes the member and its logo", async () => {
+  it("deletes the member, its logo and its documents", async () => {
     const { body } = await createMember({
       title: "__test__ Silinecek",
       logo: pngFile(),
+      identityDocument: pdfFile("kimlik.pdf"),
+      activityDocument: pdfFile("faaliyet.pdf"),
     });
     const { body: member } = await getMember(body.id);
-    createdFiles.push(member.logo);
+    createdFiles.push(
+      member.logo,
+      member.identityDocument,
+      member.activityDocument,
+    );
+    expect(await readStoredFile(member.identityDocument)).not.toBeNull();
+    expect(await readStoredFile(member.activityDocument)).not.toBeNull();
 
     const res = await membersRoute.request(`/${body.id}`, {
       method: "DELETE",
@@ -388,6 +396,8 @@ describe("DELETE /api/members/:id", () => {
 
     expect((await getMember(body.id)).res.status).toBe(404);
     expect(await readStoredFile(member.logo)).toBeNull();
+    expect(await readStoredFile(member.identityDocument)).toBeNull();
+    expect(await readStoredFile(member.activityDocument)).toBeNull();
   });
 
   it("returns 404 for an unknown member", async () => {

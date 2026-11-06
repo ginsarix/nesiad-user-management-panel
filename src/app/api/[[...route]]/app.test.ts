@@ -1,3 +1,4 @@
+import { HTTPException } from "hono/http-exception";
 import { describe, expect, it, vi } from "vitest";
 import { auth } from "@/lib/auth";
 import { app } from "./app";
@@ -46,5 +47,39 @@ describe("session check on /api", () => {
       headers: Headers;
     };
     expect(headers.get("cookie")).toBe("a=b");
+  });
+});
+
+describe("unexpected errors", () => {
+  const TC = "10000000146";
+
+  it("answers 500 and never logs the TC number in the error", async () => {
+    const error = new Error(`insert failed (${TC})`, {
+      cause: { detail: `Key (national_id)=(${TC}) already exists.` },
+    });
+    getSession.mockRejectedValueOnce(error);
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await app.request("/api/members");
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: "Bir hata oluştu. Lütfen tekrar deneyin.",
+    });
+    expect(spy).toHaveBeenCalled();
+    expect(JSON.stringify(spy.mock.calls)).not.toContain(TC);
+    spy.mockRestore();
+  });
+
+  it("keeps the status of an HTTPException", async () => {
+    getSession.mockRejectedValueOnce(
+      new HTTPException(400, { message: "Geçersiz istek" }),
+    );
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await app.request("/api/members");
+
+    expect(res.status).toBe(400);
+    spy.mockRestore();
   });
 });

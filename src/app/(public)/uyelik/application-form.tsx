@@ -47,7 +47,7 @@ const DEFAULT_VALUES: ApplicationFormInput = {
   activityDocument: null,
   consentRules: false,
   consentData: false,
-  faxNumber: "",
+  leaveBlank: "",
 };
 
 export function ApplicationForm() {
@@ -193,8 +193,12 @@ export function ApplicationForm() {
       {step === 1 && <CompanyStep form={form} />}
       {step === 2 && <AssociationStep form={form} />}
       {step === 3 && <DocumentsStep form={form} />}
-      {step === 4 && <ConsentStep form={form} />}
-      <TrapField form={form} />
+      {step === 4 && (
+        <>
+          <ConsentStep form={form} />
+          <TrapField form={form} />
+        </>
+      )}
 
       {submitError && (
         <p role="alert" className="text-sm text-destructive">
