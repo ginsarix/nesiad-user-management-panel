@@ -106,13 +106,17 @@ const optionalWebsiteSchema = z
   })
   .optional();
 
+/** Largest Postgres integer */
+const MAX_EMPLOYEE_COUNT = 2_147_483_647;
+
 const optionalEmployeeCountSchema = z
   .string()
   .trim()
   .transform((value, ctx) => {
     if (!value) return null;
-    const count = Number(value);
-    if (!Number.isSafeInteger(count) || count < 0) {
+    // digits only (no 1e3, 0x10, -1) and within Postgres integer
+    const count = /^\d+$/.test(value) ? Number(value) : Number.NaN;
+    if (!(count <= MAX_EMPLOYEE_COUNT)) {
       ctx.addIssue({
         code: "custom",
         message: "Çalışan sayısı sıfır veya daha büyük bir tam sayı olmalıdır",

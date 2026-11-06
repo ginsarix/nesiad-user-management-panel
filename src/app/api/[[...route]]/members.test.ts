@@ -488,6 +488,8 @@ describe("applicant fields", () => {
     ["mobilePhone", "0212 111 22 33"],
     ["employeeCount", "-1"],
     ["employeeCount", "1.5"],
+    ["employeeCount", "5321112233"],
+    ["employeeCount", "1e3"],
     ["gender", "x"],
   ])("refuses an invalid %s", async (field, value) => {
     const { res } = await createMember({
