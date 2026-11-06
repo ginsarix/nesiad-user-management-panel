@@ -22,7 +22,7 @@ import {
   formatDate,
   InfoFields,
   orDash,
-  PassiveTag,
+  StatusTag,
 } from "@/components/info-fields";
 import { SortableTableHeader } from "@/components/sortable-table-header";
 import { buttonVariants } from "@/components/ui/button";
@@ -40,6 +40,7 @@ import { membershipYears } from "@/lib/dates";
 import { getMembers, type MemberListItem } from "@/lib/fetches/member";
 import { getSectors, type Sector } from "@/lib/fetches/sector";
 import { rememberListSearch } from "@/lib/list-href";
+import type { MemberStatus } from "@/lib/member-status";
 import { compareTr, foldTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
 import {
@@ -98,7 +99,7 @@ const columns = helper.columns([
         />
         <MemberAvatar title={row.original.title} logo={row.original.logo} />
         {row.original.title}
-        {!row.original.active && <PassiveTag />}
+        <StatusTag status={row.original.status} />
       </button>
     ),
   }),
@@ -157,22 +158,23 @@ const columns = helper.columns([
 // Extra details that can be switched on from "Sütunlar"
 const DEFAULT_COLUMN_VISIBILITY = { address: false, foundingDate: false };
 
-type MemberStatus = "active" | "passive" | "all";
+type StatusFilter = MemberStatus | "all";
 
-const STATUS_ITEMS: { value: MemberStatus; label: string }[] = [
+const STATUS_ITEMS: { value: StatusFilter; label: string }[] = [
   { value: "active", label: "Aktif üyeler" },
   { value: "passive", label: "Pasif üyeler" },
+  { value: "candidate", label: "Adaylar" },
+  { value: "rejected", label: "Reddedilenler" },
   { value: "all", label: "Tüm üyeler" },
 ];
 
-/** `?status=passive` / `?status=all`; aktif when absent */
-function parseStatus(value: string | null): MemberStatus {
-  return value === "passive" || value === "all" ? value : "active";
+/** `?status=passive` / `candidate` / `rejected` / `all`; aktif when absent */
+function parseStatus(value: string | null): StatusFilter {
+  return STATUS_ITEMS.find((item) => item.value === value)?.value ?? "active";
 }
 
-function matchesStatus(member: MemberListItem, status: MemberStatus) {
-  if (status === "all") return true;
-  return member.active === (status === "active");
+function matchesStatus(member: MemberListItem, status: StatusFilter) {
+  return status === "all" || member.status === status;
 }
 
 const SORTABLE_COLUMNS = ["title", "sector", "memberLoginDate", "seniority"];

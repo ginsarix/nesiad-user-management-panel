@@ -34,7 +34,7 @@ export async function getMember(id: number, options?: ClientRequestOptions) {
 function toMemberForm({
   logo,
   removeLogo,
-  active,
+  status,
   memberLoginDate,
   foundingDate,
   sectorId,
@@ -46,7 +46,7 @@ function toMemberForm({
     // the form holds gg.aa.yyyy, the API takes yyyy-aa-gg
     memberLoginDate: displayToIso(memberLoginDate),
     foundingDate: displayToIso(foundingDate),
-    active: String(active),
+    ...(status && { status }),
     ...(logo ? { logo } : removeLogo && { removeLogo: "true" }),
   };
 }
@@ -70,10 +70,13 @@ export async function updateMember(id: number, values: MemberFormValues) {
   if (!res.ok) await throwResponseError(res, "Üye güncellenemedi");
 }
 
-export async function setMemberActive(id: number, active: boolean) {
+export async function setMemberStatus(
+  id: number,
+  status: "active" | "passive",
+) {
   const res = await rpcClient.api.members[":id"].$patch({
     param: { id: String(id) },
-    form: { active: String(active) },
+    form: { status },
   });
 
   if (!res.ok) await throwResponseError(res, "Üye durumu değiştirilemedi");

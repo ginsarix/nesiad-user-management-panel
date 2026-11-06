@@ -3,10 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
-import { formatDate, InfoFields, PassiveTag } from "@/components/info-fields";
+import { formatDate, InfoFields, StatusTag } from "@/components/info-fields";
 import { buttonVariants } from "@/components/ui/button";
 import { getMember } from "@/lib/fetches/member";
 import { listHref } from "@/lib/list-href";
+import { isEstablished, MEMBER_STATUS_LABELS } from "@/lib/member-status";
 import { RepresentativeList, SeniorityBadge } from "../_components/member-info";
 import { DeleteMemberButton } from "./delete-member-button";
 import { MemberLogo } from "./member-logo";
@@ -42,14 +43,16 @@ export function MemberDetails({ id }: { id: number }) {
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-medium">{member.title}</h2>
                 <SeniorityBadge memberLoginDate={member.memberLoginDate} />
-                {!member.active && <PassiveTag />}
+                <StatusTag status={member.status} />
               </div>
               {member.sector && (
                 <p className="text-sm text-muted-foreground">{member.sector}</p>
               )}
             </div>
             <div className="ml-auto flex gap-2">
-              <ToggleActiveButton member={member} />
+              {isEstablished(member.status) && (
+                <ToggleActiveButton member={member} />
+              )}
               <Link
                 href={`/members/${member.id}/edit`}
                 className={buttonVariants({ variant: "outline" })}
@@ -71,7 +74,7 @@ export function MemberDetails({ id }: { id: number }) {
                   fields={[
                     {
                       label: "Durum",
-                      value: member.active ? "Aktif" : "Pasif",
+                      value: MEMBER_STATUS_LABELS[member.status],
                     },
                     { label: "Telefon", value: member.phone },
                     { label: "Adres", value: member.address },
@@ -94,13 +97,15 @@ export function MemberDetails({ id }: { id: number }) {
                 <h3 className="text-sm font-medium">
                   Yetkililer ({member.representatives.length})
                 </h3>
-                <Link
-                  href={`/representatives/new?member=${member.id}`}
-                  className={buttonVariants({ variant: "ghost", size: "sm" })}
-                >
-                  <Plus />
-                  Yetkili ekle
-                </Link>
+                {isEstablished(member.status) && (
+                  <Link
+                    href={`/representatives/new?member=${member.id}`}
+                    className={buttonVariants({ variant: "ghost", size: "sm" })}
+                  >
+                    <Plus />
+                    Yetkili ekle
+                  </Link>
+                )}
               </div>
               <div className="p-4">
                 <RepresentativeList representatives={member.representatives} />

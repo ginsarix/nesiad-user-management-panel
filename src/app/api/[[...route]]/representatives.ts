@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { db, type Executor, type Transaction } from "@/db";
 import {
@@ -15,6 +15,7 @@ import {
   diffFields,
   formatAudit,
 } from "@/lib/audit-diff";
+import { isEstablished } from "@/lib/member-status";
 import { compareTr } from "@/lib/turkish";
 import {
   createRepresentativeSchema,
@@ -37,7 +38,7 @@ function selectLinkedMembers(
       id: memberTable.id,
       title: memberTable.title,
       logo: memberTable.logo,
-      active: memberTable.active,
+      status: memberTable.status,
       role: membersRepresentativesTable.role,
     })
     .from(membersRepresentativesTable)
@@ -83,6 +84,32 @@ async function linkedMembersText(executor: Executor, representativeId: number) {
       .map((m) => (m.role ? `${m.title} (${m.role})` : m.title))
       .join(", ") || "—"
   );
+}
+
+const UNLINKABLE_MEMBER_ERROR =
+  "Aday veya reddedilmiş üyeye yetkili bağlanamaz";
+
+class UnlinkableMemberError extends Error {}
+
+/** Throws unless every linked member is active or passive; unknown ids are left to the foreign key */
+async function assertLinkable(
+  tx: Transaction,
+  members: { memberId: number }[],
+) {
+  if (members.length === 0) return;
+
+  const linked = await tx
+    .select({ status: memberTable.status })
+    .from(memberTable)
+    .where(
+      inArray(
+        memberTable.id,
+        members.map((m) => m.memberId),
+      ),
+    );
+  if (linked.some((m) => !isEstablished(m.status))) {
+    throw new UnlinkableMemberError();
+  }
 }
 
 /** Replaces all of a yetkili's member links */
@@ -167,6 +194,7 @@ export const representativesRoute = new Hono<AppEnv>()
             .values(fields)
             .returning();
 
+          await assertLinkable(tx, members);
           await replaceLinks(tx, representative.id, members);
           await recordAudit(tx, {
             actor: actorOf(c),
@@ -187,6 +215,9 @@ export const representativesRoute = new Hono<AppEnv>()
 
         return c.json({ id, message: "Yetkili kaydedildi" }, 201);
       } catch (error) {
+        if (error instanceof UnlinkableMemberError) {
+          return c.json({ error: UNLINKABLE_MEMBER_ERROR }, 400);
+        }
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
           return c.json({ error: MISSING_MEMBER_ERROR }, 400);
         }
@@ -220,6 +251,7 @@ export const representativesRoute = new Hono<AppEnv>()
 
           let linkChanges: ReturnType<typeof change> = [];
           if (members) {
+            await assertLinkable(tx, members);
             const before = await linkedMembersText(tx, id);
             await replaceLinks(tx, id, members);
             linkChanges = change(
@@ -250,6 +282,9 @@ export const representativesRoute = new Hono<AppEnv>()
 
         return c.json({ id, message: "Yetkili güncellendi" }, 200);
       } catch (error) {
+        if (error instanceof UnlinkableMemberError) {
+          return c.json({ error: UNLINKABLE_MEMBER_ERROR }, 400);
+        }
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
           return c.json({ error: MISSING_MEMBER_ERROR }, 400);
         }

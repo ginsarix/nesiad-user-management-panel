@@ -19,6 +19,7 @@ import {
   formatAudit,
 } from "@/lib/audit-diff";
 import { createFile, deleteFile } from "@/lib/file-storage";
+import { isEstablished } from "@/lib/member-status";
 import {
   createMemberSchema,
   MAX_LOGO_SIZE,
@@ -90,7 +91,7 @@ const logoBodyLimit = bodyLimit({
 /** A member's own fields in the audit log; sector and logo are added apart */
 const memberAuditSpec: AuditSpec = {
   title: { label: "Ünvan", format: formatAudit.text },
-  active: { label: "Durum", format: formatAudit.active },
+  status: { label: "Durum", format: formatAudit.memberStatus },
   phone: { label: "Telefon", format: formatAudit.text },
   address: { label: "Adres", format: formatAudit.text },
   memberLoginDate: { label: "Üye Giriş Tarihi", format: formatAudit.date },
@@ -208,6 +209,13 @@ export const membersRoute = new Hono<AppEnv>()
       const [existing] = await selectMembers().where(eq(memberTable.id, id));
 
       if (!existing) return c.json({ error: "Üye bulunamadı" }, 404);
+
+      if (fields.status !== undefined && !isEstablished(existing.status)) {
+        return c.json(
+          { error: "Bu üyenin durumu buradan değiştirilemez" },
+          409,
+        );
+      }
 
       // undefined keeps the current logo, null removes it
       let newLogo: string | null | undefined;

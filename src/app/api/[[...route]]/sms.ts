@@ -44,7 +44,7 @@ async function loadContacts(ids?: {
           .from(memberTable)
           .where(
             and(
-              eq(memberTable.active, true),
+              eq(memberTable.status, "active"),
               ids ? inArray(memberTable.id, ids.memberIds) : undefined,
             ),
           ),

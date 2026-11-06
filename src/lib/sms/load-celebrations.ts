@@ -15,7 +15,10 @@ export async function loadCelebrationsOn(date: string) {
       })
       .from(memberTable)
       .where(
-        and(eq(memberTable.active, true), isNotNull(memberTable.foundingDate)),
+        and(
+          eq(memberTable.status, "active"),
+          isNotNull(memberTable.foundingDate),
+        ),
       ),
     db
       .select({

@@ -37,8 +37,8 @@ export const createMemberSchema = z.object({
 
   memberLoginDate: optionalIsoDateSchema,
 
-  /** Defaults to aktif when left out */
-  active: z.stringbool().optional(),
+  /** Defaults to aktif when left out; candidates come from the public application */
+  status: z.enum(["active", "passive"]).optional(),
 
   logo: logoFileSchema.optional(),
 
@@ -57,7 +57,8 @@ export const updateMemberSchema = createMemberSchema.partial().extend({
 export const memberFormSchema = z.object({
   title: titleSchema,
   memberLoginDate: optionalDisplayDateSchema,
-  active: z.boolean(),
+  /** Left out for candidates and rejected members, whose status the form can't change */
+  status: z.enum(["active", "passive"]).optional(),
   address: z.string(),
   phone: z.string(),
   sectorId: z.number().nullable(),

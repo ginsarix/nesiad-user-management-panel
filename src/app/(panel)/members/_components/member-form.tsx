@@ -26,6 +26,7 @@ import {
 } from "@/lib/fetches/member";
 import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
+import { isEstablished } from "@/lib/member-status";
 import {
   type MemberFormValues,
   memberFormSchema,
@@ -50,7 +51,11 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
       // the API sends yyyy-aa-gg, the form works in gg.aa.yyyy
       memberLoginDate: isoToDisplay(member?.memberLoginDate),
       foundingDate: isoToDisplay(member?.foundingDate),
-      active: member?.active ?? true,
+      // candidates and rejected members have no status to pick here
+      status:
+        member && !isEstablished(member.status)
+          ? undefined
+          : ((member?.status as "active" | "passive" | undefined) ?? "active"),
       logo: null,
       removeLogo: false,
     },
@@ -164,22 +169,26 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
             currentLogo={member?.logo ?? null}
           />
 
-          <Controller
-            control={form.control}
-            name="active"
-            render={({ field }) => (
-              <Field orientation="horizontal" className="self-start sm:pt-7">
-                <Checkbox
-                  id="active"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-                <FieldLabel htmlFor="active" className="font-normal">
-                  Aktif üye
-                </FieldLabel>
-              </Field>
-            )}
-          />
+          {(!member || isEstablished(member.status)) && (
+            <Controller
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <Field orientation="horizontal" className="self-start sm:pt-7">
+                  <Checkbox
+                    id="status"
+                    checked={field.value === "active"}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked ? "active" : "passive")
+                    }
+                  />
+                  <FieldLabel htmlFor="status" className="font-normal">
+                    Aktif üye
+                  </FieldLabel>
+                </Field>
+              )}
+            />
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t px-4 py-3">

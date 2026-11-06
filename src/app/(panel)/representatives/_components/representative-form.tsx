@@ -30,6 +30,7 @@ import {
 } from "@/lib/fetches/representative";
 import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
+import { isEstablished } from "@/lib/member-status";
 import { compareTr } from "@/lib/turkish";
 import {
   type RepresentativeFormInput,
@@ -246,9 +247,10 @@ function MemberLinks({
   const memberItems = useMemo(
     () =>
       members
+        .filter((m) => isEstablished(m.status))
         .map((m) => ({
           value: m.id,
-          label: m.active ? m.title : `${m.title} (Pasif)`,
+          label: m.status === "active" ? m.title : `${m.title} (Pasif)`,
         }))
         .toSorted((a, b) => compareTr(a.label, b.label)),
     [members],

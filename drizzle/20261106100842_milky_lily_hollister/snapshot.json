@@ -1,0 +1,98 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "92274ba2-d1e7-4b79-9d1f-c9d993229ee6",
+  "prevIds": [
+    "bb155a22-4ac2-4610-9d42-c57f2b164c48"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "status"
+      ],
+      "writes": [
+        "s|col|public.member.status",
+        "n|col|public.member.status",
+        "e|col|public.member.status"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "active"
+      ],
+      "writes": [
+        "s|col|public.member.active",
+        "n|col|public.member.active",
+        "e|col|public.member.active"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "member"
+      ],
+      "writes": [
+        "s|ck|public.member.member_status_valid",
+        "n|ck|public.member.member_status_valid",
+        "e|ck|public.member.member_status_valid",
+        "n|con|public.member.member_status_valid"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.member.status"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "status",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'active'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "member_status_valid",
+        "value": "\"status\" IN ('active','passive','candidate','rejected')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"active\"]"
+    }
+  ]
+}

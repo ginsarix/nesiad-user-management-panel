@@ -3,7 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
-import { formatDate, InfoFields, PassiveTag } from "@/components/info-fields";
+import {
+  formatDate,
+  InfoFields,
+  PassiveTag,
+  StatusTag,
+} from "@/components/info-fields";
 import { buttonVariants } from "@/components/ui/button";
 import { getRepresentative } from "@/lib/fetches/representative";
 import { listHref } from "@/lib/list-href";
@@ -100,7 +105,7 @@ export function RepresentativeDetails({ id }: { id: number }) {
                         >
                           {member.title}
                         </Link>
-                        {!member.active && <PassiveTag />}
+                        <StatusTag status={member.status} />
                         <span className="ml-auto text-muted-foreground">
                           {member.role}
                         </span>

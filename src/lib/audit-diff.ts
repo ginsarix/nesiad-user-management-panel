@@ -1,5 +1,6 @@
 import type { AuditChange, AuditField } from "@/db/schema";
 import { isoToDisplay } from "./dates";
+import { MEMBER_STATUS_LABELS, type MemberStatus } from "./member-status";
 
 const EMPTY = "—";
 
@@ -10,6 +11,8 @@ export const formatAudit = {
   date: (value: unknown) =>
     (typeof value === "string" && isoToDisplay(value)) || EMPTY,
   active: (value: unknown) => (value ? "Aktif" : "Pasif"),
+  memberStatus: (value: unknown) =>
+    MEMBER_STATUS_LABELS[value as MemberStatus] ?? EMPTY,
 };
 
 /** label + formatter per audited field of a record */

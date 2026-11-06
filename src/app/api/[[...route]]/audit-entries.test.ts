@@ -105,12 +105,12 @@ describe("audit log of panel data", () => {
     ]);
   });
 
-  it("records only aktif/pasif for a status switch, nothing for a no-op", async () => {
+  it("audits status changes as display labels, nothing for a no-op", async () => {
     const id = await createMember({ title: "__test__ Durum Denetimi" });
 
     await membersRoute.request(`/${id}`, {
       method: "PATCH",
-      body: form({ active: "false" }),
+      body: form({ status: "passive" }),
     });
     expect((await lastEntry("member", "update", id)).changes).toEqual([
       { label: "Durum", from: "Aktif", to: "Pasif" },
@@ -128,7 +128,7 @@ describe("audit log of panel data", () => {
     const before = await ownRows();
     await membersRoute.request(`/${id}`, {
       method: "PATCH",
-      body: form({ active: "false" }),
+      body: form({ status: "passive" }),
     });
     expect(await ownRows()).toBe(before);
   });

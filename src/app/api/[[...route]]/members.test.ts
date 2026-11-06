@@ -87,17 +87,28 @@ describe("POST /api/members", () => {
     const { body: member } = await getMember(body.id);
     expect(member.memberLoginDate).toBe("2014-03-05");
     expect(member.foundingDate).toBe("1998-01-01");
-    expect(member.active).toBe(true);
+    expect(member.status).toBe("active");
   });
 
-  it("creates a pasif member", async () => {
+  it("defaults to active and accepts passive", async () => {
+    const { body: defaulted } = await createMember({
+      title: "__test__ Varsayılan Durum",
+    });
+    expect((await getMember(defaulted.id)).body.status).toBe("active");
+
     const { body } = await createMember({
       title: "__test__ Pasif",
-      active: "false",
+      status: "passive",
     });
+    expect((await getMember(body.id)).body.status).toBe("passive");
+  });
 
-    const { body: member } = await getMember(body.id);
-    expect(member.active).toBe(false);
+  it("refuses creating a candidate", async () => {
+    const { res } = await createMember({
+      title: "__test__ Aday Oluşturma",
+      status: "candidate",
+    });
+    expect(res.status).toBe(400);
   });
 
   it.each([
@@ -226,13 +237,49 @@ describe("PATCH /api/members/:id", () => {
 
     await membersRoute.request(`/${body.id}`, {
       method: "PATCH",
-      body: form({ active: "false" }),
+      body: form({ status: "passive" }),
     });
 
     const { body: member } = await getMember(body.id);
-    expect(member.active).toBe(false);
+    expect(member.status).toBe("passive");
     expect(member.title).toBe("__test__ Durum");
     expect(member.memberLoginDate).toBe("2014-03-05");
+  });
+
+  it("refuses changing a candidate through PATCH", async () => {
+    const [candidate] = await db
+      .insert(memberTable)
+      .values({ title: "__test__ Aday Durum", status: "candidate" })
+      .returning();
+    createdIds.push(candidate.id);
+
+    const res = await membersRoute.request(`/${candidate.id}`, {
+      method: "PATCH",
+      body: form({ status: "active" }),
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu üyenin durumu buradan değiştirilemez",
+    );
+    expect((await getMember(candidate.id)).body.status).toBe("candidate");
+  });
+
+  it("still edits other fields of a candidate", async () => {
+    const [candidate] = await db
+      .insert(memberTable)
+      .values({ title: "__test__ Aday Düzenleme", status: "candidate" })
+      .returning();
+    createdIds.push(candidate.id);
+
+    const res = await membersRoute.request(`/${candidate.id}`, {
+      method: "PATCH",
+      body: form({ title: "__test__ Aday Düzenlendi" }),
+    });
+    expect(res.status).toBe(200);
+
+    const { body: member } = await getMember(candidate.id);
+    expect(member.title).toBe("__test__ Aday Düzenlendi");
+    expect(member.status).toBe("candidate");
   });
 
   it("clears a date sent blank", async () => {

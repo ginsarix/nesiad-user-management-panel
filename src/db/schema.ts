@@ -12,6 +12,7 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core";
+import type { MemberStatus } from "@/lib/member-status";
 
 export const sectorTable = pgTable("sector", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -29,32 +30,41 @@ export const sectorTable = pgTable("sector", {
     .notNull(),
 });
 
-export const memberTable = pgTable("member", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  title: text().notNull(),
+export const memberTable = pgTable(
+  "member",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    title: text().notNull(),
 
-  // kıdem (seniority) is calculated from this, not stored
-  memberLoginDate: date("member_login_date", { mode: "string" }),
+    // kıdem (seniority) is calculated from this, not stored
+    memberLoginDate: date("member_login_date", { mode: "string" }),
 
-  active: boolean().default(true).notNull(),
+    status: text().$type<MemberStatus>().default("active").notNull(),
 
-  logo: text(),
-  address: text(),
-  phone: text(),
-  // a deleted sector leaves its members without one
-  sectorId: integer("sector_id").references(() => sectorTable.id, {
-    onDelete: "set null",
-  }),
-  foundingDate: date("founding_date", { mode: "string" }),
+    logo: text(),
+    address: text(),
+    phone: text(),
+    // a deleted sector leaves its members without one
+    sectorId: integer("sector_id").references(() => sectorTable.id, {
+      onDelete: "set null",
+    }),
+    foundingDate: date("founding_date", { mode: "string" }),
 
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check(
+      "member_status_valid",
+      sql`${table.status} IN ('active','passive','candidate','rejected')`,
+    ),
+  ],
+);
 
 export const authorizedRepresentativeTable = pgTable(
   "authorized_representative",

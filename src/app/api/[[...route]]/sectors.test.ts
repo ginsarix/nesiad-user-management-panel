@@ -2,6 +2,7 @@ import { eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { memberTable, sectorTable } from "@/db/schema";
+import type { MemberStatus } from "@/lib/member-status";
 import { sectorsRoute } from "./sectors";
 
 const createdSectorIds: number[] = [];
@@ -44,10 +45,10 @@ async function listSectors() {
   }[];
 }
 
-async function createMember(sectorId: number) {
+async function createMember(sectorId: number, status: MemberStatus = "active") {
   const [member] = await db
     .insert(memberTable)
-    .values({ title: "__test__ Sektör Üyesi", sectorId })
+    .values({ title: "__test__ Sektör Üyesi", sectorId, status })
     .returning({ id: memberTable.id });
   createdMemberIds.push(member.id);
   return member.id;
@@ -95,6 +96,19 @@ describe("GET /api/sectors", () => {
       ["__test__ Çelik", 2],
       ["__test__ Dokuma", 0],
     ]);
+  });
+});
+
+describe("GET /api/sectors member counts", () => {
+  it("counts active and passive members, not candidates or rejected ones", async () => {
+    const { body: sector } = await createSector("__test__ Say");
+    await createMember(sector.id, "active");
+    await createMember(sector.id, "passive");
+    await createMember(sector.id, "candidate");
+    await createMember(sector.id, "rejected");
+
+    const listed = (await listSectors()).find((s) => s.id === sector.id);
+    expect(listed?.memberCount).toBe(2);
   });
 });
 

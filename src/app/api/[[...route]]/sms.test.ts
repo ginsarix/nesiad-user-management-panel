@@ -192,7 +192,15 @@ describe("GET /api/sms/celebrations", () => {
     });
     const passiveId = await createMember("0532 000 00 12", {
       foundingDate: "2012-02-29",
-      active: false,
+      status: "passive",
+    });
+    const candidateId = await createMember("0532 000 00 14", {
+      foundingDate: "2012-02-29",
+      status: "candidate",
+    });
+    const rejectedId = await createMember("0532 000 00 15", {
+      foundingDate: "2012-02-29",
+      status: "rejected",
     });
     const otherDayId = await createMember("0532 000 00 13", {
       foundingDate: "2012-03-01",
@@ -209,7 +217,13 @@ describe("GET /api/sms/celebrations", () => {
     const ours = body.celebrations.filter(
       (c: { contact: { kind: string; id: number } }) =>
         c.contact.kind === "member"
-          ? [foundedId, passiveId, otherDayId].includes(c.contact.id)
+          ? [
+              foundedId,
+              passiveId,
+              candidateId,
+              rejectedId,
+              otherDayId,
+            ].includes(c.contact.id)
           : c.contact.id === bornId,
     );
     expect(ours).toEqual([
@@ -248,6 +262,28 @@ describe("GET /api/sms/celebrations", () => {
     const res = await smsRoute.request(`/celebrations?date=${date}`);
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Geçerli bir tarih girin" });
+  });
+});
+
+describe("GET /api/sms/contacts", () => {
+  it("lists active members only, not passive, candidate or rejected ones", async () => {
+    const activeId = await createMember("0532 000 00 21");
+    const ids = [
+      activeId,
+      await createMember("0532 000 00 22", { status: "passive" }),
+      await createMember("0532 000 00 23", { status: "candidate" }),
+      await createMember("0532 000 00 24", { status: "rejected" }),
+    ];
+
+    const { contacts } = (await (
+      await smsRoute.request("/contacts")
+    ).json()) as {
+      contacts: { kind: string; id: number }[];
+    };
+    const ours = contacts.filter(
+      (c) => c.kind === "member" && ids.includes(c.id),
+    );
+    expect(ours.map((c) => c.id)).toEqual([activeId]);
   });
 });
 
