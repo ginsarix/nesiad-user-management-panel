@@ -6,11 +6,9 @@ import { type FieldErrors, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { ApplicationError, submitApplication } from "@/lib/fetches/application";
 import {
-  APPLICATION_STEPS,
   type ApplicationFormInput,
   type ApplicationFormValues,
   applicationFormSchema,
-  stepOfField,
 } from "@/lib/zod-schemas/application";
 import {
   AssociationStep,
@@ -20,6 +18,7 @@ import {
   PersonalStep,
   TrapField,
 } from "./step-fields";
+import { APPLICATION_STEPS, stepOfField } from "./steps";
 
 const CONTACT_LINE = "0 (384) 212 36 50 · nesiad@nesiad.org.tr";
 
