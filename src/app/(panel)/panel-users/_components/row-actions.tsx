@@ -8,6 +8,7 @@ import {
   KeyRound,
   MailCheck,
   Pencil,
+  Phone,
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
@@ -36,6 +37,7 @@ import {
   sendVerificationEmail,
   setPanelUserDisabled,
 } from "@/lib/fetches/panel-user";
+import { ChangePhoneDialog } from "./change-phone-dialog";
 import { RenameDialog } from "./rename-dialog";
 import { SetPasswordDialog } from "./set-password-dialog";
 
@@ -56,9 +58,9 @@ export function RowActions({
   onNotice: (notice: Notice) => void;
 }) {
   const queryClient = useQueryClient();
-  const [dialog, setDialog] = useState<"rename" | "password" | "delete" | null>(
-    null,
-  );
+  const [dialog, setDialog] = useState<
+    "rename" | "phone" | "password" | "delete" | null
+  >(null);
   const closeDialog = (open: boolean) => {
     if (!open) setDialog(null);
   };
@@ -108,6 +110,10 @@ export function RowActions({
             <Pencil />
             Adı düzenle
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setDialog("phone")}>
+            <Phone />
+            Telefonu değiştir
+          </DropdownMenuItem>
           {!isCurrentUser && (
             <DropdownMenuItem onClick={() => setDialog("password")}>
               <KeyRound />
@@ -150,6 +156,11 @@ export function RowActions({
         user={user}
         isCurrentUser={isCurrentUser}
         open={dialog === "rename"}
+        onOpenChange={closeDialog}
+      />
+      <ChangePhoneDialog
+        user={user}
+        open={dialog === "phone"}
         onOpenChange={closeDialog}
       />
       {!isCurrentUser && (

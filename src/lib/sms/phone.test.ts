@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { maskPhone, normalizePhone } from "./phone";
+import { formatPhone, maskPhone, normalizePhone } from "./phone";
 
 describe("normalizePhone", () => {
   it.each([
@@ -40,5 +40,15 @@ describe("maskPhone", () => {
   });
   it("shows a dash for no number", () => {
     expect(maskPhone(null)).toBe("—");
+  });
+});
+
+describe("formatPhone", () => {
+  it("groups a stored number as 0532 123 45 67", () => {
+    expect(formatPhone("5550000000")).toBe("0555 000 00 00");
+  });
+
+  it("leaves anything else as it is", () => {
+    expect(formatPhone("12345")).toBe("12345");
   });
 });

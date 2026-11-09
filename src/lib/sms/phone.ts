@@ -42,3 +42,9 @@ export function maskPhone(phone: string | null): string {
   const last = digits.slice(-4);
   return `••• ••• ${last.slice(0, 2)} ${last.slice(2)}`;
 }
+
+/** A stored "5321234567" for display, "0532 123 45 67"; anything else as is. */
+export function formatPhone(phone: string): string {
+  const match = /^(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(phone);
+  return match ? `0${match[1]} ${match[2]} ${match[3]} ${match[4]}` : phone;
+}

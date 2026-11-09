@@ -21,6 +21,7 @@ import { createPanelUser } from "@/lib/fetches/panel-user";
 import { generatePassword } from "@/lib/password";
 import { addPanelUserSchema } from "@/lib/zod-schemas/panel-user";
 import { CopyButton, PasswordField } from "./password-field";
+import { PhoneVerificationFields } from "./phone-verification-fields";
 
 type Values = z.infer<typeof addPanelUserSchema>;
 
@@ -50,7 +51,13 @@ function AddUserForm({ onClose }: { onClose: () => void }) {
 
   const form = useForm({
     resolver: zodResolver(addPanelUserSchema),
-    defaultValues: { name: "", email: "", password: generatePassword() },
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      code: "",
+      password: generatePassword(),
+    },
   });
   const { errors } = form.formState;
 
@@ -127,6 +134,7 @@ function AddUserForm({ onClose }: { onClose: () => void }) {
           />
           <FieldError errors={[errors.email]} />
         </Field>
+        <PhoneVerificationFields control={form.control} />
         <Controller
           control={form.control}
           name="password"
@@ -147,7 +155,7 @@ function AddUserForm({ onClose }: { onClose: () => void }) {
       </form>
       <DialogFooter>
         <Button type="submit" form="add-panel-user" disabled={isPending}>
-          {isPending ? "Ekleniyor…" : "Ekle ve e-posta gönder"}
+          {isPending ? "Ekleniyor…" : "Doğrula, ekle ve e-posta gönder"}
         </Button>
       </DialogFooter>
     </>

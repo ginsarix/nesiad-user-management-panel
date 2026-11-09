@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
 import { formatDisplayDate } from "@/lib/dates";
 import { getPanelUsers, type PanelUser } from "@/lib/fetches/panel-user";
+import { formatPhone } from "@/lib/sms/phone";
 import { compareTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
 import { AddUserDialog } from "./_components/add-user-dialog";
@@ -116,6 +117,15 @@ export function PanelUsers({
         helper.accessor("email", {
           header: "E-posta",
           enableSorting: false,
+        }),
+        helper.accessor((user) => (user.phone ? formatPhone(user.phone) : ""), {
+          id: "phone",
+          header: "Telefon",
+          enableSorting: false,
+          cell: ({ getValue }) =>
+            getValue() || (
+              <span className="text-muted-foreground">Numara yok</span>
+            ),
         }),
         helper.accessor((user) => STATUS_LABELS[statusOf(user)], {
           id: "status",

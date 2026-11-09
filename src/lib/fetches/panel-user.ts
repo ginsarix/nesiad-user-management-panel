@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/client";
 import { adminClient } from "better-auth/client/plugins";
+import type { UserWithRole } from "better-auth/plugins/admin";
 import { authErrorMessage } from "../auth-errors";
 import { env } from "../env";
 import { rpcClient } from "../rpc-client";
@@ -24,7 +25,9 @@ function unwrap<T>(result: {
 }
 
 /** `headers` lets server-side prefetches forward the user's cookies */
-export async function getPanelUsers(headers?: Record<string, string>) {
+export async function getPanelUsers(
+  headers?: Record<string, string>,
+): Promise<PanelUser[]> {
   const { users } = unwrap(
     await adminApi.admin.listUsers({
       // a handful of staff; well under any page size
@@ -35,19 +38,33 @@ export async function getPanelUsers(headers?: Record<string, string>) {
   return users.toSorted((a, b) => compareTr(a.name, b.name));
 }
 
+/** Texts a verification code to `phone`; `userId` when it is for an existing user */
+export async function sendPhoneCode(input: { phone: string; userId?: string }) {
+  const res = await rpcClient.api["panel-users"]["phone-codes"].$post({
+    json: input,
+  });
+
+  if (!res.ok) await throwResponseError(res, "Kod gönderilemedi");
+}
+
 /**
- * Creates the account and emails its verification link, which signs them
- * in once. The account stays even if the email fails: the list can resend.
+ * Creates the account (the server checks the phone code) and emails its
+ * verification link, which signs them in once. The account stays even if
+ * the email fails: the list can resend.
  */
 export async function createPanelUser(values: {
   name: string;
   email: string;
   password: string;
+  phone: string;
+  code: string;
 }) {
-  const { user } = unwrap(await adminApi.admin.createUser(values));
+  const res = await rpcClient.api["panel-users"].$post({ json: values });
+  if (!res.ok) await throwResponseError(res, "Kullanıcı eklenemedi");
+  const { id } = (await res.json()) as { id: string };
 
   try {
-    await sendVerificationEmail(user.id);
+    await sendVerificationEmail(id);
     return { emailError: null };
   } catch (error) {
     return {
@@ -67,6 +84,18 @@ export async function sendVerificationEmail(userId: string) {
 
 export async function renamePanelUser(userId: string, name: string) {
   unwrap(await adminApi.admin.updateUser({ userId, data: { name } }));
+}
+
+export async function changePanelUserPhone(
+  userId: string,
+  values: { phone: string; code: string },
+) {
+  const res = await rpcClient.api["panel-users"][":id"].phone.$put({
+    param: { id: userId },
+    json: values,
+  });
+
+  if (!res.ok) await throwResponseError(res, "Telefon numarası güncellenemedi");
 }
 
 /** Also logs them out everywhere, like every other password change here */
@@ -91,4 +120,5 @@ export async function deletePanelUser(userId: string) {
   unwrap(await adminApi.admin.removeUser({ userId }));
 }
 
-export type PanelUser = Awaited<ReturnType<typeof getPanelUsers>>[number];
+/** `phone` is an additional field (src/lib/auth.ts) the admin client's types lack */
+export type PanelUser = UserWithRole & { phone?: string | null };
