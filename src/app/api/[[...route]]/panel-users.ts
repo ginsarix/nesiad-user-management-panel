@@ -6,7 +6,6 @@ import { z } from "zod";
 import { db } from "@/db";
 import { userTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
-import { change } from "@/lib/audit-diff";
 import { auth } from "@/lib/auth";
 import { authErrorMessage } from "@/lib/auth-errors";
 import {
@@ -140,13 +139,22 @@ export const panelUsersRoute = new Hono<AppEnv>()
         await tx.update(userTable).set({ phone }).where(eq(userTable.id, id));
         // used up only if the number is saved
         await consumePhoneCode(sessionId, phone, tx);
+        // re-saving the same number changes nothing, so nothing is logged.
+        // Compared unmasked: two numbers can share their last 4 digits
+        if (user.phone === phone) return;
         await recordAudit(tx, {
           actor: actorOf(c),
           action: "phone_change",
           entityType: "panel_user",
           entityId: id,
           entityLabel: user.name,
-          changes: change("Telefon", maskPhone(user.phone), maskPhone(phone)),
+          changes: [
+            {
+              label: "Telefon",
+              from: maskPhone(user.phone),
+              to: maskPhone(phone),
+            },
+          ],
         });
       });
 

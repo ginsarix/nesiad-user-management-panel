@@ -281,6 +281,51 @@ describe("panel user phone numbers", () => {
     });
   });
 
+  it("logs nothing when the number is saved again, but uses up the code", async () => {
+    const target = await newUser();
+    await db
+      .update(userTable)
+      .set({ phone: "5550000007" })
+      .where(eq(userTable.id, target.id));
+    const code = await requestCode("5550000007", target.id);
+
+    const res = await request("PUT", `/${target.id}/phone`, {
+      phone: "0555 000 00 07",
+      code,
+    });
+    expect(res.status).toBe(200);
+    expect(await lastEntry("phone_change", target.id)).toBeUndefined();
+
+    const again = await request("PUT", `/${target.id}/phone`, {
+      phone: "5550000007",
+      code,
+    });
+    expect(again.status).toBe(400);
+    expect(await again.json()).toEqual({
+      error: "Kodun süresi doldu, yeni kod isteyin",
+    });
+  });
+
+  it("logs a new number that ends in the same 4 digits", async () => {
+    const target = await newUser();
+    await db
+      .update(userTable)
+      .set({ phone: "5550000008" })
+      .where(eq(userTable.id, target.id));
+    const code = await requestCode("5551000008", target.id);
+
+    const res = await request("PUT", `/${target.id}/phone`, {
+      phone: "5551000008",
+      code,
+    });
+    expect(res.status).toBe(200);
+    expect(await lastEntry("phone_change", target.id)).toMatchObject({
+      changes: [
+        { label: "Telefon", from: "••• ••• 00 08", to: "••• ••• 00 08" },
+      ],
+    });
+  });
+
   it("returns 404 when changing an unknown user's number", async () => {
     const res = await request("PUT", "/__test__no-such-user/phone", {
       phone: "5550000002",
