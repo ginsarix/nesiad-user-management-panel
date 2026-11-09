@@ -34,3 +34,11 @@ export function normalizePhone(raw: string): NormalizePhoneResult {
 
   return { ok: true, phone: normalized };
 }
+
+/** A phone number for the audit log: only the last 4 digits, "••• ••• 45 67". */
+export function maskPhone(phone: string | null): string {
+  const digits = phone?.replace(/\D/g, "") ?? "";
+  if (digits.length < 4) return "—";
+  const last = digits.slice(-4);
+  return `••• ••• ${last.slice(0, 2)} ${last.slice(2)}`;
+}

@@ -149,6 +149,8 @@ export const userTable = pgTable("user", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
+  phone: text("phone"),
+  twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
 });
 
 export const sessionTable = pgTable(
@@ -169,6 +171,22 @@ export const sessionTable = pgTable(
     impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("session_userId_idx").on(table.userId)],
+);
+
+export const twoFactorTable = pgTable(
+  "two_factor",
+  {
+    id: text("id").primaryKey(),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    verified: boolean("verified").default(true),
+    failedVerificationCount: integer("failed_verification_count").default(0),
+    lockedUntil: timestamp("locked_until"),
+  },
+  (table) => [index("twoFactor_userId_idx").on(table.userId)],
 );
 
 export const accountTable = pgTable(

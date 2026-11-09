@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePhone } from "./phone";
+import { maskPhone, normalizePhone } from "./phone";
 
 describe("normalizePhone", () => {
   it.each([
@@ -31,5 +31,14 @@ describe("normalizePhone", () => {
     ["yok", "unknown", "no digits"],
   ])("%s → %s (%s)", (raw, reason) => {
     expect(normalizePhone(raw)).toEqual({ ok: false, reason });
+  });
+});
+
+describe("maskPhone", () => {
+  it("keeps only the last 4 digits", () => {
+    expect(maskPhone("5321234567")).toBe("••• ••• 45 67");
+  });
+  it("shows a dash for no number", () => {
+    expect(maskPhone(null)).toBe("—");
   });
 });

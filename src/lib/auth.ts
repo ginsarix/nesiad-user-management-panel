@@ -5,6 +5,7 @@ import { db } from "@/db";
 import {
   accountTable,
   sessionTable,
+  twoFactorTable,
   userTable,
   verificationTable,
 } from "@/db/schema";
@@ -22,6 +23,7 @@ export const auth = betterAuth({
       session: sessionTable,
       account: accountTable,
       verification: verificationTable,
+      twoFactor: twoFactorTable,
     },
   }),
   baseURL: env.NEXT_PUBLIC_APP_URL,
