@@ -71,6 +71,10 @@ export const memberTable = pgTable(
     activityDocument: text("activity_document"),
     consentedAt: timestamp("consented_at", { withTimezone: true }),
 
+    // staff-only reason written when rejecting an application; cleared when
+    // it is made Aday again, never sent to the applicant
+    rejectionNote: text("rejection_note"),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -90,6 +90,10 @@ export function MemberDetails({ id }: { id: number }) {
                       label: "Kuruluş Tarihi",
                       value: formatDate(member.foundingDate),
                     },
+                    // the note belongs to the rejection, so only a Reddedildi shows it
+                    ...(member.status === "rejected"
+                      ? [{ label: "Ret Notu", value: member.rejectionNote }]
+                      : []),
                   ]}
                 />
               </div>

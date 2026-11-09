@@ -142,6 +142,9 @@ const applicantAuditLabels: Record<string, string> = {
   activityDocument: "Faaliyet Belgesi",
 };
 
+/** Staff write the rejection note about the applicant, so it's redacted too */
+const REJECTION_NOTE_AUDIT_LABEL = { rejectionNote: "Ret Notu" };
+
 type DocumentField = "identityDocument" | "activityDocument";
 const DOCUMENT_FIELDS: DocumentField[] = [
   "identityDocument",
@@ -255,6 +258,13 @@ async function applyDecision(
           sectorId: decision.sectorId,
         }
       : {};
+  // a rejection note belongs to the rejection only: Tekrar Aday yap clears it
+  const rejectionNote =
+    decision.decision === "reject"
+      ? { rejectionNote: decision.note ?? null }
+      : decision.decision === "reopen"
+        ? { rejectionNote: null }
+        : {};
 
   return await db.transaction(async (tx) => {
     const [existing] = await selectFullMember(tx).where(eq(memberTable.id, id));
@@ -262,7 +272,7 @@ async function applyDecision(
 
     const [member] = await tx
       .update(memberTable)
-      .set({ status: rule.to, ...details })
+      .set({ status: rule.to, ...details, ...rejectionNote })
       .where(and(eq(memberTable.id, id), eq(memberTable.status, rule.from)))
       .returning();
     if (!member) return { kind: "stale" } as const;
@@ -287,6 +297,8 @@ async function applyDecision(
               await sectorName(tx, details.sectorId),
             )
           : []),
+        // written about the applicant, so kept out of the log like their own data
+        ...diffRedacted(REJECTION_NOTE_AUDIT_LABEL, existing, rejectionNote),
       ],
     });
     return { kind: "done", member } as const;

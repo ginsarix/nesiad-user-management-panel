@@ -12,9 +12,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { FieldError } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Textarea } from "@/components/ui/textarea";
 import type { MemberDetails } from "@/lib/fetches/member";
 import { noticeWarning } from "@/lib/notice-outcome";
+import { REJECTION_NOTE_MAX } from "@/lib/zod-schemas/member-decision";
 import { AcceptDialog, type AcceptMode } from "./accept-dialog";
 import { NoticeBox, SavedWithWarning, useDecision } from "./decision-parts";
 
@@ -88,6 +95,7 @@ function RejectDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [warning, setWarning] = useState<string | null>(null);
+  const [note, setNote] = useState("");
   const { mutate, isPending, error, reset } = useDecision();
 
   return (
@@ -98,6 +106,7 @@ function RejectDialog({
         if (!open) {
           reset();
           setWarning(null);
+          setNote("");
         }
       }}
     >
@@ -124,6 +133,19 @@ function RejectDialog({
                 &quot;Reddedilenler&quot; filtresinde kalır.
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <Field>
+              <FieldLabel htmlFor="rejection-note">Ret Notu</FieldLabel>
+              <Textarea
+                id="rejection-note"
+                rows={3}
+                maxLength={REJECTION_NOTE_MAX}
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+              />
+              <FieldDescription>
+                İsteğe bağlı. Sadece panelde görünür, başvurana gönderilmez.
+              </FieldDescription>
+            </Field>
             <NoticeBox member={member} />
             {error && <FieldError>{error.message}</FieldError>}
             <AlertDialogFooter>
@@ -133,7 +155,7 @@ function RejectDialog({
                 disabled={isPending}
                 onClick={() =>
                   mutate(
-                    { id: member.id, decision: { decision: "reject" } },
+                    { id: member.id, decision: { decision: "reject", note } },
                     {
                       onSuccess: ({ notices }) => {
                         const text = noticeWarning(notices);

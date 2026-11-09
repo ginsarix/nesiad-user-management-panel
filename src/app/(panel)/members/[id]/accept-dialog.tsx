@@ -15,7 +15,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { displayToIso, isoToDisplay, todayInIstanbul } from "@/lib/dates";
 import type { MemberDetails } from "@/lib/fetches/member";
 import { noticeWarning } from "@/lib/notice-outcome";
-import { memberDecisionSchema } from "@/lib/zod-schemas/member-decision";
+import { acceptDecisionSchema } from "@/lib/zod-schemas/member-decision";
 import { SectorCombobox } from "../_components/sector-combobox";
 import { NoticeBox, SavedWithWarning, useDecision } from "./decision-parts";
 
@@ -68,7 +68,7 @@ function AcceptForm({
   const { mutate, isPending, error } = useDecision();
 
   const confirm = () => {
-    const decision = memberDecisionSchema.safeParse({
+    const decision = acceptDecisionSchema.safeParse({
       decision: mode,
       memberLoginDate: displayToIso(loginDate),
       sectorId,

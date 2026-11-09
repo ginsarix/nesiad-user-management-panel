@@ -4,7 +4,7 @@ import type { MemberStatus } from "../member-status";
 import type { NoticeOutcomes } from "../notice-outcome";
 import { rpcClient } from "../rpc-client";
 import type { MemberFormValues } from "../zod-schemas/member";
-import type { MemberDecision } from "../zod-schemas/member-decision";
+import type { MemberDecisionInput } from "../zod-schemas/member-decision";
 import { throwResponseError } from "./errors";
 
 export function logoUrl(filename: string) {
@@ -109,7 +109,7 @@ export async function setMemberStatus(
 }
 
 /** Decides an application; the notices say what reached the applicant */
-export async function decideMember(id: number, decision: MemberDecision) {
+export async function decideMember(id: number, decision: MemberDecisionInput) {
   const res = await rpcClient.api.members[":id"].decision.$post({
     param: { id: String(id) },
     json: decision,

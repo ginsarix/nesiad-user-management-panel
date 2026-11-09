@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1ccc5b18-f8db-47f8-9214-9c30a2212d41",
+  "prevIds": [
+    "902c7412-f2bf-4c0f-94db-7e7691052678"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "rejection_note"
+      ],
+      "writes": [
+        "s|col|public.member.rejection_note",
+        "n|col|public.member.rejection_note",
+        "e|col|public.member.rejection_note"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "member",
+        "name": "rejection_note",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

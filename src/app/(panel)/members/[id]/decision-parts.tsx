@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { decideMember, type MemberDetails } from "@/lib/fetches/member";
 import { invalidateSmsQueries } from "@/lib/fetches/sms";
-import type { MemberDecision } from "@/lib/zod-schemas/member-decision";
+import type { MemberDecisionInput } from "@/lib/zod-schemas/member-decision";
 
 /**
  * Saves a decision and refreshes everything that shows the member. A failure
@@ -14,8 +14,13 @@ export function useDecision() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, decision }: { id: number; decision: MemberDecision }) =>
-      decideMember(id, decision),
+    mutationFn: ({
+      id,
+      decision,
+    }: {
+      id: number;
+      decision: MemberDecisionInput;
+    }) => decideMember(id, decision),
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: ["members"] }),

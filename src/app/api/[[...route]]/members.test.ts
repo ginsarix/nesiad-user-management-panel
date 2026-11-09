@@ -862,6 +862,83 @@ describe("POST /api/members/:id/decision", () => {
     ]);
   });
 
+  it("stores a rejection note and logs it without its text", async () => {
+    useNetgsm();
+    const id = await createApplicant("candidate");
+
+    const res = await decide(id, {
+      decision: "reject",
+      note: "  Referans doğrulanamadı  ",
+    });
+
+    expect(res.status).toBe(200);
+    const [row] = await db
+      .select({ rejectionNote: memberTable.rejectionNote })
+      .from(memberTable)
+      .where(eq(memberTable.id, id));
+    expect(row.rejectionNote).toBe("Referans doğrulanamadı");
+
+    const [audit] = await auditRows(id, "application_reject");
+    expect(audit.changes).toEqual([
+      { label: "Durum", from: "Aday", to: "Reddedildi" },
+      { label: "Ret Notu", from: "—", to: "•••" },
+    ]);
+    expect(JSON.stringify(audit)).not.toContain("Referans doğrulanamadı");
+
+    // the note never reaches the applicant
+    expect(mail.sendEmail).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mail.sendEmail.mock.calls)).not.toContain("Referans");
+    expect(JSON.stringify(sentSms)).not.toContain("Referans");
+  });
+
+  it("stores a blank rejection note as null", async () => {
+    useNetgsm();
+    const id = await createApplicant("candidate");
+
+    expect((await decide(id, { decision: "reject", note: "   " })).status).toBe(
+      200,
+    );
+
+    const [row] = await db
+      .select({ rejectionNote: memberTable.rejectionNote })
+      .from(memberTable)
+      .where(eq(memberTable.id, id));
+    expect(row.rejectionNote).toBeNull();
+  });
+
+  it("refuses a rejection note over 1000 characters", async () => {
+    useNetgsm();
+    const id = await createApplicant("candidate");
+
+    const res = await decide(id, {
+      decision: "reject",
+      note: "a".repeat(1001),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await statusOf(id)).toBe("candidate");
+  });
+
+  it("clears the rejection note when reopened", async () => {
+    useNetgsm();
+    const id = await createApplicant("rejected", {
+      rejectionNote: "Eksik belge",
+    });
+
+    expect((await decide(id, { decision: "reopen" })).status).toBe(200);
+
+    const [row] = await db
+      .select({ rejectionNote: memberTable.rejectionNote })
+      .from(memberTable)
+      .where(eq(memberTable.id, id));
+    expect(row.rejectionNote).toBeNull();
+    const [audit] = await auditRows(id, "application_reopen");
+    expect(audit.changes).toEqual([
+      { label: "Durum", from: "Reddedildi", to: "Aday" },
+      { label: "Ret Notu", from: "•••", to: "—" },
+    ]);
+  });
+
   it("adds a candidate as passive with no notice", async () => {
     useNetgsm();
     const id = await createApplicant("candidate");
