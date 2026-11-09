@@ -75,6 +75,16 @@ describe("applicationFormSchema", () => {
     );
   });
 
+  it("refuses an education level that isn't one of the choices", () => {
+    const result = applicationFormSchema.safeParse({
+      ...validFormValues,
+      education: "Üniversite",
+    });
+    expect(result.error?.issues.map((issue) => issue.message)).toEqual([
+      "Eğitim durumu seçin",
+    ]);
+  });
+
   it("refuses a future birth date", () => {
     const next = new Date().getFullYear() + 1;
     const result = applicationFormSchema.safeParse({

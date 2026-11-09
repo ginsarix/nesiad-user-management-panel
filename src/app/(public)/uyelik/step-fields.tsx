@@ -16,9 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type {
-  ApplicationFormInput,
-  ApplicationFormValues,
+import {
+  type ApplicationFormInput,
+  type ApplicationFormValues,
+  EDUCATION_LEVELS,
 } from "@/lib/zod-schemas/application";
 import { FileField } from "./file-field";
 
@@ -30,6 +31,11 @@ const GENDER_ITEMS = [
   { value: "", label: "Seçin" },
   { value: "male", label: "Erkek" },
   { value: "female", label: "Kadın" },
+];
+
+const EDUCATION_ITEMS = [
+  { value: "", label: "Seçin" },
+  ...EDUCATION_LEVELS.map((level) => ({ value: level, label: level })),
 ];
 
 function Label({
@@ -61,7 +67,6 @@ type TextName =
   | "applicantLastName"
   | "birthPlace"
   | "nationalId"
-  | "education"
   | "mobilePhone"
   | "email"
   | "title"
@@ -186,7 +191,40 @@ export function PersonalStep({ form }: { form: Form }) {
           </Field>
         )}
       />
-      <TextField form={form} name="education" label="Eğitim Durumu" />
+      <Controller
+        control={form.control}
+        name="education"
+        render={({ field }) => (
+          <Field data-invalid={!!errors.education}>
+            <Label htmlFor="education" required>
+              Eğitim Durumu
+            </Label>
+            <Select
+              items={EDUCATION_ITEMS}
+              value={field.value}
+              onValueChange={(value) => field.onChange(value ?? "")}
+            >
+              <SelectTrigger
+                id="education"
+                className="w-full"
+                aria-invalid={!!errors.education}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EDUCATION_ITEMS.filter((item) => item.value !== "").map(
+                  (item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
+            <FieldError errors={[errors.education]} />
+          </Field>
+        )}
+      />
       <TextField
         form={form}
         name="mobilePhone"

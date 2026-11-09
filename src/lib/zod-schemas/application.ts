@@ -82,6 +82,20 @@ const genderSchema = z
   .enum(["", "male", "female"])
   .refine((value) => value !== "", "Cinsiyet seçin");
 
+/** The choices on the public form; stored as shown (the column is free text) */
+export const EDUCATION_LEVELS = [
+  "İlkokul/Ortaokul",
+  "Lise",
+  "Ön Lisans",
+  "Lisans",
+  "Yüksek Lisans - Doktora",
+] as const;
+
+const EDUCATION_MESSAGE = "Eğitim durumu seçin";
+const educationSchema = z
+  .enum(["", ...EDUCATION_LEVELS], EDUCATION_MESSAGE)
+  .refine((value) => value !== "", EDUCATION_MESSAGE);
+
 const websiteTextSchema = singleLine("Web sitesi", 300).pipe(
   z
     .string()
@@ -133,7 +147,7 @@ const sharedFields = {
   applicantFirstName: singleLine("Ad", 100, { noLinks: true }),
   applicantLastName: singleLine("Soyad", 100, { noLinks: true }),
   birthPlace: singleLine("Doğum yeri", 100),
-  education: singleLine("Eğitim durumu", 200),
+  education: educationSchema,
   title: singleLine("Firma adı", 200, { noLinks: true }),
   applicantRole: singleLine("Görev ve ünvan", 200),
   address: multiLine("İş adresi", 1000),
