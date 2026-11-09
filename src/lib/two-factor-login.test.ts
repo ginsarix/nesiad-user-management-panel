@@ -24,7 +24,7 @@ vi.mock("@/lib/sms/netgsm", async (importOriginal) => {
 const createdUserIds: string[] = [];
 
 afterAll(async () => {
-  await cleanUpLogins();
+  await cleanUpLogins(createdUserIds);
   if (createdUserIds.length) {
     await db.delete(userTable).where(inArray(userTable.id, createdUserIds));
   }

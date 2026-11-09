@@ -16,19 +16,28 @@ const messages: Record<string, string> = {
   YOU_CANNOT_REMOVE_YOURSELF: "Kendi hesabınızı silemezsiniz.",
   INITIAL_PASSWORD_NOT_ALLOWED:
     "Bu ekran yalnızca e-posta bağlantısıyla girişten hemen sonra, bir kez kullanılabilir. Şifrenizi menüdeki “Şifre değiştir” ile değiştirebilirsiniz.",
+  LOGIN_CODE_RESEND_TOO_SOON: "Yeni kod istemek için bir dakika bekleyin.",
+  ACCOUNT_TEMPORARILY_LOCKED:
+    "Çok fazla hatalı kod girildi. 15 dakika sonra tekrar deneyin.",
+  INVALID_CODE: "Kod hatalı.",
+  OTP_HAS_EXPIRED: "Kodun süresi doldu. Yeni kod isteyin.",
+  TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE:
+    "Bu kod için deneme hakkınız doldu. Yeni kod isteyin.",
+  INVALID_TWO_FACTOR_COOKIE:
+    "Giriş süresi doldu. Lütfen e-posta ve şifrenizle yeniden giriş yapın.",
 };
 
 export function authErrorMessage(
   error: { code?: string; status?: number } | null | undefined,
 ) {
+  // codes first: some 429s (resend cooldown, account lock) say more
+  const message = error?.code && messages[error.code];
+  if (message) return message;
   if (error?.status === 429) {
     return "Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar deneyin.";
   }
   if (error?.code?.startsWith("YOU_ARE_NOT_ALLOWED_")) {
     return "Bu işlem için yetkiniz yok.";
   }
-  return (
-    (error?.code && messages[error.code]) ??
-    "Bir hata oluştu. Lütfen tekrar deneyin."
-  );
+  return "Bir hata oluştu. Lütfen tekrar deneyin.";
 }

@@ -1,6 +1,6 @@
 // Logging in from tests: the password step, then the emailed code.
 // Callers must vi.mock("@/lib/mail") (the code is read from its calls) and
-// call cleanUpLogins() in afterAll.
+// call cleanUpLogins(createdUserIds) in afterAll.
 import { inArray } from "drizzle-orm";
 import { vi } from "vitest";
 import { db } from "@/db";
@@ -85,18 +85,22 @@ export async function completeLogin(email: string, password: string) {
   return cookieHeaders(res);
 }
 
-/** Deletes what the pending logins left in the verification table */
-export async function cleanUpLogins() {
+/**
+ * Deletes what the pending logins left in the verification table, and the
+ * wrong-code counts of the given users
+ */
+export async function cleanUpLogins(userIds: string[] = []) {
   const keys = [...pendingKeys];
   pendingKeys.clear();
-  if (!keys.length) return;
+  const identifiers = [
+    ...keys,
+    ...keys.map((key) => `2fa-attempts-${key}`),
+    ...keys.map((key) => `2fa-otp-${key}`),
+    ...keys.map((key) => `login-code-sent:${key}`),
+    ...userIds.map((id) => `login-code-failures:${id}`),
+  ];
+  if (!identifiers.length) return;
   await db
     .delete(verificationTable)
-    .where(
-      inArray(verificationTable.identifier, [
-        ...keys,
-        ...keys.map((key) => `2fa-attempts-${key}`),
-        ...keys.map((key) => `2fa-otp-${key}`),
-      ]),
-    );
+    .where(inArray(verificationTable.identifier, identifiers));
 }

@@ -12,6 +12,7 @@ import {
 import { recordAudit } from "./audit";
 import { auditLog, rememberLoginCodeChannel } from "./auth-plugins/audit";
 import { initialPassword } from "./auth-plugins/initial-password";
+import { twoFactorGuard } from "./auth-plugins/two-factor-guard";
 import { env } from "./env";
 import { deliverLoginCode } from "./login-code";
 import { sendEmail } from "./mail";
@@ -136,6 +137,9 @@ export const auth = betterAuth({
         storeOTP: "hashed",
       },
     }),
+    // the twoFactor and admin endpoints this panel must not expose, the
+    // resend cooldown and the lock after 10 wrong codes
+    twoFactorGuard(),
     auditLog(),
   ],
 });
