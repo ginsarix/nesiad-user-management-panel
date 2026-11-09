@@ -64,7 +64,9 @@ export function ApplicationForm() {
   const [submitting, setSubmitting] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepChanged = useRef(false);
-  const { isDirty } = form.formState;
+  // field to focus once the step it's on has rendered
+  const focusAfterStep = useRef<keyof ApplicationFormInput | null>(null);
+  const { isDirty, errors } = form.formState;
 
   // a refresh clears the form, so warn once something was entered
   useEffect(() => {
@@ -74,12 +76,16 @@ export function ApplicationForm() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [isDirty, done]);
 
-  // after moving between steps, start at the top with the step's heading
+  // after moving between steps, start at the top with the step's heading,
+  // or at the field with an error when the move was to show it
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs on step change only
   useEffect(() => {
     if (!stepChanged.current) return;
     window.scrollTo({ top: 0 });
     headingRef.current?.focus({ preventScroll: true });
+    const field = focusAfterStep.current;
+    focusAfterStep.current = null;
+    if (field) form.setFocus(field);
   }, [step]);
 
   function goTo(next: number) {
@@ -87,13 +93,24 @@ export function ApplicationForm() {
     setStep(next);
   }
 
-  const isLast = step === APPLICATION_STEPS.length - 1;
-
-  async function next() {
-    if (await form.trigger([...APPLICATION_STEPS[step].fields])) {
-      goTo(step + 1);
+  // show the step holding a field with an error and put focus on that field
+  function showField(field: keyof ApplicationFormInput) {
+    const target = stepOfField(field);
+    if (target < 0) return;
+    if (target === step) {
+      form.setFocus(field);
+    } else {
+      focusAfterStep.current = field;
+      goTo(target);
     }
   }
+
+  const isLast = step === APPLICATION_STEPS.length - 1;
+
+  // steps move freely; every step is validated only when the form is sent
+  const stepHasError = APPLICATION_STEPS.map((s) =>
+    s.fields.some((field) => errors[field]),
+  );
 
   async function submit(values: ApplicationFormValues) {
     setSubmitError(null);
@@ -106,10 +123,9 @@ export function ApplicationForm() {
       const message =
         error instanceof Error ? error.message : "Başvuru gönderilemedi";
       const field = error instanceof ApplicationError ? error.field : undefined;
-      const target = field ? stepOfField(field) : -1;
-      if (field && target >= 0) {
+      if (field && stepOfField(field) >= 0) {
         form.setError(field as keyof ApplicationFormInput, { message });
-        goTo(target);
+        showField(field as keyof ApplicationFormInput);
       } else {
         setSubmitError(message);
       }
@@ -118,13 +134,12 @@ export function ApplicationForm() {
     }
   }
 
-  // a step skipped or changed after validation: show its errors
-  function invalid(errors: FieldErrors<ApplicationFormInput>) {
-    const first = Object.keys(errors)
-      .map(stepOfField)
-      .filter((index) => index >= 0)
-      .sort((a, b) => a - b)[0];
-    if (first !== undefined && first !== step) goTo(first);
+  // go to the first field with an error, in step and field order
+  function invalid(invalidFields: FieldErrors<ApplicationFormInput>) {
+    const first = APPLICATION_STEPS.flatMap((s) => s.fields).find(
+      (field) => invalidFields[field],
+    );
+    if (first) showField(first);
   }
 
   if (done) {
@@ -147,7 +162,7 @@ export function ApplicationForm() {
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        if (!isLast) void next();
+        if (!isLast) goTo(step + 1);
         else void form.handleSubmit(submit, invalid)(event);
       }}
       className="relative flex flex-col gap-5 rounded-xl border bg-card p-4 shadow-sm sm:p-6"
@@ -163,19 +178,31 @@ export function ApplicationForm() {
       <nav aria-label="Adımlar">
         <ol className="flex gap-1">
           {APPLICATION_STEPS.map((s, index) => (
-            <li
-              key={s.id}
-              aria-current={index === step ? "step" : undefined}
-              className={`flex-1 border-t-4 pt-1 text-center text-xs sm:text-sm ${
-                index === step
-                  ? "border-sidebar font-semibold"
-                  : index < step
-                    ? "border-sidebar/40 text-muted-foreground"
-                    : "border-border text-muted-foreground"
-              }`}
-            >
-              <span className="sr-only">{index + 1}. adım: </span>
-              {s.title}
+            <li key={s.id} className="flex flex-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (index !== step) goTo(index);
+                }}
+                aria-current={index === step ? "step" : undefined}
+                className={`flex-1 cursor-pointer border-t-4 pt-1 text-center text-xs outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:text-sm ${
+                  stepHasError[index]
+                    ? index === step
+                      ? "border-destructive text-destructive"
+                      : "border-destructive/40 text-destructive"
+                    : index === step
+                      ? "border-sidebar"
+                      : index < step
+                        ? "border-sidebar/40 text-muted-foreground hover:text-foreground"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                } ${index === step ? "font-semibold" : ""}`}
+              >
+                <span className="sr-only">{index + 1}. adım: </span>
+                {s.title}
+                {stepHasError[index] && (
+                  <span className="sr-only"> (hatalı alan var)</span>
+                )}
+              </button>
             </li>
           ))}
         </ol>
