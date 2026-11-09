@@ -50,6 +50,8 @@ export function PhoneVerificationFields<T extends FieldValues>({
 
   const phoneValue = String(phone.field.value ?? "");
   const codeShown = sentTo !== null && sentTo === phoneValue;
+  // the server's wait is per number, so another number can be sent to at once
+  const waiting = codeShown ? cooldown : 0;
 
   const send = useMutation({
     mutationFn: async () => {
@@ -89,13 +91,13 @@ export function PhoneVerificationFields<T extends FieldValues>({
           <Button
             type="button"
             variant="outline"
-            disabled={send.isPending || cooldown > 0}
+            disabled={send.isPending || waiting > 0}
             onClick={() => send.mutate()}
           >
             {send.isPending
               ? "Gönderiliyor…"
-              : cooldown > 0
-                ? `Kod gönder (${cooldown})`
+              : waiting > 0
+                ? `Kod gönder (${waiting})`
                 : "Kod gönder"}
           </Button>
         </div>
@@ -111,22 +113,28 @@ export function PhoneVerificationFields<T extends FieldValues>({
         )}
         {send.error && <FieldError>{send.error.message}</FieldError>}
       </Field>
-      {codeShown && (
-        <Field data-invalid={!!code.fieldState.error}>
-          <FieldLabel htmlFor={`${idPrefix}code`}>SMS kodu</FieldLabel>
-          <Input
-            id={`${idPrefix}code`}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={7}
-            placeholder="123456"
-            aria-invalid={!!code.fieldState.error}
-            {...code.field}
-            value={String(code.field.value ?? "")}
-          />
-          <FieldError errors={[code.fieldState.error]} />
-        </Field>
-      )}
+      {/* always mounted, so submitting without a code shows its error */}
+      <Field data-invalid={!!code.fieldState.error}>
+        <FieldLabel htmlFor={`${idPrefix}code`}>SMS kodu</FieldLabel>
+        <Input
+          id={`${idPrefix}code`}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={7}
+          placeholder={codeShown ? "123456" : "Önce kod gönderin"}
+          disabled={!codeShown}
+          aria-invalid={!!code.fieldState.error}
+          {...code.field}
+          value={String(code.field.value ?? "")}
+        />
+        <FieldError
+          errors={[
+            codeShown || !code.fieldState.error
+              ? code.fieldState.error
+              : { message: "Önce kod gönderin" },
+          ]}
+        />
+      </Field>
     </>
   );
 }
