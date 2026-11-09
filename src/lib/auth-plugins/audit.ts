@@ -70,7 +70,8 @@ function userFields(user: User) {
   return [
     { label: "Ad Soyad", value: user.name },
     { label: "E-posta", value: user.email },
-    { label: "Telefon", value: maskPhone((user as UserWithPhone).phone) },
+    // ?? "": a missing field must never make the audit hook throw
+    { label: "Telefon", value: maskPhone((user as UserWithPhone).phone ?? "") },
   ];
 }
 
