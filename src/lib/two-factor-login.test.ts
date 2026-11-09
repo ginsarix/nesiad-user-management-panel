@@ -3,6 +3,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { userTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/mail";
 import { fakeNetgsmClient, netgsmClient } from "@/lib/sms/netgsm";
 import {
@@ -151,6 +152,31 @@ describe("login with a code after the password", () => {
 
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(vi.mocked(sendEmail).mock.calls[0][0].to).toBe(email);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("takes the email-only channel from the URL of a browser request", async () => {
+    const { email, userId } = await newUser();
+    await db
+      .update(userTable)
+      .set({ phone: "5550000000" })
+      .where(eq(userTable.id, userId));
+    const send = vi.fn(fakeNetgsmClient.send);
+    vi.mocked(netgsmClient).mockImplementation(() => ({ dryRun: false, send }));
+    const headers = await startLogin(email, "verilen-sifre");
+    headers.set("origin", env.NEXT_PUBLIC_APP_URL);
+    headers.set("content-type", "application/json");
+    vi.mocked(sendEmail).mockClear();
+
+    const res = await auth.handler(
+      new Request(
+        `${env.NEXT_PUBLIC_APP_URL}/api/auth/two-factor/send-otp?channel=email`,
+        { method: "POST", headers, body: "{}" },
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();
   });
 
