@@ -38,8 +38,8 @@ describe("maskPhone", () => {
   it("keeps only the last 4 digits", () => {
     expect(maskPhone("5321234567")).toBe("••• ••• 45 67");
   });
-  it("shows a dash for no number", () => {
-    expect(maskPhone(null)).toBe("—");
+  it("shows a dash when there are too few digits to mask", () => {
+    expect(maskPhone("")).toBe("—");
   });
 });
 

@@ -2,15 +2,10 @@ import { sendEmail } from "@/lib/mail";
 import { decodeSendResponse, netgsmClient } from "@/lib/sms/netgsm";
 
 /**
- * How a login code went out: by SMS, by email because it was asked for, by
- * email because SMS failed (or is in dry run), or by email because the
- * account has no number yet
+ * How a login code went out: by SMS, by email because it was asked for, or
+ * by email because SMS failed (or is in dry run)
  */
-export type LoginCodeChannel =
-  | "sms"
-  | "email"
-  | "email_fallback"
-  | "email_no_phone";
+export type LoginCodeChannel = "sms" | "email" | "email_fallback";
 
 /** What the code step tells the person: where to look for the code */
 export type LoginCodeSentTo = "sms" | "email";
@@ -54,7 +49,7 @@ async function trySms(phone: string, code: string) {
 
 /** Sends `code`; never throws for SMS problems (falls back to email). Throws only if the email also fails. */
 export async function deliverLoginCode(input: {
-  user: { name: string; email: string; phone: string | null };
+  user: { name: string; email: string; phone: string };
   code: string;
   emailOnly: boolean;
 }): Promise<LoginCodeChannel> {
@@ -62,11 +57,6 @@ export async function deliverLoginCode(input: {
   if (emailOnly) {
     await sendByEmail(user, code);
     return "email";
-  }
-  // until deploy 2 an account may have no number yet; an expected setup
-  if (!user.phone) {
-    await sendByEmail(user, code);
-    return "email_no_phone";
   }
   const problem = await trySms(user.phone, code);
   if (problem === null) return "sms";

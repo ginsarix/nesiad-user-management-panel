@@ -35,7 +35,8 @@ export async function getPanelUsers(
       fetchOptions: { headers },
     }),
   );
-  return users.toSorted((a, b) => compareTr(a.name, b.name));
+  // whole user rows, so `phone` is there (NOT NULL) though the types lack it
+  return (users as PanelUser[]).toSorted((a, b) => compareTr(a.name, b.name));
 }
 
 /** Texts a verification code to `phone`; `userId` when it is for an existing user */
@@ -121,4 +122,4 @@ export async function deletePanelUser(userId: string) {
 }
 
 /** `phone` is an additional field (src/lib/auth.ts) the admin client's types lack */
-export type PanelUser = UserWithRole & { phone?: string | null };
+export type PanelUser = UserWithRole & { phone: string };

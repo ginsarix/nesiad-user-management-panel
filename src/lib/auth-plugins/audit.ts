@@ -15,8 +15,8 @@ import { pendingLoginUser } from "./pending-login";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
 type User = { id: string; name: string; email: string };
-/** better-auth's user types don't carry the additional fields */
-type UserWithPhone = User & { phone?: string | null };
+/** better-auth's user types don't carry the additional fields; every user has a phone */
+type UserWithPhone = User & { phone: string };
 
 const LOGIN_FAILURE_REASONS: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: "E-posta veya şifre hatalı",
@@ -66,11 +66,11 @@ export async function safeRecord(entry: AuditEntry) {
   }
 }
 
-function userFields(user: UserWithPhone) {
+function userFields(user: User) {
   return [
     { label: "Ad Soyad", value: user.name },
     { label: "E-posta", value: user.email },
-    { label: "Telefon", value: maskPhone(user.phone ?? null) },
+    { label: "Telefon", value: maskPhone((user as UserWithPhone).phone) },
   ];
 }
 
@@ -81,7 +81,6 @@ const CHANNEL_LABELS: Record<LoginCodeChannel, string> = {
   sms: "SMS",
   email: "E-posta",
   email_fallback: "E-posta (SMS gönderilemedi)",
-  email_no_phone: "E-posta (numara yok)",
 };
 
 const ADMIN_ACTIONS: Record<string, string> = {

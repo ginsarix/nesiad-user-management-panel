@@ -36,10 +36,7 @@ export function ChangePhoneDialog({
         <DialogHeader>
           <DialogTitle>Telefonu değiştir</DialogTitle>
           <DialogDescription>
-            {user.name} için
-            {user.phone
-              ? ` şu anki numara: ${formatPhone(user.phone)}.`
-              : " kayıtlı numara yok."}
+            {user.name} için şu anki numara: {formatPhone(user.phone)}.
           </DialogDescription>
         </DialogHeader>
         {/* the content unmounts when closed, so each opening starts fresh */}

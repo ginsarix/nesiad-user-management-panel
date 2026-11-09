@@ -118,14 +118,10 @@ export function PanelUsers({
           header: "E-posta",
           enableSorting: false,
         }),
-        helper.accessor((user) => (user.phone ? formatPhone(user.phone) : ""), {
+        helper.accessor((user) => formatPhone(user.phone), {
           id: "phone",
           header: "Telefon",
           enableSorting: false,
-          cell: ({ getValue }) =>
-            getValue() || (
-              <span className="text-muted-foreground">Numara yok</span>
-            ),
         }),
         helper.accessor((user) => STATUS_LABELS[statusOf(user)], {
           id: "status",

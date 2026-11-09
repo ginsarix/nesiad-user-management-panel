@@ -60,16 +60,6 @@ describe("deliverLoginCode", () => {
     expectEmailWithCode();
   });
 
-  it("sends by email without a phone, telling it apart from an SMS failure", async () => {
-    const send = realClient(ok);
-    expect(
-      await deliverLoginCode({ ...base, user: { ...user, phone: null } }),
-    ).toBe("email_no_phone");
-    expect(send).not.toHaveBeenCalled();
-    expectEmailWithCode();
-    expect(errorSpy).not.toHaveBeenCalled();
-  });
-
   it("falls back to email in dry run", async () => {
     const send = vi.spyOn(fakeNetgsmClient, "send");
     vi.mocked(netgsmClient).mockReturnValue(fakeNetgsmClient);
