@@ -4,12 +4,19 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { userTable, verificationTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import {
+  cleanUpLogins,
+  completeLogin,
+  cookieHeaders,
+  startLogin,
+} from "@/test/login";
 
 vi.mock("@/lib/mail", () => ({ sendEmail: vi.fn(async () => {}) }));
 
 const createdUserIds: string[] = [];
 
 afterAll(async () => {
+  await cleanUpLogins();
   if (createdUserIds.length) {
     await db
       .delete(verificationTable)
@@ -17,15 +24,6 @@ afterAll(async () => {
     await db.delete(userTable).where(inArray(userTable.id, createdUserIds));
   }
 });
-
-function cookieHeaders(res: Response) {
-  return new Headers({
-    cookie: res.headers
-      .getSetCookie()
-      .map((c) => c.split(";")[0])
-      .join("; "),
-  });
-}
 
 /** A new, unverified user, as the admin creates them */
 async function newUser(password = "verilen-sifre") {
@@ -68,7 +66,8 @@ describe("initial password", () => {
       headers,
     });
 
-    expect((await signIn(email, "yeni-sifre-123")).ok).toBe(true);
+    // the password step passes (it then asks for the code)
+    await startLogin(email, "yeni-sifre-123");
     expect((await signIn(email, "verilen-sifre")).ok).toBe(false);
 
     expect(await status(headers)).toBe(false);
@@ -83,7 +82,7 @@ describe("initial password", () => {
   it("is not available after a normal login", async () => {
     const { email } = await newUser();
     await openVerificationLink(email);
-    const headers = cookieHeaders(await signIn(email, "verilen-sifre"));
+    const headers = await completeLogin(email, "verilen-sifre");
 
     expect(await status(headers)).toBe(false);
     await expect(
@@ -131,7 +130,8 @@ describe("initial password", () => {
   it("logs out other sessions but keeps the current one", async () => {
     const { email } = await newUser();
     const headers = await openVerificationLink(email);
-    const otherHeaders = cookieHeaders(await signIn(email, "verilen-sifre"));
+    const otherHeaders = await completeLogin(email, "verilen-sifre");
+    expect(await auth.api.getSession({ headers: otherHeaders })).not.toBeNull();
 
     await auth.api.setInitialPassword({
       body: { newPassword: "yeni-sifre-123" },

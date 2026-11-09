@@ -7,6 +7,7 @@ import {
 } from "better-auth/api";
 import { db } from "@/db";
 import { type AuditActor, type AuditEntry, recordAudit } from "../audit";
+import type { LoginCodeChannel } from "../login-code";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
 type User = { id: string; name: string; email: string };
@@ -65,6 +66,12 @@ function userFields(user: User) {
     { label: "E-posta", value: user.email },
   ];
 }
+
+/** Notes how a login code was sent, for the audit entry. A no-op until Task 5 */
+export function rememberLoginCodeChannel(
+  _ctx: { context: object },
+  _channel: LoginCodeChannel,
+): void {}
 
 const ADMIN_ACTIONS: Record<string, string> = {
   "/admin/set-user-password": "password_set",

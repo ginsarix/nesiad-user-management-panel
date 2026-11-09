@@ -4,25 +4,18 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { auditLogTable, userTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { cleanUpLogins, completeLogin, cookieHeaders } from "@/test/login";
 
 vi.mock("@/lib/mail", () => ({ sendEmail: vi.fn(async () => {}) }));
 
 const createdUserIds: string[] = [];
 
 afterAll(async () => {
+  await cleanUpLogins();
   if (createdUserIds.length) {
     await db.delete(userTable).where(inArray(userTable.id, createdUserIds));
   }
 });
-
-function cookieHeaders(res: Response) {
-  return new Headers({
-    cookie: res.headers
-      .getSetCookie()
-      .map((c) => c.split(";")[0])
-      .join("; "),
-  });
-}
 
 async function newUser(headers?: Headers, { verified = true } = {}) {
   const email = `__test__${crypto.randomUUID()}@example.com`;
@@ -82,13 +75,12 @@ describe("audit log of better-auth events", () => {
     });
   });
 
-  it("records logins and logouts by the user", async () => {
+  // Task 5 records the login after the code step
+  it.todo("records logins by the user");
+
+  it("records logouts by the user", async () => {
     const { email, userId } = await newUser();
-    const headers = cookieHeaders(await signIn(email));
-    expect(await lastEntry("login", userId)).toMatchObject({
-      actorId: userId,
-      actorEmail: email,
-    });
+    const headers = await completeLogin(email, "verilen-sifre");
 
     await auth.api.signOut({ headers });
     expect(await lastEntry("logout", userId)).toMatchObject({
@@ -96,21 +88,8 @@ describe("audit log of better-auth events", () => {
     });
   });
 
-  it("takes the IP from x-real-ip, never a browser-sent x-forwarded-for", async () => {
-    const { email, userId } = await newUser();
-    await auth.api.signInEmail({
-      body: { email, password: "verilen-sifre" },
-      headers: new Headers({
-        "x-real-ip": "203.0.113.7",
-        "x-forwarded-for": "198.51.100.1",
-        "user-agent": "__test__ browser",
-      }),
-    });
-    expect(await lastEntry("login", userId)).toMatchObject({
-      ip: "203.0.113.7",
-      userAgent: "__test__ browser",
-    });
-  });
+  // Task 5 records the login, with its IP, after the code step
+  it.todo("takes the IP from x-real-ip, never a browser-sent x-forwarded-for");
 
   it("records a login through the email link", async () => {
     // the link only logs in someone who isn't verified yet
@@ -128,7 +107,7 @@ describe("audit log of better-auth events", () => {
 
   it("records password changes by the user", async () => {
     const { email, userId } = await newUser();
-    const headers = cookieHeaders(await signIn(email));
+    const headers = await completeLogin(email, "verilen-sifre");
     await auth.api.changePassword({
       body: {
         currentPassword: "verilen-sifre",
@@ -182,7 +161,7 @@ describe("audit log of better-auth events", () => {
 
   it("records panel-user changes with who made them", async () => {
     const admin = await newUser();
-    const headers = cookieHeaders(await signIn(admin.email));
+    const headers = await completeLogin(admin.email, "verilen-sifre");
     const target = await newUser(headers);
 
     expect(await lastEntry("create", target.userId)).toMatchObject({

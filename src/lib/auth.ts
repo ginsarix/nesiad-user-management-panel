@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin } from "better-auth/plugins";
+import { admin, twoFactor } from "better-auth/plugins";
 import { db } from "@/db";
 import {
   accountTable,
@@ -10,9 +10,10 @@ import {
   verificationTable,
 } from "@/db/schema";
 import { recordAudit } from "./audit";
-import { auditLog } from "./auth-plugins/audit";
+import { auditLog, rememberLoginCodeChannel } from "./auth-plugins/audit";
 import { initialPassword } from "./auth-plugins/initial-password";
 import { env } from "./env";
+import { deliverLoginCode } from "./login-code";
 import { sendEmail } from "./mail";
 
 export const auth = betterAuth({
@@ -35,6 +36,20 @@ export const auth = betterAuth({
       // isn't trusted. The IP is used for the login rate limit and the
       // audit log; locally there's no such header and it stays empty.
       ipAddressHeaders: ["x-real-ip"],
+    },
+  },
+  user: {
+    additionalFields: {
+      // where login codes go by SMS; set by the panel, never by the user's own request
+      phone: { type: "string", required: false, input: false },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // every account logs in with a code after the password
+        before: async (user) => ({ data: { ...user, twoFactorEnabled: true } }),
+      },
     },
   },
   session: {
@@ -94,6 +109,33 @@ export const auth = betterAuth({
     // created from the panel get the role the admin endpoints require
     admin({ defaultRole: "admin" }),
     initialPassword(),
+    // The code step after the password; only its one-time code (OTP) part is used.
+    // Before auditLog so its sign-in hook has already replaced the session
+    // with the pending two_factor cookie when the audit hook runs.
+    twoFactor({
+      otpOptions: {
+        sendOTP: async ({ user, otp }, ctx) => {
+          // "E-postayla gönder" on the code step asks for ?channel=email
+          const emailOnly = ctx?.query?.channel === "email";
+          const channel = await deliverLoginCode({
+            user: {
+              name: user.name,
+              email: user.email,
+              // UserWithTwoFactor doesn't carry the additional fields' types
+              phone: (user as { phone?: string | null }).phone ?? null,
+            },
+            code: otp,
+            emailOnly,
+          });
+          // Task 5
+          if (ctx) rememberLoginCodeChannel(ctx, channel);
+        },
+        period: 5, // minutes
+        digits: 6,
+        allowedAttempts: 5,
+        storeOTP: "hashed",
+      },
+    }),
     auditLog(),
   ],
 });
