@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { NoticeKind } from "@/lib/application-notices";
 import { getNoticeSettings, updateNoticeSettings } from "@/lib/fetches/sms";
 import { fillTemplate, NOTICE_PLACEHOLDERS } from "@/lib/sms/templates";
 import {
@@ -70,11 +71,17 @@ function NoticeSettingsForm({ settings }: { settings: NoticeSettingsValues }) {
       noValidate
     >
       <p className="text-xs text-muted-foreground">
-        Bir başvuru kabul edilince ya da reddedilince başvurana hem SMS hem
-        e-posta gider. Otomatik kutlama SMS'lerinin açık ya da kapalı olması
-        bunları etkilemez.
+        Üyelik formundan bir başvuru gelince, başvuru kabul edilince ya da
+        reddedilince başvurana hem SMS hem e-posta gider. Otomatik kutlama
+        SMS'lerinin açık ya da kapalı olması bunları etkilemez.
       </p>
 
+      <Notice
+        form={form}
+        title="Başvuru Alındı Bildirimi"
+        prefix="received"
+        idPrefix="notice-received"
+      />
       <Notice
         form={form}
         title="Başvuru Kabul Bildirimi"
@@ -112,7 +119,7 @@ function Notice({
 }: {
   form: NoticeFormApi;
   title: string;
-  prefix: "accepted" | "rejected";
+  prefix: NoticeKind;
   idPrefix: string;
 }) {
   const { errors } = form.formState;

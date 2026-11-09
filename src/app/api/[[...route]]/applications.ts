@@ -4,6 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { db } from "@/db";
 import { memberTable } from "@/db/schema";
 import { notifyPanelUsersOfApplication } from "@/lib/application-emails";
+import { sendApplicationNotices } from "@/lib/application-notices";
 import { deleteFiles } from "@/lib/file-storage";
 import { createRateLimiter } from "@/lib/rate-limit";
 import {
@@ -107,6 +108,16 @@ export const applicationsRoute = new Hono().post(
         .returning({ id: memberTable.id });
 
       void notifyPanelUsersOfApplication(member.id).catch(console.error);
+      // "Başvurunuz alındı" to the applicant. Not awaited, so the applicant
+      // never waits on SMTP or NetGSM; it never throws and, like the
+      // submission itself, writes no audit entry
+      void sendApplicationNotices("received", {
+        title: values.title,
+        applicantFirstName: values.applicantFirstName,
+        applicantLastName: values.applicantLastName,
+        email: values.email,
+        mobilePhone: values.mobilePhone,
+      });
 
       return c.json({ message: "Başvurunuz alındı" }, 201);
     } catch (error) {

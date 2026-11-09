@@ -107,6 +107,15 @@ function settingsResponse(settings: SmsSettings) {
 }
 
 const noticeAuditSpec: AuditSpec = {
+  receivedSms: { label: "Başvuru alındı SMS'i", format: formatAudit.text },
+  receivedEmailSubject: {
+    label: "Başvuru alındı e-postası konusu",
+    format: formatAudit.text,
+  },
+  receivedEmailBody: {
+    label: "Başvuru alındı e-postası metni",
+    format: formatAudit.text,
+  },
   acceptedSms: { label: "Kabul SMS'i", format: formatAudit.text },
   acceptedEmailSubject: {
     label: "Kabul e-postası konusu",

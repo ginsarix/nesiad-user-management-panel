@@ -329,6 +329,9 @@ export const applicationNoticeSettingsTable = pgTable(
   "application_notice_settings",
   {
     id: integer().primaryKey().default(1),
+    receivedSms: text("received_sms").notNull(),
+    receivedEmailSubject: text("received_email_subject").notNull(),
+    receivedEmailBody: text("received_email_body").notNull(),
     acceptedSms: text("accepted_sms").notNull(),
     rejectedSms: text("rejected_sms").notNull(),
     acceptedEmailSubject: text("accepted_email_subject").notNull(),

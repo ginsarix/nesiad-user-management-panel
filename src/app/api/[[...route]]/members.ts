@@ -12,7 +12,7 @@ import {
 } from "@/db/schema";
 import {
   type NoticeOutcome,
-  sendDecisionNotices,
+  sendApplicationNotices,
 } from "@/lib/application-notices";
 import { recordAudit } from "@/lib/audit";
 import {
@@ -609,7 +609,7 @@ export const membersRoute = new Hono<AppEnv>()
       if (!rule.notice) return c.json({ status: rule.to, notices: null }, 200);
 
       const { member } = result;
-      const notices = await sendDecisionNotices(rule.notice, member);
+      const notices = await sendApplicationNotices(rule.notice, member);
       try {
         await recordAudit(db, {
           actor: actorOf(c),

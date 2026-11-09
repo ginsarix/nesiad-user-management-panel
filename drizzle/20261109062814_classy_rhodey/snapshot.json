@@ -1,0 +1,115 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1faa4c58-3ea0-498d-8c92-f37a48dc14da",
+  "prevIds": [
+    "1cfad2a3-fce0-4dd7-9da7-a489a5979d72"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "application_notice_settings",
+        "received_sms"
+      ],
+      "writes": [
+        "s|col|public.application_notice_settings.received_sms",
+        "n|col|public.application_notice_settings.received_sms",
+        "e|col|public.application_notice_settings.received_sms"
+      ],
+      "reads": [
+        "n|tbl|public.application_notice_settings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "application_notice_settings",
+        "received_email_subject"
+      ],
+      "writes": [
+        "s|col|public.application_notice_settings.received_email_subject",
+        "n|col|public.application_notice_settings.received_email_subject",
+        "e|col|public.application_notice_settings.received_email_subject"
+      ],
+      "reads": [
+        "n|tbl|public.application_notice_settings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "application_notice_settings",
+        "received_email_body"
+      ],
+      "writes": [
+        "s|col|public.application_notice_settings.received_email_body",
+        "n|col|public.application_notice_settings.received_email_body",
+        "e|col|public.application_notice_settings.received_email_body"
+      ],
+      "reads": [
+        "n|tbl|public.application_notice_settings",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "application_notice_settings",
+        "name": "received_sms",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "application_notice_settings",
+        "name": "received_email_subject",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "application_notice_settings",
+        "name": "received_email_body",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

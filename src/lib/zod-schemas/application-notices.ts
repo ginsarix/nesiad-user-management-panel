@@ -16,6 +16,9 @@ const body = () =>
 
 /** PUT /api/sms/notice-settings and the Ayarlar form (same shape) */
 export const noticeSettingsSchema = z.object({
+  receivedSms: sms(),
+  receivedEmailSubject: subject(),
+  receivedEmailBody: body(),
   acceptedSms: sms(),
   rejectedSms: sms(),
   acceptedEmailSubject: subject(),

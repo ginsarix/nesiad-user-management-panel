@@ -21,6 +21,11 @@ export const NOTICE_PLACEHOLDERS = {
 
 /** The notice texts shipped before staff edit them (Ayarlar tab) */
 export const DEFAULT_NOTICE_TEMPLATES = {
+  receivedSms:
+    "Sayın {ad}, {firma} adına yaptığınız NESİAD üyelik başvurunuz alınmıştır. Değerlendirme sonucu size ayrıca bildirilecektir. NESİAD",
+  receivedEmailSubject: "NESİAD üyelik başvurunuz alındı",
+  receivedEmailBody:
+    "Sayın {ad},\n\n{firma} adına yaptığınız NESİAD üyelik başvurunuz alınmıştır. Başvurunuz değerlendirildikten sonra sonucu size ayrıca bildirilecektir.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
   acceptedSms:
     "Sayın {ad}, {firma} adına yaptığınız NESİAD üyelik başvurunuz kabul edilmiştir. Aramıza hoş geldiniz. NESİAD",
   rejectedSms:

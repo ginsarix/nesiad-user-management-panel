@@ -2,8 +2,10 @@ import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { auditLogTable, memberTable, userTable } from "@/db/schema";
+import { getApplicationNoticeSettings } from "@/lib/application-notice-settings";
 import { deleteFile, readStoredFile } from "@/lib/file-storage";
 import { sendEmail } from "@/lib/mail";
+import { fillTemplate } from "@/lib/sms/templates";
 import { MAX_REQUEST_SIZE } from "@/lib/zod-schemas/member";
 import { applicationsRoute } from "./applications";
 
@@ -25,6 +27,38 @@ vi.mock("@/lib/application-emails", async (importOriginal) => {
       pendingNotifications.push(done.catch(() => {}));
       return done;
     },
+  };
+});
+
+// the applicant's "received" notice is also sent without waiting
+vi.mock("@/lib/application-notices", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/lib/application-notices")>();
+  return {
+    ...original,
+    sendApplicationNotices: (
+      ...args: Parameters<typeof original.sendApplicationNotices>
+    ) => {
+      const done = original.sendApplicationNotices(...args);
+      pendingNotifications.push(done);
+      return done;
+    },
+  };
+});
+
+// never reach NetGSM, whatever SMS_DRY_RUN says; remember what would be sent
+const sentSms = vi.hoisted(() => [] as { no: string; msg: string }[]);
+vi.mock("@/lib/sms/netgsm", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/lib/sms/netgsm")>();
+  return {
+    ...mod,
+    netgsmClient: () => ({
+      dryRun: false,
+      send: async (messages: { no: string; msg: string }[]) => {
+        sentSms.push(...messages);
+        return mod.fakeNetgsmClient.send(messages);
+      },
+    }),
   };
 });
 
@@ -72,6 +106,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await Promise.all(pendingNotifications.splice(0));
   vi.mocked(sendEmail).mockClear();
+  sentSms.length = 0;
 });
 
 let counter = 0;
@@ -287,7 +322,9 @@ describe("POST /api/applications", () => {
     expect(res.status).toBe(201);
     expect(await findByTitle(title)).toBeUndefined();
     expect(storedFiles.length).toBe(before);
+    await Promise.all(pendingNotifications.splice(0));
     expect(sendEmail).not.toHaveBeenCalled();
+    expect(sentSms).toEqual([]);
   });
 
   it("refuses over-limit bodies", async () => {
@@ -355,6 +392,25 @@ describe("POST /api/applications", () => {
       .where(inArray(memberTable.title, burst));
     expect(rows).toHaveLength(5);
     expect(storedFiles.length - before).toBe(15);
+  });
+
+  it("tells the applicant the application was received", async () => {
+    const title = newTitle();
+    const email = `__test__${crypto.randomUUID()}@example.com`;
+
+    expect((await submit(fields(title, { email }))).status).toBe(201);
+    await Promise.all(pendingNotifications.splice(0));
+
+    const settings = await getApplicationNoticeSettings();
+    const values = { ad: "Ayşe Yılmaz", firma: title };
+    expect(sendEmail).toHaveBeenCalledWith({
+      to: email,
+      subject: fillTemplate(settings.receivedEmailSubject, values),
+      text: fillTemplate(settings.receivedEmailBody, values),
+    });
+    expect(sentSms).toEqual([
+      { no: "5321234567", msg: fillTemplate(settings.receivedSms, values) },
+    ]);
   });
 
   it("still succeeds when the panel email fails", async () => {

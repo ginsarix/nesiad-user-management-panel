@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getApplicationNoticeSettings } from "./application-notice-settings";
-import { sendDecisionNotices } from "./application-notices";
+import { sendApplicationNotices } from "./application-notices";
 import type { NetgsmClient } from "./sms/netgsm";
 import { fillTemplate } from "./sms/templates";
 import { SMS_MAX_LENGTH } from "./zod-schemas/sms";
@@ -47,14 +47,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("sendDecisionNotices", () => {
+describe("sendApplicationNotices", () => {
   it("sends both from the right templates", async () => {
     netgsm.client = fakeClient(okAnswer);
     mail.sendEmail.mockResolvedValue(undefined);
     const settings = await getApplicationNoticeSettings();
     const values = { ad: "Ayşe Yılmaz", firma: applicant.title };
 
-    const accepted = await sendDecisionNotices("accepted", applicant);
+    const accepted = await sendApplicationNotices("accepted", applicant);
     expect(accepted).toEqual({ email: "sent", sms: "sent" });
     expect(mail.sendEmail).toHaveBeenLastCalledWith({
       to: "ayse@example.com",
@@ -66,13 +66,21 @@ describe("sendDecisionNotices", () => {
       msg: fillTemplate(settings.acceptedSms, values),
     });
 
-    await sendDecisionNotices("rejected", applicant);
+    await sendApplicationNotices("rejected", applicant);
     expect(mail.sendEmail).toHaveBeenLastCalledWith({
       to: "ayse@example.com",
       subject: fillTemplate(settings.rejectedEmailSubject, values),
       text: fillTemplate(settings.rejectedEmailBody, values),
     });
     expect(sent.at(-1)?.msg).toBe(fillTemplate(settings.rejectedSms, values));
+
+    await sendApplicationNotices("received", applicant);
+    expect(mail.sendEmail).toHaveBeenLastCalledWith({
+      to: "ayse@example.com",
+      subject: fillTemplate(settings.receivedEmailSubject, values),
+      text: fillTemplate(settings.receivedEmailBody, values),
+    });
+    expect(sent.at(-1)?.msg).toBe(fillTemplate(settings.receivedSms, values));
   });
 
   it("skips a missing or invalid address", async () => {
@@ -80,22 +88,22 @@ describe("sendDecisionNotices", () => {
     mail.sendEmail.mockResolvedValue(undefined);
 
     expect(
-      await sendDecisionNotices("accepted", { ...applicant, email: null }),
+      await sendApplicationNotices("accepted", { ...applicant, email: null }),
     ).toEqual({ email: "skipped", sms: "sent" });
     expect(
-      await sendDecisionNotices("accepted", { ...applicant, email: "nope" }),
+      await sendApplicationNotices("accepted", { ...applicant, email: "nope" }),
     ).toEqual({ email: "skipped", sms: "sent" });
     expect(mail.sendEmail).not.toHaveBeenCalled();
     sent.length = 0;
 
     expect(
-      await sendDecisionNotices("accepted", {
+      await sendApplicationNotices("accepted", {
         ...applicant,
         mobilePhone: "0384 111 11 11",
       }),
     ).toEqual({ email: "sent", sms: "skipped" });
     expect(
-      await sendDecisionNotices("accepted", {
+      await sendApplicationNotices("accepted", {
         ...applicant,
         mobilePhone: null,
       }),
@@ -106,7 +114,7 @@ describe("sendDecisionNotices", () => {
   it("reports a failed email without throwing", async () => {
     netgsm.client = fakeClient(okAnswer);
     mail.sendEmail.mockRejectedValue(new Error("smtp down"));
-    expect(await sendDecisionNotices("accepted", applicant)).toEqual({
+    expect(await sendApplicationNotices("accepted", applicant)).toEqual({
       email: "failed",
       sms: "sent",
     });
@@ -118,7 +126,7 @@ describe("sendDecisionNotices", () => {
       body: { code: "40" },
     }));
     mail.sendEmail.mockResolvedValue(undefined);
-    expect(await sendDecisionNotices("accepted", applicant)).toEqual({
+    expect(await sendApplicationNotices("accepted", applicant)).toEqual({
       email: "sent",
       sms: "failed",
     });
@@ -129,7 +137,7 @@ describe("sendDecisionNotices", () => {
       throw new Error("timeout");
     });
     mail.sendEmail.mockResolvedValue(undefined);
-    expect(await sendDecisionNotices("accepted", applicant)).toEqual({
+    expect(await sendApplicationNotices("accepted", applicant)).toEqual({
       email: "sent",
       sms: "unknown",
     });
@@ -141,7 +149,7 @@ describe("sendDecisionNotices", () => {
     const settings = await getApplicationNoticeSettings();
     const values = { ad: applicant.title, firma: applicant.title };
 
-    await sendDecisionNotices("accepted", {
+    await sendApplicationNotices("accepted", {
       ...applicant,
       applicantFirstName: null,
       applicantLastName: "  ",
@@ -178,13 +186,13 @@ describe("sendDecisionNotices", () => {
           code: "ETIMEDOUT",
         });
       });
-      await sendDecisionNotices("accepted", applicant);
+      await sendApplicationNotices("accepted", applicant);
       // NetGSM refuses
       netgsm.client = fakeClient(async () => ({
         status: 406,
         body: { code: "40", echo: `5321112233 ${text}` },
       }));
-      await sendDecisionNotices("accepted", applicant);
+      await sendApplicationNotices("accepted", applicant);
 
       expect(log).toHaveBeenCalled();
       const logged = JSON.stringify(
@@ -210,7 +218,7 @@ describe("sendDecisionNotices", () => {
     mail.sendEmail.mockResolvedValue(undefined);
     const longName = "A".repeat(SMS_MAX_LENGTH);
     expect(
-      await sendDecisionNotices("accepted", {
+      await sendApplicationNotices("accepted", {
         ...applicant,
         applicantFirstName: longName,
       }),
@@ -230,7 +238,7 @@ describe("sendDecisionNotices", () => {
     process.on("unhandledRejection", unhandled);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
 
-    const pending = sendDecisionNotices("accepted", applicant);
+    const pending = sendApplicationNotices("accepted", applicant);
     // the templates come from the database first; the timer starts after
     while (mail.sendEmail.mock.calls.length === 0) {
       await new Promise((resolve) => setImmediate(resolve));

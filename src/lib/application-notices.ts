@@ -98,12 +98,15 @@ async function sendNoticeSms(
   return "sent";
 }
 
+export type NoticeKind = "received" | "accepted" | "rejected";
+
 /**
- * Sends the accepted or rejected email and SMS from the Ayarlar templates.
- * Never throws: each channel reports its own outcome, and nothing is retried.
+ * Sends the received, accepted or rejected email and SMS from the Ayarlar
+ * templates. Never throws: each channel reports its own outcome, and nothing
+ * is retried.
  */
-export async function sendDecisionNotices(
-  kind: "accepted" | "rejected",
+export async function sendApplicationNotices(
+  kind: NoticeKind,
   applicant: NoticeApplicant,
 ): Promise<NoticeOutcomes> {
   try {
@@ -114,18 +117,9 @@ export async function sendDecisionNotices(
       applicant.title;
     const values = { ad, firma: applicant.title };
 
-    const [smsTemplate, subjectTemplate, bodyTemplate] =
-      kind === "accepted"
-        ? [
-            settings.acceptedSms,
-            settings.acceptedEmailSubject,
-            settings.acceptedEmailBody,
-          ]
-        : [
-            settings.rejectedSms,
-            settings.rejectedEmailSubject,
-            settings.rejectedEmailBody,
-          ];
+    const smsTemplate = settings[`${kind}Sms`];
+    const subjectTemplate = settings[`${kind}EmailSubject`];
+    const bodyTemplate = settings[`${kind}EmailBody`];
 
     const [email, sms] = await Promise.all([
       sendNoticeEmail(
