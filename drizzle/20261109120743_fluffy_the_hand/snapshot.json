@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "eb524e53-c359-4fb5-afd2-4f57520ae459",
+  "id": "ceca59cb-b494-4357-a84f-e4e423513e6c",
   "prevIds": [
     "1faa4c58-3ea0-498d-8c92-f37a48dc14da"
   ],
@@ -254,7 +254,7 @@
         "typeSchema": null,
         "notNull": true,
         "dimensions": 0,
-        "default": "false",
+        "default": "true",
         "generated": null,
         "identity": null,
         "entityType": "columns"

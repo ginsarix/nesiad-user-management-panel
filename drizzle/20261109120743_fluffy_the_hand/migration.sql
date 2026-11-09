@@ -9,7 +9,7 @@ CREATE TABLE "two_factor" (
 );
 --> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "phone" text;--> statement-breakpoint
-ALTER TABLE "user" ADD COLUMN "two_factor_enabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "user" ADD COLUMN "two_factor_enabled" boolean DEFAULT true NOT NULL;--> statement-breakpoint
 CREATE INDEX "twoFactor_userId_idx" ON "two_factor" ("user_id");--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 UPDATE "user" SET "two_factor_enabled" = true;

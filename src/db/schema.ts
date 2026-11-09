@@ -150,7 +150,7 @@ export const userTable = pgTable("user", {
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
   phone: text("phone"),
-  twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
+  twoFactorEnabled: boolean("two_factor_enabled").default(true).notNull(),
 });
 
 export const sessionTable = pgTable(
