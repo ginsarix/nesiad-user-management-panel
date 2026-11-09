@@ -110,7 +110,8 @@ export const applicationsRoute = new Hono().post(
       void notifyPanelUsersOfApplication(member.id).catch(console.error);
       // "Başvurunuz alındı" to the applicant. Not awaited, so the applicant
       // never waits on SMTP or NetGSM; it never throws and, like the
-      // submission itself, writes no audit entry
+      // submission itself, writes no audit entry. Sending to unverified contact
+      // details is an accepted risk
       void sendApplicationNotices("received", {
         title: values.title,
         applicantFirstName: values.applicantFirstName,
