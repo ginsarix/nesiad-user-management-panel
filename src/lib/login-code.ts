@@ -1,7 +1,23 @@
 import { sendEmail } from "@/lib/mail";
 import { decodeSendResponse, netgsmClient } from "@/lib/sms/netgsm";
 
-export type LoginCodeChannel = "sms" | "email" | "email_fallback";
+/**
+ * How a login code went out: by SMS, by email because it was asked for, by
+ * email because SMS failed (or is in dry run), or by email because the
+ * account has no number yet
+ */
+export type LoginCodeChannel =
+  | "sms"
+  | "email"
+  | "email_fallback"
+  | "email_no_phone";
+
+/** What the code step tells the person: where to look for the code */
+export type LoginCodeSentTo = "sms" | "email";
+
+export function loginCodeSentTo(channel: LoginCodeChannel): LoginCodeSentTo {
+  return channel === "sms" ? "sms" : "email";
+}
 
 export function loginCodeSms(code: string): string {
   return `Dernek Üye Paneli giriş kodunuz: ${code}. Kod 5 dakika geçerlidir.`;
@@ -23,8 +39,7 @@ async function sendByEmail(
 }
 
 /** Tries SMS; returns why it can't be used, or null once the SMS is sent. Never includes the code. */
-async function trySms(phone: string | null, code: string) {
-  if (!phone) return "no phone number";
+async function trySms(phone: string, code: string) {
   const client = netgsmClient();
   if (client.dryRun) return "SMS dry run";
   try {
@@ -48,10 +63,15 @@ export async function deliverLoginCode(input: {
     await sendByEmail(user, code);
     return "email";
   }
+  // until deploy 2 an account may have no number yet; an expected setup
+  if (!user.phone) {
+    await sendByEmail(user, code);
+    return "email_no_phone";
+  }
   const problem = await trySms(user.phone, code);
   if (problem === null) return "sms";
-  // A missing number and dry run are expected setups, not failures
-  if (user.phone && !problem.startsWith("SMS dry run")) {
+  // dry run is an expected setup, not a failure
+  if (!problem.startsWith("SMS dry run")) {
     console.error(`Login code SMS failed, sending by email: ${problem}`);
   }
   await sendByEmail(user, code);

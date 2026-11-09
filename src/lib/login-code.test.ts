@@ -60,12 +60,14 @@ describe("deliverLoginCode", () => {
     expectEmailWithCode();
   });
 
-  it("falls back to email without a phone", async () => {
-    realClient(ok);
+  it("sends by email without a phone, telling it apart from an SMS failure", async () => {
+    const send = realClient(ok);
     expect(
       await deliverLoginCode({ ...base, user: { ...user, phone: null } }),
-    ).toBe("email_fallback");
+    ).toBe("email_no_phone");
+    expect(send).not.toHaveBeenCalled();
     expectEmailWithCode();
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it("falls back to email in dry run", async () => {

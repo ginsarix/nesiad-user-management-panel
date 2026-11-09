@@ -10,6 +10,7 @@ import { type AuditActor, type AuditEntry, recordAudit } from "../audit";
 import { authErrorMessage } from "../auth-errors";
 import type { LoginCodeChannel } from "../login-code";
 import { maskPhone } from "../sms/phone";
+import { loginCodeChannelOf } from "./login-code-channel";
 import { pendingLoginUser } from "./pending-login";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
@@ -30,7 +31,7 @@ function toActor(user: User | null | undefined): AuditActor {
   return user ? { id: user.id, name: user.name, email: user.email } : null;
 }
 
-function requestInfo(ctx: Ctx) {
+export function requestInfo(ctx: Ctx) {
   // auth.api calls made on the server may have neither
   const headers = ctx.request?.headers ?? ctx.headers;
   const ip = headers ? getIP(headers, ctx.context.options) : null;
@@ -57,7 +58,7 @@ async function findUser(ctx: Ctx, userId: unknown): Promise<User | null> {
 }
 
 /** The audit log must never get in the way of logging in */
-async function safeRecord(entry: AuditEntry) {
+export async function safeRecord(entry: AuditEntry) {
   try {
     await recordAudit(db, entry);
   } catch (error) {
@@ -76,22 +77,12 @@ function userFields(user: UserWithPhone) {
 /** The login waiting for its code, read before the code is checked */
 const pendingBefore = new WeakMap<object, User | null>();
 
-/** How each login code went out, noted by sendOTP for the audit entry */
-const codeChannels = new WeakMap<object, LoginCodeChannel>();
-
 const CHANNEL_LABELS: Record<LoginCodeChannel, string> = {
   sms: "SMS",
   email: "E-posta",
   email_fallback: "E-posta (SMS gönderilemedi)",
+  email_no_phone: "E-posta (numara yok)",
 };
-
-/** Notes how a login code was sent, for the audit entry */
-export function rememberLoginCodeChannel(
-  ctx: { context: object },
-  channel: LoginCodeChannel,
-): void {
-  codeChannels.set(ctx.context, channel);
-}
 
 const ADMIN_ACTIONS: Record<string, string> = {
   "/admin/set-user-password": "password_set",
@@ -191,7 +182,7 @@ export const auditLog = () =>
 
               case "/two-factor/send-otp": {
                 if (failed) return;
-                const channel = codeChannels.get(ctx.context);
+                const channel = loginCodeChannelOf(ctx);
                 const pending = (await pendingLoginUser(ctx))?.user;
                 if (!channel || !pending) return;
                 await safeRecord({

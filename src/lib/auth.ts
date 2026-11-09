@@ -10,8 +10,9 @@ import {
   verificationTable,
 } from "@/db/schema";
 import { recordAudit } from "./audit";
-import { auditLog, rememberLoginCodeChannel } from "./auth-plugins/audit";
+import { auditLog } from "./auth-plugins/audit";
 import { initialPassword } from "./auth-plugins/initial-password";
+import { rememberLoginCodeChannel } from "./auth-plugins/login-code-channel";
 import { twoFactorGuard } from "./auth-plugins/two-factor-guard";
 import { env } from "./env";
 import { deliverLoginCode } from "./login-code";

@@ -115,7 +115,7 @@ describe("audit log of better-auth events", () => {
     ]);
     expect(rows.find((r) => r.action === "login_code_sent")).toMatchObject({
       actorId: userId,
-      details: [{ label: "Kanal", value: "E-posta (SMS gönderilemedi)" }],
+      details: [{ label: "Kanal", value: "E-posta (numara yok)" }],
     });
     expect(rows.find((r) => r.action === "login")).toMatchObject({
       actorId: userId,
