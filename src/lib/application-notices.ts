@@ -17,6 +17,8 @@ export type NoticeApplicant = {
   mobilePhone: string | null;
 };
 
+export type NoticeKind = "received" | "accepted" | "rejected";
+
 export type NoticeOutcomes = { email: NoticeOutcome; sms: NoticeOutcome };
 
 /**
@@ -69,13 +71,19 @@ async function sendNoticeEmail(
 }
 
 async function sendNoticeSms(
+  kind: NoticeKind,
   mobilePhone: string | null,
   message: string,
 ): Promise<NoticeOutcome> {
   const phone = checkPhone(mobilePhone);
   if (!phone.ok) return "skipped";
   // a truncated message could say something else, so a long one isn't sent
-  if (message.length > SMS_MAX_LENGTH) return "failed";
+  if (message.length > SMS_MAX_LENGTH) {
+    console.error(
+      `Application notice SMS (${kind}) not sent: ${message.length} characters, the limit is ${SMS_MAX_LENGTH}`,
+    );
+    return "failed";
+  }
 
   let raw: Awaited<ReturnType<ReturnType<typeof netgsmClient>["send"]>>;
   try {
@@ -95,10 +103,13 @@ async function sendNoticeSms(
     );
     return "failed";
   }
+  // the job id finds the message in NetGSM's reports; it holds no number or text
+  console.info(
+    `Application notice SMS (${kind}) accepted by NetGSM, job:`,
+    result.jobId,
+  );
   return "sent";
 }
-
-export type NoticeKind = "received" | "accepted" | "rejected";
 
 /**
  * Sends the received, accepted or rejected email and SMS from the Ayarlar
@@ -127,7 +138,11 @@ export async function sendApplicationNotices(
         fillTemplate(subjectTemplate, values),
         fillTemplate(bodyTemplate, values),
       ),
-      sendNoticeSms(applicant.mobilePhone, fillTemplate(smsTemplate, values)),
+      sendNoticeSms(
+        kind,
+        applicant.mobilePhone,
+        fillTemplate(smsTemplate, values),
+      ),
     ]);
     return { email, sms };
   } catch (error) {

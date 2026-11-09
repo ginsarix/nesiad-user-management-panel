@@ -111,6 +111,26 @@ describe("sendApplicationNotices", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("logs NetGSM's job id, and no number or text, when the SMS is accepted", async () => {
+    netgsm.client = fakeClient(okAnswer);
+    mail.sendEmail.mockResolvedValue(undefined);
+    const log = vi.spyOn(console, "info").mockImplementation(() => {});
+    try {
+      await sendApplicationNotices("received", applicant);
+
+      expect(log).toHaveBeenCalledWith(
+        "Application notice SMS (received) accepted by NetGSM, job:",
+        "123",
+      );
+      const logged = JSON.stringify(log.mock.calls);
+      for (const secret of ["5321112233", "Ayşe", applicant.title]) {
+        expect(logged).not.toContain(secret);
+      }
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("reports a failed email without throwing", async () => {
     netgsm.client = fakeClient(okAnswer);
     mail.sendEmail.mockRejectedValue(new Error("smtp down"));
@@ -216,14 +236,23 @@ describe("sendApplicationNotices", () => {
   it("fails an SMS longer than the limit without calling NetGSM", async () => {
     netgsm.client = fakeClient(okAnswer);
     mail.sendEmail.mockResolvedValue(undefined);
-    const longName = "A".repeat(SMS_MAX_LENGTH);
-    expect(
-      await sendApplicationNotices("accepted", {
-        ...applicant,
-        applicantFirstName: longName,
-      }),
-    ).toEqual({ email: "sent", sms: "failed" });
-    expect(sent).toHaveLength(0);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const longName = "A".repeat(SMS_MAX_LENGTH);
+      expect(
+        await sendApplicationNotices("accepted", {
+          ...applicant,
+          applicantFirstName: longName,
+        }),
+      ).toEqual({ email: "sent", sms: "failed" });
+      expect(sent).toHaveLength(0);
+      // the reason is logged, the text isn't
+      const logged = JSON.stringify(log.mock.calls);
+      expect(logged).toContain("Application notice SMS (accepted) not sent");
+      expect(logged).not.toContain(longName.slice(0, 20));
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("counts a hanging email as failed after 30 seconds, with nothing left unhandled", async () => {
