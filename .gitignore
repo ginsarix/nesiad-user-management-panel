@@ -48,3 +48,6 @@ next-env.d.ts
 
 # uploaded files (member logos)
 /uploads/
+
+# Playwright MCP snapshots and logs
+.playwright-mcp/
