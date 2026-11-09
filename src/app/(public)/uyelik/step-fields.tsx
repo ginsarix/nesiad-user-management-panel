@@ -342,7 +342,7 @@ export function AssociationStep({ form }: { form: Form }) {
         placeholder="Adı Soyadı"
       />
       <Field data-invalid={!!errors.otherAssociations}>
-        <Label htmlFor="otherAssociations">Diğer Dernek ve Kulüpler</Label>
+        <Label htmlFor="otherAssociations">Dernek, meslek grupları</Label>
         <Textarea
           id="otherAssociations"
           aria-invalid={!!errors.otherAssociations}

@@ -134,7 +134,7 @@ const applicantAuditLabels: Record<string, string> = {
   birthPlace: "Doğum Yeri",
   nationalId: "TC Kimlik No",
   education: "Eğitim Durumu",
-  otherAssociations: "Üye Olunan Diğer Dernekler",
+  otherAssociations: "Dernek, meslek grupları",
   companyIntro: "Firma Tanıtımı",
   gender: "Cinsiyet",
   referenceName: "Referans",

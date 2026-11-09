@@ -73,7 +73,7 @@ export function ApplicationSections({ member }: { member: MemberDetails }) {
           },
           { label: "Eğitim Durumu", value: member.education },
           { label: "Referans", value: member.referenceName },
-          { label: "Diğer Dernekler", value: member.otherAssociations },
+          { label: "Dernek, meslek grupları", value: member.otherAssociations },
         ]}
       />
       <Section

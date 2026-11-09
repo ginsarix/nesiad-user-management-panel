@@ -315,7 +315,9 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
           <TextField form={form} name="referenceName" label="Referans" />
 
           <Field className="sm:col-span-2">
-            <FieldLabel htmlFor="otherAssociations">Diğer Dernekler</FieldLabel>
+            <FieldLabel htmlFor="otherAssociations">
+              Dernek, meslek grupları
+            </FieldLabel>
             <Textarea
               id="otherAssociations"
               {...form.register("otherAssociations")}

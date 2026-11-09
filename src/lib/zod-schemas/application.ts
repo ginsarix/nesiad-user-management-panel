@@ -166,8 +166,11 @@ const sharedFields = {
   otherAssociations: z
     .string()
     .trim()
-    .max(2000, "Diğer dernekler en fazla 2000 karakter olabilir")
-    .refine((v) => !hasBadControl(v), controlMessage("Diğer dernekler")),
+    .max(2000, "Dernek, meslek grupları en fazla 2000 karakter olabilir")
+    .refine(
+      (v) => !hasBadControl(v),
+      controlMessage("Dernek, meslek grupları"),
+    ),
   email: emailSchema,
   mobilePhone: mobilePhoneSchema,
   nationalId: nationalIdSchema,
