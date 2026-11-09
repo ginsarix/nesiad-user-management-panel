@@ -82,4 +82,4 @@ Each call prints what happened, so the task log stays readable:
 
 ## Login and verification codes
 
-Login codes and the codes that verify a panel user's number go through the same NetGSM account and header as every other SMS, and each one spends credit. If the credit runs out (or NetGSM fails), login codes go by email instead. Number verification codes have no email fallback, so adding a number fails until the credit is topped up. With `SMS_DRY_RUN` on, login codes go by email and number codes are printed to the log with a `DRY RUN` prefix.
+Login codes and the codes that verify a panel user's number go through the same NetGSM account and header as every other SMS, and each one spends credit. If the credit runs out (or NetGSM fails), login codes go by email instead. Number verification codes have no email fallback, so creating a panel user or changing a number fails until the credit is topped up. With `SMS_DRY_RUN` on, login codes go by email and number codes are printed to the log with a `DRY RUN` prefix.

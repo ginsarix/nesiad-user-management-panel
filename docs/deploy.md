@@ -45,8 +45,8 @@ mkdir -p /var/www/vhosts/<domain>/httpdocs/public /var/www/vhosts/<domain>/nesia
 
 - `UPLOAD_DIR`: the absolute logo folder from above. Left unset, logos go into the app folder; the deploy is told to keep `uploads/` there, but backups and moves are easier outside it.
 - `NEXT_PUBLIC_APP_URL`: exactly the same value as the GitHub `APP_URL` variable. The build bakes in GitHub's value; the server reads Plesk's.
-- `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD`: the first admin (section 5).
-- `DEFAULT_ADMIN_PHONE` (optional): the first admin's Turkish mobile number (e.g. `05xx xxx xx xx`). Login codes go to it by SMS and it is trusted without a code. Left empty, the admin gets codes by email until a number is added. An invalid number stops the admin from being created. It only applies when the default admin is first created; it never changes an account that already exists. Production's admin already exists, so give it a number on Panel Kullanıcıları instead.
+- `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD`, `DEFAULT_ADMIN_PHONE`: the first admin (section 5).
+- `DEFAULT_ADMIN_PHONE`: the first admin's Turkish mobile number (e.g. `05xx xxx xx xx`). Every account needs a number, so without it the admin isn't created, just as without the email or password. Login codes go to it by SMS and it is trusted without a code. An invalid number stops the admin from being created. It only applies when the default admin is first created; it never changes an account that already exists. Production's admin already exists, so change its number on Panel Kullanıcıları instead.
 
 The app checks these when it starts. A missing or invalid one is printed in the app's log (Node.js page → logs) and every request fails with 500 until it's fixed. Restart the app after changing them.
 
@@ -108,10 +108,10 @@ The migration runs a few seconds before the new code is live. Adding tables or c
 
 ## 5. The first admin
 
-Every time the app starts, it checks for an account with `DEFAULT_ADMIN_EMAIL`. If there is none, it creates one (name "Admin User", password `DEFAULT_ADMIN_PASSWORD`) and emails the verification link, which logs them in and leads to `/welcome` to choose their own password. The app log says `Default admin: created`. If the account exists, nothing happens. The tables exist by then: the deploy migrates before it starts the new version.
+Every time the app starts, it checks for an account with `DEFAULT_ADMIN_EMAIL`. If there is none, it creates one (name "Admin User", password `DEFAULT_ADMIN_PASSWORD`, number `DEFAULT_ADMIN_PHONE`) and emails the verification link, which logs them in and leads to `/welcome` to choose their own password. The app log says `Default admin: created`. If the account exists, nothing happens. The tables exist by then: the deploy migrates before it starts the new version.
 
 - **The email didn't arrive** (the log says `created_email_failed`): sign in with the email and `DEFAULT_ADMIN_PASSWORD`. Login is refused until the address is verified, but each attempt sends a new link.
-- **It comes back:** as long as both variables are set, deleting that account on Panel Kullanıcıları recreates it at the next start, and Plesk starts the app again after every idle period. Remove the variables in Plesk once the admin has logged in, unless that's what you want.
+- **It comes back:** as long as the three variables are set, deleting that account on Panel Kullanıcıları recreates it at the next start, and Plesk starts the app again after every idle period. Remove the variables in Plesk once the admin has logged in, unless that's what you want.
 - `pnpm db:seed` does the same check from a machine, using its `.env`.
 
 ## 6. After the first deploy with the membership application
@@ -125,30 +125,19 @@ Also check:
 
 ## 7. SMS login rollout
 
-Login asks for a code after the password, sent by SMS (or by email for an account without a number). It ships in two deploys.
+Login asks for a code after the password, sent by SMS to the account's number. It falls back to email when the SMS can't be sent (NetGSM error, no credit, `SMS_DRY_RUN` on), and "Kod gelmedi, e-postayla gönder" on the code step sends it by email on request. It shipped in two deploys; both are done.
 
 **Deploy 1** (the feature):
 
-- Ship it when the staff know it's coming: from the moment it is live, every login asks for a code, and until their numbers are added that code arrives by email.
-- Accounts without a number get the code by email. Nobody is logged out at the deploy: sessions that are already open stay valid. A session lasts 30 days but is renewed once a day while it's in use, so a session opened before deploy 1 that keeps being used never expires on its own and never goes through the code step.
-- Right after the deploy, enter and verify the 4 staff numbers on Panel Kullanıcıları. The code goes by SMS to the number, and its owner reads it to whoever is typing.
-- The migration adds `user.phone` (nullable) and the two-factor tables, and marks all existing accounts as two-factor enabled. It loses and rewrites no data.
+- The migration added `user.phone` (nullable then) and the two-factor tables, and marked all existing accounts as two-factor enabled. It lost and rewrote no data.
+- From then on every login asked for a code; accounts without a number got it by email until their number was entered and verified on Panel Kullanıcıları.
+- Nobody was logged out at the deploy: sessions that were already open stayed valid. A session lasts 30 days but is renewed once a day while it's in use, so a session opened before deploy 1 that keeps being used never expires on its own and never goes through the code step. Ending those sessions was deliberately not done (management's decision, 2026-11-09).
 
-**Deploy 2** (a separate pull request, after all 4 numbers are in): makes the phone required and drops the "no number, send by email" path. Before merging it, check that no production account has an empty phone. This must return 0:
+**Deploy 2** (after all 4 staff numbers were in):
 
-```sql
-SELECT count(*) FROM "user" WHERE phone IS NULL;
-```
-
-The migration fails if any row is still empty.
-
-Deploy 2 is also the natural point to end the sessions opened before deploy 1, if management wants everyone to have gone through the code step at least once. That's their call, not a default. If they want it, run this on production with deploy 1's time, which logs those people out once:
-
-```sql
-DELETE FROM session WHERE created_at < '<deploy 1 time>';
-```
-
-`created_at` has no time zone, so look at a few rows first (`SELECT created_at FROM session ORDER BY created_at;`) to write the time the same way.
+- The migration makes `user.phone` required (`ALTER TABLE "user" ALTER COLUMN "phone" SET NOT NULL`). It changes no data. If any account still had no number it would fail, and the deploy would stop before uploading the new code; production had none.
+- The "no number, send by email" path is gone: every account has a number, so login codes go by SMS, with the email fallback above.
+- `DEFAULT_ADMIN_PHONE` is now needed to create the default admin (section 5).
 
 ## Deploying, retrying, rolling back
 
