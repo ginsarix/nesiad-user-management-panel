@@ -10,18 +10,39 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-errors";
+import type { LoginCodeSentTo } from "@/lib/login-code";
 import { phoneCodeSchema } from "@/lib/zod-schemas/panel-user";
 import { AuthCard, AuthNotice } from "../_components/auth-card";
 
 const codeFormSchema = zod.object({ code: phoneCodeSchema });
 const RESEND_SECONDS = 60;
 
+const texts: Record<LoginCodeSentTo, { prompt: string; sent: string }> = {
+  sms: {
+    prompt: "Telefonunuza gönderilen 6 haneli kodu girin.",
+    sent: "Kod telefonunuza gönderildi.",
+  },
+  email: {
+    prompt: "E-posta adresinize gönderilen 6 haneli kodu girin.",
+    sent: "Kod e-posta adresinize gönderildi.",
+  },
+};
+
+/** Where send-otp says the code went; the server adds `channel` to the plugin's answer */
+export function sentTo(data: unknown): LoginCodeSentTo {
+  const channel = (data as { channel?: unknown } | null)?.channel;
+  return channel === "sms" ? "sms" : "email";
+}
+
 /** The login's second step: the 6-digit code sent after the password was accepted */
 export function CodeStep({
+  sentTo: firstSentTo,
   onVerified,
   onBack,
   onExpired,
 }: {
+  /** Where the first code went */
+  sentTo: LoginCodeSentTo;
   onVerified: () => void;
   onBack: () => void;
   /** The pending login is gone (10 minutes): back to the password step */
@@ -32,7 +53,8 @@ export function CodeStep({
     defaultValues: { code: "" },
   });
   const { errors, isSubmitting } = form.formState;
-  const [info, setInfo] = useState<string | null>("Kod gönderildi.");
+  const [channel, setChannel] = useState(firstSentTo);
+  const [info, setInfo] = useState<string | null>(texts[firstSentTo].sent);
   const [sending, setSending] = useState(false);
   // client-side UX only: the server enforces the real cooldown
   const [secondsLeft, setSecondsLeft] = useState(RESEND_SECONDS);
@@ -68,7 +90,7 @@ export function CodeStep({
   async function send(viaEmail: boolean) {
     form.clearErrors("root");
     setSending(true);
-    const { error } = viaEmail
+    const { data, error } = viaEmail
       ? await authClient.twoFactor.sendOtp({
           fetchOptions: { query: { channel: "email" } },
         })
@@ -78,9 +100,9 @@ export function CodeStep({
       fail(error);
       return;
     }
-    setInfo(
-      viaEmail ? "Kod e-posta adresinize gönderildi." : "Kod gönderildi.",
-    );
+    const to = sentTo(data);
+    setChannel(to);
+    setInfo(texts[to].sent);
     setSecondsLeft(RESEND_SECONDS);
   }
 
@@ -90,7 +112,7 @@ export function CodeStep({
   return (
     <AuthCard
       title="Doğrulama kodu"
-      description="Telefonunuza gönderilen 6 haneli kodu girin. Kod 5 dakika geçerlidir."
+      description={`${texts[channel].prompt} Kod 5 dakika geçerlidir.`}
     >
       <form
         onSubmit={form.handleSubmit(onSubmit)}

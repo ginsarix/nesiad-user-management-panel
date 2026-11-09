@@ -3,6 +3,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { userTable, verificationTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { authErrorMessage } from "@/lib/auth-errors";
 import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/mail";
 import { fakeNetgsmClient, netgsmClient } from "@/lib/sms/netgsm";
@@ -220,5 +221,105 @@ describe("login with a code after the password", () => {
     const res = await verify(second, codeB);
     expect(res.status).toBe(200);
     expect(sessionCookie(res)).toMatch(/^better-auth\.session_token=[^;]+/);
+  });
+});
+
+describe("the send-otp response", () => {
+  async function newUserWithPhone() {
+    const user = await newUser();
+    await db
+      .update(userTable)
+      .set({ phone: "5550000000" })
+      .where(eq(userTable.id, user.userId));
+    return user;
+  }
+
+  function liveSms() {
+    const send = vi.fn(fakeNetgsmClient.send);
+    vi.mocked(netgsmClient).mockImplementation(() => ({ dryRun: false, send }));
+    return send;
+  }
+
+  it("says the code went by SMS", async () => {
+    const { email } = await newUserWithPhone();
+    const send = liveSms();
+    const headers = await startLogin(email, "verilen-sifre");
+
+    expect(await auth.api.sendTwoFactorOTP({ headers })).toEqual({
+      status: true,
+      channel: "sms",
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("says the code went by email when the account has no number", async () => {
+    const { email } = await newUser();
+    liveSms();
+    const headers = await startLogin(email, "verilen-sifre");
+
+    expect(await auth.api.sendTwoFactorOTP({ headers })).toEqual({
+      status: true,
+      channel: "email",
+    });
+  });
+
+  it("says the code went by email when SMS fails", async () => {
+    const { email } = await newUserWithPhone();
+    vi.mocked(netgsmClient).mockImplementation(() => ({
+      dryRun: false,
+      send: vi.fn(async () => ({ status: 200, body: { code: "30" } })),
+    }));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const headers = await startLogin(email, "verilen-sifre");
+
+    expect(await auth.api.sendTwoFactorOTP({ headers })).toEqual({
+      status: true,
+      channel: "email",
+    });
+    errorSpy.mockRestore();
+  });
+
+  it("says the code went by email when asked, over HTTP", async () => {
+    const { email } = await newUserWithPhone();
+    const send = liveSms();
+    const headers = await startLogin(email, "verilen-sifre");
+    headers.set("origin", env.NEXT_PUBLIC_APP_URL);
+    headers.set("content-type", "application/json");
+
+    const res = await auth.handler(
+      new Request(
+        `${env.NEXT_PUBLIC_APP_URL}/api/auth/two-factor/send-otp?channel=email`,
+        { method: "POST", headers, body: "{}" },
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: true, channel: "email" });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("answers with an error when the code couldn't be sent at all", async () => {
+    const { email } = await newUser();
+    const headers = await startLogin(email, "verilen-sifre");
+    headers.set("origin", env.NEXT_PUBLIC_APP_URL);
+    headers.set("content-type", "application/json");
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error("smtp down"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await auth.handler(
+      new Request(`${env.NEXT_PUBLIC_APP_URL}/api/auth/two-factor/send-otp`, {
+        method: "POST",
+        headers,
+        body: "{}",
+      }),
+    );
+    errorSpy.mockRestore();
+
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.code).toBe("LOGIN_CODE_NOT_SENT");
+    expect(authErrorMessage(body)).toBe(
+      "Kod gönderilemedi. Lütfen biraz sonra tekrar deneyin.",
+    );
   });
 });

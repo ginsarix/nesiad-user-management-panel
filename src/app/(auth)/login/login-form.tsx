@@ -11,9 +11,10 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-errors";
+import type { LoginCodeSentTo } from "@/lib/login-code";
 import { loginSchema } from "@/lib/zod-schemas/auth";
 import { AuthCard, AuthNotice } from "../_components/auth-card";
-import { CodeStep } from "./code-step";
+import { CodeStep, sentTo } from "./code-step";
 
 const notices = {
   reset: "Şifreniz yenilendi. Yeni şifrenizle giriş yapabilirsiniz.",
@@ -35,6 +36,7 @@ export function LoginForm({
   });
   const { errors, isSubmitting } = form.formState;
   const [step, setStep] = useState<"password" | "code">("password");
+  const [codeSentTo, setCodeSentTo] = useState<LoginCodeSentTo>("sms");
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     // No callbackURL: better-auth would also redirect a successful login there
@@ -51,6 +53,7 @@ export function LoginForm({
         return;
       }
       form.resetField("password");
+      setCodeSentTo(sentTo(sent.data));
       setStep("code");
       return;
     }
@@ -61,6 +64,7 @@ export function LoginForm({
   if (step === "code") {
     return (
       <CodeStep
+        sentTo={codeSentTo}
         onVerified={() => {
           router.replace(next);
           router.refresh();

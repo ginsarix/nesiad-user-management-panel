@@ -17,6 +17,7 @@ const messages: Record<string, string> = {
   INITIAL_PASSWORD_NOT_ALLOWED:
     "Bu ekran yalnızca e-posta bağlantısıyla girişten hemen sonra, bir kez kullanılabilir. Şifrenizi menüdeki “Şifre değiştir” ile değiştirebilirsiniz.",
   LOGIN_CODE_RESEND_TOO_SOON: "Yeni kod istemek için bir dakika bekleyin.",
+  LOGIN_CODE_NOT_SENT: "Kod gönderilemedi. Lütfen biraz sonra tekrar deneyin.",
   ACCOUNT_TEMPORARILY_LOCKED:
     "Çok fazla hatalı kod girildi. 15 dakika sonra tekrar deneyin.",
   INVALID_CODE: "Kod hatalı.",

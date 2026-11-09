@@ -4,6 +4,8 @@ import { TWO_FACTOR_ERROR_CODES } from "better-auth/plugins";
 import { desc, eq, sql } from "drizzle-orm";
 import { db, type Executor, type Transaction } from "@/db";
 import { verificationTable } from "@/db/schema";
+import { loginCodeSentTo } from "../login-code";
+import { loginCodeChannelOf } from "./login-code-channel";
 import { pendingLoginUser } from "./pending-login";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
@@ -21,6 +23,10 @@ const ERROR_CODES = {
   LOGIN_CODE_RESEND_TOO_SOON: {
     code: "LOGIN_CODE_RESEND_TOO_SOON",
     message: "Wait a minute before asking for a new code",
+  },
+  LOGIN_CODE_NOT_SENT: {
+    code: "LOGIN_CODE_NOT_SENT",
+    message: "The login code could not be sent by SMS or email",
   },
   ACCOUNT_TEMPORARILY_LOCKED: TWO_FACTOR_ERROR_CODES.ACCOUNT_TEMPORARILY_LOCKED,
   NOT_ALLOWED: { code: "NOT_ALLOWED", message: "Not allowed" },
@@ -224,6 +230,26 @@ export const twoFactorGuard = () =>
         },
       ],
       after: [
+        {
+          // where the code went, so the code step can say where to look;
+          // the plugin swallows sendOTP's errors, so a code that went
+          // nowhere would otherwise answer { status: true }
+          matcher: (ctx) => ctx.path === "/two-factor/send-otp",
+          handler: createAuthMiddleware(async (ctx) => {
+            if (isAPIError(ctx.context.returned)) return;
+            const channel = loginCodeChannelOf(ctx);
+            if (!channel) {
+              throw APIError.from(
+                "BAD_GATEWAY",
+                ERROR_CODES.LOGIN_CODE_NOT_SENT,
+              );
+            }
+            return ctx.json({
+              status: true,
+              channel: loginCodeSentTo(channel),
+            });
+          }),
+        },
         {
           matcher: (ctx) => ctx.path === "/two-factor/verify-otp",
           handler: createAuthMiddleware(async (ctx) => {
