@@ -123,6 +123,24 @@ Also check:
 - `curl -sI https://<domain>/uyelik`: `Cache-Control` must be `private, no-store` and there must be no `x-litespeed-cache: hit`. A cached page would load broken after the next deploy, which deletes the old `/_next/static` chunks.
 - Accept one application with `SMS_DRY_RUN` off, using an email address and a phone number you own, and confirm the acceptance email and SMS actually arrive. The automated tests prove those paths only with mocks.
 
+## 7. SMS login rollout
+
+Login asks for a code after the password, sent by SMS (or by email for an account without a number). It ships in two deploys.
+
+**Deploy 1** (the feature):
+
+- From the moment it is live, every login asks for a code. Accounts without a number get the code by email. Sessions that are already open stay valid until they expire; nobody is logged out.
+- Right after the deploy, enter and verify the 4 staff numbers on Panel Kullanıcıları. The code goes by SMS to the number, and its owner reads it to whoever is typing.
+- The migration adds `user.phone` (nullable) and the two-factor tables, and marks all existing accounts as two-factor enabled. It loses and rewrites no data.
+
+**Deploy 2** (a separate pull request, after all 4 numbers are in): makes the phone required and drops the "no number, send by email" path. Before merging it, check that no production account has an empty phone. This must return 0:
+
+```sql
+SELECT count(*) FROM "user" WHERE phone IS NULL;
+```
+
+The migration fails if any row is still empty.
+
 ## Deploying, retrying, rolling back
 
 - **Deploy:** merge or push to `main`.
