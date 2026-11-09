@@ -266,7 +266,7 @@ export const APPLICATION_STEPS: readonly {
   },
   {
     id: "association",
-    title: "Dernek",
+    title: "Referans",
     fields: ["referenceName", "otherAssociations"],
   },
   {
