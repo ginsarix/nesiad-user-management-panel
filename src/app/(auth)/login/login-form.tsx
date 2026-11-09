@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { authClient } from "@/lib/auth-client";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { loginSchema } from "@/lib/zod-schemas/auth";
 import { AuthCard, AuthNotice } from "../_components/auth-card";
+import { CodeStep } from "./code-step";
 
 const notices = {
   reset: "Şifreniz yenilendi. Yeni şifrenizle giriş yapabilirsiniz.",
@@ -32,16 +34,47 @@ export function LoginForm({
     defaultValues: { email: "", password: "" },
   });
   const { errors, isSubmitting } = form.formState;
+  const [step, setStep] = useState<"password" | "code">("password");
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     // No callbackURL: better-auth would also redirect a successful login there
-    const { error } = await authClient.signIn.email(values);
+    const { data, error } = await authClient.signIn.email(values);
     if (error) {
       form.setError("root", { message: authErrorMessage(error) });
       return;
     }
+    if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
+      // no session yet: send the code, then ask for it
+      const sent = await authClient.twoFactor.sendOtp();
+      if (sent.error) {
+        form.setError("root", { message: authErrorMessage(sent.error) });
+        return;
+      }
+      form.resetField("password");
+      setStep("code");
+      return;
+    }
     router.replace(next);
     router.refresh();
+  }
+
+  if (step === "code") {
+    return (
+      <CodeStep
+        onVerified={() => {
+          router.replace(next);
+          router.refresh();
+        }}
+        onBack={() => {
+          form.clearErrors("root");
+          setStep("password");
+        }}
+        onExpired={(message) => {
+          form.setError("root", { message });
+          setStep("password");
+        }}
+      />
+    );
   }
 
   return (
