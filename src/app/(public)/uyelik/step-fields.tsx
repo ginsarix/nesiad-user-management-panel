@@ -84,6 +84,7 @@ function TextField({
   type = "text",
   inputMode,
   autoComplete = "off",
+  placeholder,
   className,
 }: {
   form: Form;
@@ -93,6 +94,7 @@ function TextField({
   type?: string;
   inputMode?: "numeric" | "tel" | "email" | "url" | "text";
   autoComplete?: string;
+  placeholder?: string;
   className?: string;
 }) {
   const error = form.formState.errors[name];
@@ -107,6 +109,7 @@ function TextField({
         inputMode={inputMode}
         autoComplete={autoComplete}
         aria-invalid={!!error}
+        placeholder={placeholder}
         {...form.register(name)}
       />
       <FieldError errors={[error]} />
@@ -308,7 +311,12 @@ export function AssociationStep({ form }: { form: Form }) {
   const { errors } = form.formState;
   return (
     <div className="grid gap-4">
-      <TextField form={form} name="referenceName" label="Referans" />
+      <TextField
+        form={form}
+        name="referenceName"
+        label="Referans"
+        placeholder="Adı Soyadı"
+      />
       <Field data-invalid={!!errors.otherAssociations}>
         <Label htmlFor="otherAssociations">Diğer Dernek ve Kulüpler</Label>
         <Textarea
