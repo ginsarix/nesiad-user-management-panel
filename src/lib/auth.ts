@@ -128,7 +128,6 @@ export const auth = betterAuth({
             code: otp,
             emailOnly,
           });
-          // Task 5
           if (ctx) rememberLoginCodeChannel(ctx, channel);
         },
         period: 5, // minutes

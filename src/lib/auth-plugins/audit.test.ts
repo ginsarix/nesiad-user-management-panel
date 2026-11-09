@@ -4,7 +4,13 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { auditLogTable, userTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { cleanUpLogins, completeLogin, cookieHeaders } from "@/test/login";
+import {
+  cleanUpLogins,
+  completeLogin,
+  cookieHeaders,
+  lastEmailedCode,
+  startLogin,
+} from "@/test/login";
 
 vi.mock("@/lib/mail", () => ({ sendEmail: vi.fn(async () => {}) }));
 
@@ -53,6 +59,20 @@ async function lastEntry(action: string, entityId: string) {
   return row;
 }
 
+/** Every auth-type audit row about one user */
+async function authRows(userId: string) {
+  return db
+    .select()
+    .from(auditLogTable)
+    .where(
+      and(
+        eq(auditLogTable.entityType, "auth"),
+        eq(auditLogTable.entityId, userId),
+      ),
+    )
+    .orderBy(auditLogTable.id);
+}
+
 describe("audit log of better-auth events", () => {
   it("records a failed login with no actor and the reason", async () => {
     const { email } = await newUser();
@@ -75,8 +95,58 @@ describe("audit log of better-auth events", () => {
     });
   });
 
-  // Task 5 records the login after the code step
-  it.todo("records logins by the user");
+  it("records logins by the user, after the code", async () => {
+    const { email, userId } = await newUser();
+    const headers = await startLogin(email, "verilen-sifre");
+    expect(await authRows(userId)).toEqual([]);
+
+    await auth.api.sendTwoFactorOTP({ headers });
+    const res = await auth.api.verifyTwoFactorOTP({
+      body: { code: lastEmailedCode() },
+      headers,
+      asResponse: true,
+    });
+    expect(res.ok).toBe(true);
+
+    const rows = await authRows(userId);
+    expect(rows.map((r) => r.action).sort()).toEqual([
+      "login",
+      "login_code_sent",
+    ]);
+    expect(rows.find((r) => r.action === "login_code_sent")).toMatchObject({
+      actorId: userId,
+      details: [{ label: "Kanal", value: "E-posta (SMS gönderilemedi)" }],
+    });
+    expect(rows.find((r) => r.action === "login")).toMatchObject({
+      actorId: userId,
+    });
+  });
+
+  it("records a wrong code without ever storing a code", async () => {
+    const { email, userId } = await newUser();
+    const headers = await startLogin(email, "verilen-sifre");
+    await auth.api.sendTwoFactorOTP({ headers });
+    const real = lastEmailedCode();
+    const wrong = real === "000000" ? "000001" : "000000";
+    const res = await auth.api.verifyTwoFactorOTP({
+      body: { code: wrong },
+      headers,
+      asResponse: true,
+    });
+    expect(res.ok).toBe(false);
+
+    const rows = await authRows(userId);
+    const failed = rows.filter((r) => r.action === "login_code_failed");
+    expect(failed).toHaveLength(1);
+    expect(failed[0]).toMatchObject({
+      actorId: userId,
+      details: [{ label: "Neden", value: "Kod hatalı." }],
+    });
+    expect(rows.some((r) => r.action === "login")).toBe(false);
+    const json = JSON.stringify(rows.map((r) => [r.details, r.changes]));
+    expect(json).not.toContain(real);
+    expect(json).not.toContain(wrong);
+  });
 
   it("records logouts by the user", async () => {
     const { email, userId } = await newUser();
@@ -88,8 +158,21 @@ describe("audit log of better-auth events", () => {
     });
   });
 
-  // Task 5 records the login, with its IP, after the code step
-  it.todo("takes the IP from x-real-ip, never a browser-sent x-forwarded-for");
+  it("takes the IP from x-real-ip, never a browser-sent x-forwarded-for", async () => {
+    const { email, userId } = await newUser();
+    const headers = await startLogin(email, "verilen-sifre");
+    await auth.api.sendTwoFactorOTP({ headers });
+    headers.set("x-real-ip", "203.0.113.7");
+    headers.set("x-forwarded-for", "198.51.100.9");
+    await auth.api.verifyTwoFactorOTP({
+      body: { code: lastEmailedCode() },
+      headers,
+      asResponse: true,
+    });
+    expect(await lastEntry("login", userId)).toMatchObject({
+      ip: "203.0.113.7",
+    });
+  });
 
   it("records a login through the email link", async () => {
     // the link only logs in someone who isn't verified yet

@@ -7,7 +7,9 @@ import {
 } from "better-auth/api";
 import { db } from "@/db";
 import { type AuditActor, type AuditEntry, recordAudit } from "../audit";
+import { authErrorMessage } from "../auth-errors";
 import type { LoginCodeChannel } from "../login-code";
+import { pendingLoginUser } from "./pending-login";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
 type User = { id: string; name: string; email: string };
@@ -67,11 +69,25 @@ function userFields(user: User) {
   ];
 }
 
-/** Notes how a login code was sent, for the audit entry. A no-op until Task 5 */
+/** The login waiting for its code, read before the code is checked */
+const pendingBefore = new WeakMap<object, User | null>();
+
+/** How each login code went out, noted by sendOTP for the audit entry */
+const codeChannels = new WeakMap<object, LoginCodeChannel>();
+
+const CHANNEL_LABELS: Record<LoginCodeChannel, string> = {
+  sms: "SMS",
+  email: "E-posta",
+  email_fallback: "E-posta (SMS gönderilemedi)",
+};
+
+/** Notes how a login code was sent, for the audit entry */
 export function rememberLoginCodeChannel(
-  _ctx: { context: object },
-  _channel: LoginCodeChannel,
-): void {}
+  ctx: { context: object },
+  channel: LoginCodeChannel,
+): void {
+  codeChannels.set(ctx.context, channel);
+}
 
 const ADMIN_ACTIONS: Record<string, string> = {
   "/admin/set-user-password": "password_set",
@@ -89,6 +105,19 @@ export const auditLog = () =>
     id: "audit-log",
     hooks: {
       before: [
+        {
+          matcher: (ctx) => ctx.path === "/two-factor/verify-otp",
+          handler: createAuthMiddleware(async (ctx) => {
+            try {
+              pendingBefore.set(
+                ctx.context,
+                (await pendingLoginUser(ctx))?.user ?? null,
+              );
+            } catch (error) {
+              console.error("Audit log lookup failed:", error);
+            }
+          }),
+        },
         {
           matcher: (ctx) =>
             ctx.path === "/admin/update-user" ||
@@ -121,6 +150,9 @@ export const auditLog = () =>
             switch (ctx.path) {
               case "/sign-in/email": {
                 const user = ctx.context.newSession?.user;
+                // a correct password only starts the code step; the login
+                // is recorded when the code is verified
+                if (!failed && !user) return;
                 if (failed || !user) {
                   const error = ctx.context.returned as {
                     body?: { code?: string };
@@ -142,6 +174,63 @@ export const auditLog = () =>
                   });
                   return;
                 }
+                await safeRecord({
+                  actor: toActor(user),
+                  action: "login",
+                  entityType: "auth",
+                  entityId: user.id,
+                  entityLabel: user.name,
+                  ...requestInfo(ctx),
+                });
+                return;
+              }
+
+              case "/two-factor/send-otp": {
+                if (failed) return;
+                const channel = codeChannels.get(ctx.context);
+                const pending = (await pendingLoginUser(ctx))?.user;
+                if (!channel || !pending) return;
+                await safeRecord({
+                  actor: toActor(pending),
+                  action: "login_code_sent",
+                  entityType: "auth",
+                  entityId: pending.id,
+                  entityLabel: pending.name,
+                  details: [{ label: "Kanal", value: CHANNEL_LABELS[channel] }],
+                  ...requestInfo(ctx),
+                });
+                return;
+              }
+
+              case "/two-factor/verify-otp": {
+                if (failed) {
+                  const pending = pendingBefore.get(ctx.context);
+                  if (!pending) return;
+                  const error = returned as {
+                    statusCode: number;
+                    body?: { code?: string };
+                  };
+                  await safeRecord({
+                    actor: toActor(pending),
+                    action: "login_code_failed",
+                    entityType: "auth",
+                    entityId: pending.id,
+                    entityLabel: pending.name,
+                    details: [
+                      {
+                        label: "Neden",
+                        value: authErrorMessage({
+                          code: error.body?.code,
+                          status: error.statusCode,
+                        }),
+                      },
+                    ],
+                    ...requestInfo(ctx),
+                  });
+                  return;
+                }
+                const user = ctx.context.newSession?.user;
+                if (!user) return;
                 await safeRecord({
                   actor: toActor(user),
                   action: "login",

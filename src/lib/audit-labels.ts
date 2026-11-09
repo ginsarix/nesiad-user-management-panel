@@ -38,6 +38,8 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     disable: "Panel kullanıcısı devre dışı bırakıldı",
     enable: "Panel kullanıcısı etkinleştirildi",
     verification_email: "Doğrulama e-postası gönderildi",
+    phone_code_sent: "Telefon doğrulama kodu gönderildi",
+    phone_change: "Panel kullanıcısının telefonu değiştirildi",
   },
   sms: {
     send: "SMS gönderildi",
@@ -51,6 +53,8 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     login: "Giriş yaptı",
     login_email_link: "E-posta bağlantısıyla giriş yaptı",
     login_failed: "Başarısız giriş denemesi",
+    login_code_sent: "Giriş kodu gönderildi",
+    login_code_failed: "Hatalı giriş kodu",
     logout: "Çıkış yaptı",
     password_change: "Şifresini değiştirdi",
     initial_password_set: "İlk şifresini belirledi",
