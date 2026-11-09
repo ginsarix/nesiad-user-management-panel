@@ -84,9 +84,10 @@ async function expireRow(identifier: string) {
 }
 
 describe("two-factor guard", () => {
-  it("hides the two-factor endpoints the panel doesn't use", async () => {
+  it("hides the endpoints the panel doesn't use", async () => {
     const { email } = await newUser();
     const headers = await completeLogin(email, "verilen-sifre");
+    const { userId } = await newUser();
 
     for (const path of [
       "/two-factor/enable",
@@ -95,10 +96,14 @@ describe("two-factor guard", () => {
       "/two-factor/verify-totp",
       "/two-factor/generate-backup-codes",
       "/two-factor/verify-backup-code",
+      // every account is an admin: this would skip the other's code step
+      "/admin/impersonate-user",
+      "/admin/stop-impersonating",
     ]) {
       const res = await browserRequest(path, headers, {
         password: "verilen-sifre",
         code: "000000",
+        userId,
       });
       expect(res.status, path).toBe(404);
     }
@@ -107,7 +112,7 @@ describe("two-factor guard", () => {
   it("refuses to remember the device when verifying", async () => {
     const { email } = await newUser();
     const headers = await startLogin(email, "verilen-sifre");
-    await send(headers);
+    expect((await send(headers)).status).toBe(200);
     const code = lastEmailedCode();
 
     const res = await browserRequest("/two-factor/verify-otp", headers, {
@@ -162,6 +167,48 @@ describe("two-factor guard", () => {
     // a minute later; only this login's row, so parallel tests keep theirs
     await expireRow(`login-code-sent:${pendingLoginKey(headers)}`);
     expect((await send(headers)).status).toBe(200);
+  });
+
+  it("sends only one of several codes asked for at once", async () => {
+    const { email } = await newUser();
+    const headers = await startLogin(email, "verilen-sifre");
+
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => send(headers)),
+    );
+
+    expect(results.map((res) => res.status).toSorted()).toEqual([
+      200, 429, 429, 429, 429,
+    ]);
+  });
+
+  it("counts every wrong code when they come in at once", async () => {
+    const { email, userId } = await newUser();
+    const logins: Headers[] = [];
+    const codes = new Set<string>();
+    for (let i = 0; i < 3; i++) {
+      const headers = await startLogin(email, "verilen-sifre");
+      expect((await send(headers)).status).toBe(200);
+      codes.add(lastEmailedCode());
+      logins.push(headers);
+    }
+    const wrong = ["000000", "111111", "222222", "333333"].find(
+      (code) => !codes.has(code),
+    ) as string;
+
+    const results = await Promise.all(
+      logins.map((headers) => verify(headers, wrong)),
+    );
+
+    for (const res of results) {
+      expect(res.status).toBe(401);
+      expect((await res.json()).code).toBe("INVALID_CODE");
+    }
+    const rows = await db
+      .select({ value: verificationTable.value })
+      .from(verificationTable)
+      .where(eq(verificationTable.identifier, `login-code-failures:${userId}`));
+    expect(rows).toEqual([{ value: "3" }]);
   });
 
   it("locks the code step after 10 wrong codes in a row", async () => {
@@ -304,5 +351,6 @@ describe("two-factor guard", () => {
     });
 
     expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("NOT_ALLOWED");
   });
 });

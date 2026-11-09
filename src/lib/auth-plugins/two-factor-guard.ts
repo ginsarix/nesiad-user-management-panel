@@ -1,6 +1,9 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 import { TWO_FACTOR_ERROR_CODES } from "better-auth/plugins";
+import { desc, eq, sql } from "drizzle-orm";
+import { db, type Executor, type Transaction } from "@/db";
+import { verificationTable } from "@/db/schema";
 import { pendingLoginUser } from "./pending-login";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
@@ -23,7 +26,11 @@ const ERROR_CODES = {
   NOT_ALLOWED: { code: "NOT_ALLOWED", message: "Not allowed" },
 } as const;
 
-/** The parts of better-auth's twoFactor plugin the panel doesn't use */
+/**
+ * The parts of better-auth's twoFactor and admin plugins the panel doesn't
+ * use. Impersonation would let any account (all are admins) take another's
+ * session without that person's code.
+ */
 const HIDDEN_PATHS = new Set([
   "/two-factor/enable",
   "/two-factor/disable",
@@ -31,6 +38,8 @@ const HIDDEN_PATHS = new Set([
   "/two-factor/verify-totp",
   "/two-factor/generate-backup-codes",
   "/two-factor/verify-backup-code",
+  "/admin/impersonate-user",
+  "/admin/stop-impersonating",
 ]);
 
 const CODE_PATHS = new Set(["/two-factor/send-otp", "/two-factor/verify-otp"]);
@@ -42,37 +51,82 @@ const sentId = (pendingKey: string) => `login-code-sent:${pendingKey}`;
 /** The count of wrong codes in a row, per account */
 const failuresId = (userId: string) => `login-code-failures:${userId}`;
 
-/** The row if it hasn't run out; better-auth deletes expired rows lazily */
-async function activeRow(ctx: Ctx, identifier: string) {
-  const row =
-    await ctx.context.internalAdapter.findVerificationValue(identifier);
+// This plugin's own verification rows are read and written with Drizzle so
+// that each check and its write happen under one lock: concurrent requests
+// would otherwise both pass the cooldown, or both count from the same number.
+
+/** The newest row if it hasn't run out; better-auth deletes expired rows lazily */
+async function activeRow(executor: Executor, identifier: string) {
+  const [row] = await executor
+    .select()
+    .from(verificationTable)
+    .where(eq(verificationTable.identifier, identifier))
+    .orderBy(desc(verificationTable.createdAt))
+    .limit(1);
   return row && row.expiresAt > new Date() ? row : null;
 }
 
-async function isLocked(ctx: Ctx, userId: string) {
-  const row = await activeRow(ctx, failuresId(userId));
+/** Runs `fn` while holding a lock on `identifier` until the transaction ends */
+function withRowLock<T>(
+  identifier: string,
+  fn: (
+    tx: Transaction,
+    row: Awaited<ReturnType<typeof activeRow>>,
+  ) => Promise<T>,
+) {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${identifier}))`,
+    );
+    return fn(tx, await activeRow(tx, identifier));
+  });
+}
+
+/** Replaces every row of `identifier` with one holding this value */
+async function writeRow(
+  tx: Transaction,
+  identifier: string,
+  value: string,
+  expiresAt: Date,
+) {
+  await tx
+    .delete(verificationTable)
+    .where(eq(verificationTable.identifier, identifier));
+  await tx
+    .insert(verificationTable)
+    .values({ id: crypto.randomUUID(), identifier, value, expiresAt });
+}
+
+async function isLocked(userId: string) {
+  const row = await activeRow(db, failuresId(userId));
   return !!row && Number(row.value) >= MAX_FAILURES;
 }
 
-async function recordFailure(ctx: Ctx, userId: string) {
+async function recordFailure(userId: string) {
   const identifier = failuresId(userId);
-  const row = await activeRow(ctx, identifier);
-  const count = (row ? Number(row.value) || 0 : 0) + 1;
-  const value = String(count);
-  const expiresAt = new Date(
-    Date.now() + (count >= MAX_FAILURES ? LOCK_MS : FAILURE_WINDOW_MS),
-  );
-  const adapter = ctx.context.internalAdapter;
-  if (row) {
-    await adapter.updateVerificationByIdentifier(identifier, {
-      value,
-      expiresAt,
-    });
-  } else {
+  await withRowLock(identifier, async (tx, row) => {
     // a run-out count starts again
-    await adapter.deleteVerificationByIdentifier(identifier);
-    await adapter.createVerificationValue({ identifier, value, expiresAt });
-  }
+    const count = (row ? Number(row.value) || 0 : 0) + 1;
+    const expiresAt = new Date(
+      Date.now() + (count >= MAX_FAILURES ? LOCK_MS : FAILURE_WINDOW_MS),
+    );
+    await writeRow(tx, identifier, String(count), expiresAt);
+  });
+}
+
+/** Marks the pending login's code as sent; false when one went within the minute */
+function claimSend(pendingKey: string, userId: string) {
+  const identifier = sentId(pendingKey);
+  return withRowLock(identifier, async (tx, row) => {
+    if (row) return false;
+    await writeRow(
+      tx,
+      identifier,
+      userId,
+      new Date(Date.now() + RESEND_COOLDOWN_MS),
+    );
+    return true;
+  });
 }
 
 /** The request's JSON body as an object; before hooks see it unvalidated */
@@ -87,7 +141,8 @@ function bodyOf(ctx: Ctx): Record<string, unknown> {
  * Closes what better-auth's twoFactor and admin plugins leave open for this
  * panel, and adds the resend cooldown and the account lock of the code step:
  *
- * - the TOTP, backup code, enable and disable endpoints answer 404;
+ * - the TOTP, backup code, enable, disable and impersonation endpoints
+ *   answer 404;
  * - the code endpoints need a pending login, never remember the device, and
  *   refuse a locked account (the twoFactor plugin's own lock only covers
  *   accounts with a TOTP row, which OTP-only accounts never get);
@@ -121,7 +176,7 @@ export const twoFactorGuard = () =>
                 TWO_FACTOR_ERROR_CODES.INVALID_TWO_FACTOR_COOKIE,
               );
             }
-            if (await isLocked(ctx, pending.user.id)) {
+            if (await isLocked(pending.user.id)) {
               throw APIError.from(
                 "TOO_MANY_REQUESTS",
                 ERROR_CODES.ACCOUNT_TEMPORARILY_LOCKED,
@@ -129,17 +184,12 @@ export const twoFactorGuard = () =>
             }
 
             if (ctx.path !== "/two-factor/send-otp") return;
-            if (await activeRow(ctx, sentId(pending.key))) {
+            if (!(await claimSend(pending.key, pending.user.id))) {
               throw APIError.from(
                 "TOO_MANY_REQUESTS",
                 ERROR_CODES.LOGIN_CODE_RESEND_TOO_SOON,
               );
             }
-            await ctx.context.internalAdapter.createVerificationValue({
-              identifier: sentId(pending.key),
-              value: pending.user.id,
-              expiresAt: new Date(Date.now() + RESEND_COOLDOWN_MS),
-            });
           }),
         },
         {
@@ -182,15 +232,15 @@ export const twoFactorGuard = () =>
               if (returned.body?.code !== "INVALID_CODE") return;
               // a wrong code leaves the pending login in place
               const pending = await pendingLoginUser(ctx);
-              if (pending) await recordFailure(ctx, pending.user.id);
+              if (pending) await recordFailure(pending.user.id);
               return;
             }
             // logged in: the wrong codes in a row are over
             const userId = ctx.context.newSession?.user.id;
             if (userId) {
-              await ctx.context.internalAdapter.deleteVerificationByIdentifier(
-                failuresId(userId),
-              );
+              await db
+                .delete(verificationTable)
+                .where(eq(verificationTable.identifier, failuresId(userId)));
             }
           }),
         },
