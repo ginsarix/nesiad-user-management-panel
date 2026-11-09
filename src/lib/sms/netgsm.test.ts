@@ -2,9 +2,23 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { env } from "@/lib/env";
 import {
   decodeSendResponse,
+  fakeNetgsmClient,
+  netgsmClient,
   realNetgsmClient,
   SEND_ERROR_MESSAGES,
 } from "./netgsm";
+
+// vitest.config.ts sets SMS_DRY_RUN=true for every test worker, so a test
+// that reaches the unmocked client can't send a real SMS even when the local
+// .env (loaded first by dotenv/config) says SMS_DRY_RUN=false
+describe("test run dry-run guard", () => {
+  it("runs every test in SMS dry run", () => {
+    expect(process.env.SMS_DRY_RUN).toBe("true");
+    expect(env.SMS_DRY_RUN).toBe(true);
+    expect(netgsmClient()).toBe(fakeNetgsmClient);
+    expect(netgsmClient().dryRun).toBe(true);
+  });
+});
 
 describe("decodeSendResponse", () => {
   it("reads the job id from a success", () => {

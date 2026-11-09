@@ -1,9 +1,10 @@
 // Logging in from tests: the password step, then the emailed code.
 // Callers must vi.mock("@/lib/mail") (the code is read from its calls) and
 // call cleanUpLogins(createdUserIds) in afterAll.
-// WARNING: a user with a phone gets the code by SMS, and the local .env may
-// have SMS_DRY_RUN=false: a test that gives a user a phone must also
-// vi.mock("@/lib/sms/netgsm"), or it sends a REAL SMS.
+// Every user has a phone, but tests run in SMS dry run (vitest.config.ts
+// sets SMS_DRY_RUN=true over the local .env), so the code always comes by
+// email. A test that mocks "@/lib/sms/netgsm" with a non-dry-run client gets
+// the code by SMS instead and must read it from its own mock.
 import { inArray } from "drizzle-orm";
 import { vi } from "vitest";
 import { db } from "@/db";

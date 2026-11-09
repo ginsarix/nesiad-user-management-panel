@@ -10,7 +10,7 @@ import type { AppEnv } from "./env";
 import { panelUsersRoute } from "./panel-users";
 
 vi.mock("@/lib/mail", () => ({ sendEmail: vi.fn(async () => {}) }));
-// Without this mock a local SMS_DRY_RUN=false sends real SMS
+// Tests run in dry run (vitest.config.ts); this mock reads the texted codes
 vi.mock("@/lib/sms/netgsm", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/sms/netgsm")>()),
   netgsmClient: vi.fn(),
