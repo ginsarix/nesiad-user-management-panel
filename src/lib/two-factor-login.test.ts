@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
-import { userTable } from "@/db/schema";
+import { userTable, verificationTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/mail";
@@ -10,6 +10,7 @@ import {
   cleanUpLogins,
   cookieHeaders,
   lastEmailedCode,
+  pendingLoginKey,
   rememberPendingLogin,
   startLogin,
 } from "@/test/login";
@@ -30,7 +31,6 @@ afterAll(async () => {
 });
 
 afterEach(() => {
-  vi.useRealTimers();
   vi.mocked(netgsmClient).mockImplementation(() => fakeNetgsmClient);
 });
 
@@ -128,10 +128,18 @@ describe("login with a code after the password", () => {
     const headers = await startLogin(email, "verilen-sifre");
     const code = await sendCode(headers);
 
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(Date.now() + 5 * 60_000 + 1000);
+    // past the 5 minutes; only this login's code row, so tests running in
+    // parallel keep theirs (faking Date would make better-auth's cleanup of
+    // expired rows delete them)
+    const [row] = await db
+      .update(verificationTable)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(
+        eq(verificationTable.identifier, `2fa-otp-${pendingLoginKey(headers)}`),
+      )
+      .returning({ id: verificationTable.id });
+    expect(row).toBeDefined();
     const res = await verify(headers, code);
-    vi.useRealTimers();
 
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("OTP_HAS_EXPIRED");

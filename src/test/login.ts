@@ -24,14 +24,26 @@ export function cookieHeaders(res: Response) {
   return new Headers({ cookie: [...cookies.values()].join("; ") });
 }
 
-/** Keeps a sign-in response's pending login for cleanUpLogins() */
-export function rememberPendingLogin(res: Response) {
-  const value = res.headers
-    .getSetCookie()
+/** The verification identifier in a signed `two_factor` cookie value */
+function keyOf(cookies: string[]) {
+  const value = cookies
     .map((c) => c.split(";")[0].match(/better-auth\.two_factor=(.+)$/)?.[1])
     .findLast(Boolean);
   // the signed value is "<identifier>.<signature>"
-  if (value) pendingKeys.add(decodeURIComponent(value).split(".")[0]);
+  return value ? decodeURIComponent(value).split(".")[0] : null;
+}
+
+/** Keeps a sign-in response's pending login for cleanUpLogins() */
+export function rememberPendingLogin(res: Response) {
+  const key = keyOf(res.headers.getSetCookie());
+  if (key) pendingKeys.add(key);
+}
+
+/** The pending login's key in startLogin's headers; its code is the verification row `2fa-otp-<key>` */
+export function pendingLoginKey(headers: Headers) {
+  const key = keyOf((headers.get("cookie") ?? "").split("; "));
+  if (!key) throw new Error("No pending login cookie in these headers");
+  return key;
 }
 
 /** The password step; returns cookie headers carrying the pending `two_factor` cookie */
@@ -42,6 +54,11 @@ export async function startLogin(email: string, password: string) {
   });
   if (!res.ok) throw new Error(`Sign-in failed with ${res.status}`);
   rememberPendingLogin(res);
+  // a logged-in answer here would mean the code step is no longer enforced
+  const body = await res.clone().json();
+  if (body?.twoFactorRedirect !== true) {
+    throw new Error("Sign-in did not ask for a login code (twoFactorRedirect)");
+  }
   return cookieHeaders(res);
 }
 
