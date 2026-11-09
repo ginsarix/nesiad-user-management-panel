@@ -31,6 +31,38 @@ export function formatDisplayDate(date: Date) {
   return format(date, DISPLAY_FORMAT);
 }
 
+const PART_LENGTHS = [2, 2, 4];
+
+/**
+ * Formats gg.aa.yyyy as it is typed: "01" → "01.", "01.01" → "01.01.",
+ * "1." → "01.", "01012020" → "01.01.2020". Any non-digit ends the day or
+ * month; extra digits are dropped.
+ */
+export function autoFormatDisplayDate(text: string) {
+  const parts = ["", "", ""];
+  let index = 0;
+  for (const char of text) {
+    if (/\d/.test(char)) {
+      if (parts[index].length === PART_LENGTHS[index]) {
+        if (index === parts.length - 1) break;
+        index++;
+      }
+      parts[index] += char;
+    } else if (parts[index] && index < parts.length - 1) {
+      parts[index] = parts[index].padStart(PART_LENGTHS[index], "0");
+      index++;
+    }
+  }
+  let result = parts[0];
+  for (let i = 1; i < parts.length; i++) {
+    const previousDone = parts[i - 1].length === PART_LENGTHS[i - 1];
+    if (!parts[i] && !previousDone) break;
+    result += `.${parts[i]}`;
+    if (!parts[i]) break;
+  }
+  return result;
+}
+
 /** "05.03.2014" → "2014-03-05"; empty stays empty */
 export function displayToIso(text: string) {
   const date = parseDisplayDate(text);

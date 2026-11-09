@@ -15,7 +15,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { formatDisplayDate, parseDisplayDate } from "@/lib/dates";
+import {
+  autoFormatDisplayDate,
+  formatDisplayDate,
+  parseDisplayDate,
+} from "@/lib/dates";
 
 // Earliest year offered in the calendar's year dropdown
 const START_MONTH = new Date(1900, 0);
@@ -64,7 +68,15 @@ export function DatePickerInput({
         aria-invalid={ariaInvalid}
         onBlur={onBlur}
         onChange={(e) => {
-          const value = e.target.value;
+          const input = e.target;
+          // Format only what's typed or pasted at the end: deleting the
+          // automatic "." or editing mid-text leaves the text as it is
+          const inputType = (e.nativeEvent as InputEvent).inputType ?? "";
+          const atEnd = input.selectionStart === input.value.length;
+          const value =
+            inputType.startsWith("insert") && atEnd
+              ? autoFormatDisplayDate(input.value)
+              : input.value;
           onChange(value);
           const date = parseDisplayDate(value);
           if (date) setMonth(date);

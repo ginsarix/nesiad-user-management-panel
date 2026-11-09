@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  autoFormatDisplayDate,
   displayToIso,
   isoToDisplay,
   parseDisplayDate,
@@ -31,6 +32,32 @@ describe("parseDisplayDate", () => {
 
   it("accepts 29 February in a leap year", () => {
     expect(parseDisplayDate("29.02.2024")).not.toBeNull();
+  });
+});
+
+describe("autoFormatDisplayDate", () => {
+  it.each([
+    ["", ""],
+    ["0", "0"],
+    ["01", "01."],
+    ["01.0", "01.0"],
+    ["01.01", "01.01."],
+    ["01.01.2", "01.01.2"],
+    ["01.01.2020", "01.01.2020"],
+    // a dot typed after the automatic one
+    ["01..", "01."],
+    ["01.01..", "01.01."],
+    // a digit typed after the dot was deleted
+    ["010", "01.0"],
+    // a dot typed after a single digit pads it
+    ["1.", "01."],
+    ["01.1.", "01.01."],
+    // pasted
+    ["01012020", "01.01.2020"],
+    ["1/1/2020", "01.01.2020"],
+    ["01.01.20201", "01.01.2020"],
+  ])("%j → %j", (typed, formatted) => {
+    expect(autoFormatDisplayDate(typed)).toBe(formatted);
   });
 });
 
