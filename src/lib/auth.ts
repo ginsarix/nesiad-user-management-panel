@@ -115,6 +115,9 @@ export const auth = betterAuth({
     // Before auditLog so its sign-in hook has already replaced the session
     // with the pending two_factor cookie when the audit hook runs.
     twoFactor({
+      // no authenticator apps: the TOTP endpoints refuse even if the guard's
+      // 404 is ever lost, and sign-in never offers TOTP
+      totpOptions: { disable: true },
       otpOptions: {
         sendOTP: async ({ user, otp }, ctx) => {
           // "E-postayla gönder" on the code step asks for ?channel=email
