@@ -1,0 +1,38 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "902c7412-f2bf-4c0f-94db-7e7691052678",
+  "prevIds": [
+    "ceca59cb-b494-4357-a84f-e4e423513e6c"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "user",
+        "phone"
+      ],
+      "writes": [
+        "s|colprop|public.user.phone.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.user",
+        "n|sch|public",
+        "n|col|public.user.phone"
+      ],
+      "sqlHash": "4fc573abf88b2ffb"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"user\",\"phone\"]",
+      "set": {
+        "notNull": true
+      }
+    }
+  ]
+}

@@ -26,7 +26,12 @@ afterAll(async () => {
 async function newUser(headers?: Headers, { verified = true } = {}) {
   const email = `__test__${crypto.randomUUID()}@example.com`;
   const { user } = await auth.api.createUser({
-    body: { email, password: "verilen-sifre", name: "__test__ Kullanıcı" },
+    body: {
+      email,
+      password: "verilen-sifre",
+      name: "__test__ Kullanıcı",
+      data: { phone: "5550000000" },
+    },
     headers,
   });
   createdUserIds.push(user.id);
@@ -115,7 +120,8 @@ describe("audit log of better-auth events", () => {
     ]);
     expect(rows.find((r) => r.action === "login_code_sent")).toMatchObject({
       actorId: userId,
-      details: [{ label: "Kanal", value: "E-posta (numara yok)" }],
+      // tests run in SMS dry run, where the code falls back to email
+      details: [{ label: "Kanal", value: "E-posta (SMS gönderilemedi)" }],
     });
     expect(rows.find((r) => r.action === "login")).toMatchObject({
       actorId: userId,
@@ -286,7 +292,7 @@ describe("audit log of better-auth events", () => {
       details: [
         { label: "Ad Soyad", value: "__test__ Yeni Ad" },
         { label: "E-posta", value: target.email },
-        { label: "Telefon", value: "—" },
+        { label: "Telefon", value: "••• ••• 00 00" },
       ],
     });
   });

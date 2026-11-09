@@ -422,6 +422,7 @@ describe("POST /api/applications", () => {
       name: "__test__ Panel User",
       email: `${id}@example.com`,
       emailVerified: true,
+      phone: "5550000001",
     });
     vi.mocked(sendEmail).mockRejectedValue(new Error("smtp down"));
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -461,6 +462,7 @@ describe("POST /api/applications", () => {
         email: u.email,
         emailVerified: u.emailVerified,
         banned: u.banned,
+        phone: "5550000001",
       })),
     );
     const title = newTitle();

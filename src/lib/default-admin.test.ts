@@ -43,6 +43,7 @@ async function findUser(email: string) {
 function configure() {
   admin.email = `__test__${crypto.randomUUID()}@example.com`;
   admin.password = "varsayilan-sifre-123";
+  admin.phone = "5550000003";
   return admin.email;
 }
 
@@ -65,6 +66,15 @@ afterAll(async () => {
 describe("ensureDefaultAdmin", () => {
   it("does nothing without DEFAULT_ADMIN_*", async () => {
     expect(await ensureDefaultAdmin()).toBe("not_configured");
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("does nothing without DEFAULT_ADMIN_PHONE", async () => {
+    const email = configure();
+    admin.phone = undefined;
+
+    expect(await ensureDefaultAdmin()).toBe("not_configured");
+    expect(await findUser(email)).toBeNull();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 

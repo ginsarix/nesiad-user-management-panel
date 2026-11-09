@@ -17,18 +17,14 @@ export type DefaultAdminResult =
 export async function ensureDefaultAdmin(): Promise<DefaultAdminResult> {
   const email = env.DEFAULT_ADMIN_EMAIL;
   const password = env.DEFAULT_ADMIN_PASSWORD;
-  if (!email || !password) return "not_configured";
+  // every account needs a number for its login codes
+  if (!email || !password || !env.DEFAULT_ADMIN_PHONE) return "not_configured";
 
-  let phone: string | undefined;
-  if (env.DEFAULT_ADMIN_PHONE) {
-    const result = normalizePhone(env.DEFAULT_ADMIN_PHONE);
-    if (!result.ok) {
-      throw new Error(
-        "DEFAULT_ADMIN_PHONE is not a valid Turkish mobile number",
-      );
-    }
-    phone = result.phone;
+  const normalized = normalizePhone(env.DEFAULT_ADMIN_PHONE);
+  if (!normalized.ok) {
+    throw new Error("DEFAULT_ADMIN_PHONE is not a valid Turkish mobile number");
   }
+  const { phone } = normalized;
 
   const { internalAdapter } = await auth.$context;
   if (await internalAdapter.findUserByEmail(email)) return "exists";
@@ -40,7 +36,7 @@ export async function ensureDefaultAdmin(): Promise<DefaultAdminResult> {
         password,
         name: "Admin User",
         role: "admin",
-        data: phone ? { phone } : undefined,
+        data: { phone },
       },
     });
   } catch (error) {

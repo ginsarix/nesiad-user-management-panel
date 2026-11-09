@@ -4,7 +4,7 @@ import { ensureDefaultAdmin } from "@/lib/default-admin";
 
 const MESSAGES = {
   not_configured:
-    "Set DEFAULT_ADMIN_EMAIL and DEFAULT_ADMIN_PASSWORD in .env to seed the default admin",
+    "Set DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD and DEFAULT_ADMIN_PHONE in .env to seed the default admin",
   exists: "The default admin already exists; nothing to do",
   created: "Created the default admin and sent the verification email",
   created_email_failed:

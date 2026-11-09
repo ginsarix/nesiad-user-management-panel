@@ -28,7 +28,12 @@ afterAll(async () => {
 async function newUser() {
   const email = `__test__${crypto.randomUUID()}@example.com`;
   const { user } = await auth.api.createUser({
-    body: { email, password: "verilen-sifre", name: "__test__ Kullanıcı" },
+    body: {
+      email,
+      password: "verilen-sifre",
+      name: "__test__ Kullanıcı",
+      data: { phone: "5550000000" },
+    },
   });
   createdUserIds.push(user.id);
   await db
@@ -288,6 +293,7 @@ describe("two-factor guard", () => {
       email: `__test__${crypto.randomUUID()}@example.com`,
       password: "verilen-sifre",
       name: "__test__ Tarayıcıdan",
+      data: { phone: "5550000000" },
     };
 
     const res = await browserRequest("/admin/create-user", headers, body);
@@ -317,7 +323,7 @@ describe("two-factor guard", () => {
     expect(
       await apiError(
         auth.api.adminUpdateUser({
-          body: { userId, data: { phone: "5550000000" } },
+          body: { userId, data: { phone: "5550000001" } },
           headers,
         }),
       ),
@@ -338,7 +344,7 @@ describe("two-factor guard", () => {
       })
       .from(userTable)
       .where(eq(userTable.id, userId));
-    expect(row).toEqual({ phone: null, twoFactorEnabled: true });
+    expect(row).toEqual({ phone: "5550000000", twoFactorEnabled: true });
 
     const result = await auth.api.adminUpdateUser({
       body: { userId, data: { name: "__test__ Yeni" } },
@@ -352,7 +358,7 @@ describe("two-factor guard", () => {
     const headers = await completeLogin(email, "verilen-sifre");
 
     const res = await browserRequest("/update-user", headers, {
-      phone: "5550000000",
+      phone: "5550000001",
     });
 
     expect(res.status).toBe(403);

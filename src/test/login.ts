@@ -2,9 +2,10 @@
 // Callers must vi.mock("@/lib/mail") (the code is read from its calls) and
 // call cleanUpLogins(createdUserIds) in afterAll.
 // Every user has a phone, but tests run in SMS dry run (vitest.config.ts
-// sets SMS_DRY_RUN=true over the local .env), so the code always comes by
-// email. A test that mocks "@/lib/sms/netgsm" with a non-dry-run client gets
-// the code by SMS instead and must read it from its own mock.
+// sets SMS_DRY_RUN=true over the local .env), so a code asked for without
+// ?channel=email still falls back to email. A test that mocks
+// "@/lib/sms/netgsm" with a non-dry-run client gets that code by SMS and
+// reads it from its own mock; completeLogin always asks by email.
 import { inArray } from "drizzle-orm";
 import { vi } from "vitest";
 import { db } from "@/db";
@@ -76,10 +77,13 @@ export function lastEmailedCode() {
   return code;
 }
 
-/** The whole login; returns session cookie headers */
+/**
+ * The whole login; returns session cookie headers. Asks for the code by email
+ * ("E-postayla gönder"), so it works with any NetGSM mock
+ */
 export async function completeLogin(email: string, password: string) {
   const headers = await startLogin(email, password);
-  await auth.api.sendTwoFactorOTP({ headers });
+  await auth.api.sendTwoFactorOTP({ headers, query: { channel: "email" } });
   const res = await auth.api.verifyTwoFactorOTP({
     body: { code: lastEmailedCode() },
     headers,

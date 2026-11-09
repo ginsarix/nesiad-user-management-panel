@@ -38,7 +38,12 @@ afterEach(() => {
 async function newUser() {
   const email = `__test__${crypto.randomUUID()}@example.com`;
   const { user } = await auth.api.createUser({
-    body: { email, password: "verilen-sifre", name: "__test__ Kullanıcı" },
+    body: {
+      email,
+      password: "verilen-sifre",
+      name: "__test__ Kullanıcı",
+      data: { phone: "5550000000" },
+    },
   });
   createdUserIds.push(user.id);
   await db
@@ -147,11 +152,7 @@ describe("login with a code after the password", () => {
   });
 
   it("sends by email only when asked, even with a phone and real SMS", async () => {
-    const { email, userId } = await newUser();
-    await db
-      .update(userTable)
-      .set({ phone: "5550000000" })
-      .where(eq(userTable.id, userId));
+    const { email } = await newUser();
     const send = vi.fn(fakeNetgsmClient.send);
     vi.mocked(netgsmClient).mockImplementation(() => ({ dryRun: false, send }));
     const headers = await startLogin(email, "verilen-sifre");
@@ -165,11 +166,7 @@ describe("login with a code after the password", () => {
   });
 
   it("takes the email-only channel from the URL of a browser request", async () => {
-    const { email, userId } = await newUser();
-    await db
-      .update(userTable)
-      .set({ phone: "5550000000" })
-      .where(eq(userTable.id, userId));
+    const { email } = await newUser();
     const send = vi.fn(fakeNetgsmClient.send);
     vi.mocked(netgsmClient).mockImplementation(() => ({ dryRun: false, send }));
     const headers = await startLogin(email, "verilen-sifre");
@@ -190,11 +187,7 @@ describe("login with a code after the password", () => {
   });
 
   it("sends by SMS when the user has a phone and SMS is live", async () => {
-    const { email, userId } = await newUser();
-    await db
-      .update(userTable)
-      .set({ phone: "5550000000" })
-      .where(eq(userTable.id, userId));
+    const { email } = await newUser();
     const send = vi.fn(fakeNetgsmClient.send);
     vi.mocked(netgsmClient).mockImplementation(() => ({ dryRun: false, send }));
     const headers = await startLogin(email, "verilen-sifre");
@@ -225,15 +218,6 @@ describe("login with a code after the password", () => {
 });
 
 describe("the send-otp response", () => {
-  async function newUserWithPhone() {
-    const user = await newUser();
-    await db
-      .update(userTable)
-      .set({ phone: "5550000000" })
-      .where(eq(userTable.id, user.userId));
-    return user;
-  }
-
   function liveSms() {
     const send = vi.fn(fakeNetgsmClient.send);
     vi.mocked(netgsmClient).mockImplementation(() => ({ dryRun: false, send }));
@@ -241,7 +225,7 @@ describe("the send-otp response", () => {
   }
 
   it("says the code went by SMS", async () => {
-    const { email } = await newUserWithPhone();
+    const { email } = await newUser();
     const send = liveSms();
     const headers = await startLogin(email, "verilen-sifre");
 
@@ -252,19 +236,8 @@ describe("the send-otp response", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it("says the code went by email when the account has no number", async () => {
-    const { email } = await newUser();
-    liveSms();
-    const headers = await startLogin(email, "verilen-sifre");
-
-    expect(await auth.api.sendTwoFactorOTP({ headers })).toEqual({
-      status: true,
-      channel: "email",
-    });
-  });
-
   it("says the code went by email when SMS fails", async () => {
-    const { email } = await newUserWithPhone();
+    const { email } = await newUser();
     vi.mocked(netgsmClient).mockImplementation(() => ({
       dryRun: false,
       send: vi.fn(async () => ({ status: 200, body: { code: "30" } })),
@@ -280,7 +253,7 @@ describe("the send-otp response", () => {
   });
 
   it("says the code went by email when asked, over HTTP", async () => {
-    const { email } = await newUserWithPhone();
+    const { email } = await newUser();
     const send = liveSms();
     const headers = await startLogin(email, "verilen-sifre");
     headers.set("origin", env.NEXT_PUBLIC_APP_URL);

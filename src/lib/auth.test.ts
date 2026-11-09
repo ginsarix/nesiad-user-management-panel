@@ -32,7 +32,12 @@ describe("auth configuration", () => {
   it("refuses unverified accounts and sends them a link to /welcome", async () => {
     const email = testEmail();
     const { user } = await auth.api.createUser({
-      body: { email, password: "verilen-sifre", name: "__test__ Yeni" },
+      body: {
+        email,
+        password: "verilen-sifre",
+        name: "__test__ Yeni",
+        data: { phone: "5550000000" },
+      },
     });
     createdUserIds.push(user.id);
 

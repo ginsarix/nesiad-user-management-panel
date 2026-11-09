@@ -43,7 +43,7 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       // where login codes go by SMS; set by the panel, never by the user's own request
-      phone: { type: "string", required: false, input: false },
+      phone: { type: "string", required: true, input: false },
     },
   },
   databaseHooks: {
@@ -127,7 +127,7 @@ export const auth = betterAuth({
               name: user.name,
               email: user.email,
               // UserWithTwoFactor doesn't carry the additional fields' types
-              phone: (user as { phone?: string | null }).phone ?? null,
+              phone: (user as typeof user & { phone: string }).phone,
             },
             code: otp,
             emailOnly,

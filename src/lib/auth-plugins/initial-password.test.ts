@@ -29,7 +29,13 @@ afterAll(async () => {
 async function newUser(password = "verilen-sifre") {
   const email = `__test__${crypto.randomUUID()}@example.com`;
   const { user } = await auth.api.createUser({
-    body: { email, password, name: "__test__ Kullanıcı", role: "admin" },
+    body: {
+      email,
+      password,
+      name: "__test__ Kullanıcı",
+      role: "admin",
+      data: { phone: "5550000000" },
+    },
   });
   createdUserIds.push(user.id);
   return { email, userId: user.id };

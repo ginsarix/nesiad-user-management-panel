@@ -45,10 +45,15 @@ const testApp = new Hono<AppEnv>()
   })
   .route("/", panelUsersRoute);
 
-async function newUser() {
+async function newUser(phone = "5550000009") {
   const email = `__test__${crypto.randomUUID()}@example.com`;
   const { user } = await auth.api.createUser({
-    body: { email, password: PASSWORD, name: "__test__ Kullanıcı" },
+    body: {
+      email,
+      password: PASSWORD,
+      name: "__test__ Kullanıcı",
+      data: { phone },
+    },
   });
   createdUserIds.push(user.id);
   await db
@@ -144,6 +149,7 @@ describe("POST /api/panel-users/:id/verification-email", () => {
       name: "__test__ Doğrulanmış",
       email: "__test__verified@example.com",
       emailVerified: true,
+      phone: "5550000001",
     });
 
     const res = await panelUsersRoute.request(
@@ -277,16 +283,14 @@ describe("panel user phone numbers", () => {
     expect(await lastEntry("phone_change", target.id)).toMatchObject({
       entityType: "panel_user",
       entityLabel: "__test__ Kullanıcı",
-      changes: [{ label: "Telefon", from: "—", to: "••• ••• 00 02" }],
+      changes: [
+        { label: "Telefon", from: "••• ••• 00 09", to: "••• ••• 00 02" },
+      ],
     });
   });
 
   it("logs nothing when the number is saved again, but uses up the code", async () => {
-    const target = await newUser();
-    await db
-      .update(userTable)
-      .set({ phone: "5550000007" })
-      .where(eq(userTable.id, target.id));
+    const target = await newUser("5550000007");
     const code = await requestCode("5550000007", target.id);
 
     const res = await request("PUT", `/${target.id}/phone`, {
@@ -307,11 +311,7 @@ describe("panel user phone numbers", () => {
   });
 
   it("logs a new number that ends in the same 4 digits", async () => {
-    const target = await newUser();
-    await db
-      .update(userTable)
-      .set({ phone: "5550000008" })
-      .where(eq(userTable.id, target.id));
+    const target = await newUser("5550000008");
     const code = await requestCode("5551000008", target.id);
 
     const res = await request("PUT", `/${target.id}/phone`, {
