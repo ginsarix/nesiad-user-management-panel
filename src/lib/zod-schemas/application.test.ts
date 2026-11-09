@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applicationApiSchema, applicationFormSchema } from "./application";
+import {
+  applicationApiSchema,
+  applicationFormSchema,
+  COMPANY_INTRO_MIN_LENGTH,
+} from "./application";
 import { documentFileSchema } from "./member";
 
 const png = () =>
@@ -21,7 +25,7 @@ const validFormValues = {
   address: "Nevşehir",
   phone: "0384 213 00 00",
   website: "ornek.com",
-  companyIntro: "Üç cümle. İki. Bir.",
+  companyIntro: "Firmamız 1990'dan beri Nevşehir'de üretim yapar. ".repeat(25),
   referenceName: "Mehmet Demir",
   otherAssociations: "",
   logo: png(),
@@ -102,6 +106,17 @@ describe("applicationFormSchema", () => {
     });
 
     expect(result.data?.title).toBe("A B");
+  });
+
+  it(`requires at least ${COMPANY_INTRO_MIN_LENGTH} characters of company intro, not counting outer spaces`, () => {
+    const parse = (companyIntro: string) =>
+      applicationFormSchema.safeParse({ ...validFormValues, companyIntro });
+
+    expect(parse("a".repeat(COMPANY_INTRO_MIN_LENGTH)).success).toBe(true);
+    const short = parse(` ${"a".repeat(COMPANY_INTRO_MIN_LENGTH - 1)}\n `);
+    expect(short.error?.issues.map((issue) => issue.message)).toEqual([
+      `Firma tanıtım yazısı en az ${COMPANY_INTRO_MIN_LENGTH} karakter olmalıdır`,
+    ]);
   });
 
   it("accepts only up to seven digits as the employee count", () => {

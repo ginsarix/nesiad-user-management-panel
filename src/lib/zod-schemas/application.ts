@@ -53,14 +53,21 @@ function hasBadControl(value: string) {
 }
 
 /** A required field that may span lines */
-function multiLine(label: string, max: number) {
-  return z
-    .string()
-    .trim()
-    .min(1, `${label} boş olamaz`)
+function multiLine(label: string, max: number, options?: { min?: number }) {
+  let schema = z.string().trim().min(1, `${label} boş olamaz`);
+  if (options?.min) {
+    schema = schema.min(
+      options.min,
+      `${label} en az ${options.min} karakter olmalıdır`,
+    );
+  }
+  return schema
     .max(max, `${label} en fazla ${max} karakter olabilir`)
     .refine((v) => !hasBadControl(v), controlMessage(label));
 }
+
+/** Counted after trimming, as the schema does */
+export const COMPANY_INTRO_MIN_LENGTH = 1000;
 
 const emailSchema = singleLine("E-posta", 254).pipe(
   z
@@ -152,7 +159,9 @@ const sharedFields = {
   applicantRole: singleLine("Görev ve ünvan", 200),
   address: multiLine("İş adresi", 1000),
   phone: singleLine("İş telefonu", 30),
-  companyIntro: multiLine("Firma tanıtım yazısı", 5000),
+  companyIntro: multiLine("Firma tanıtım yazısı", 5000, {
+    min: COMPANY_INTRO_MIN_LENGTH,
+  }),
   referenceName: singleLine("Referans", 200),
   otherAssociations: z
     .string()

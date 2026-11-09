@@ -1,4 +1,9 @@
-import { type Control, Controller, type UseFormReturn } from "react-hook-form";
+import {
+  type Control,
+  Controller,
+  type UseFormReturn,
+  useWatch,
+} from "react-hook-form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
@@ -19,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   type ApplicationFormInput,
   type ApplicationFormValues,
+  COMPANY_INTRO_MIN_LENGTH,
   EDUCATION_LEVELS,
 } from "@/lib/zod-schemas/application";
 import { FileField } from "./file-field";
@@ -293,17 +299,35 @@ export function CompanyStep({ form }: { form: Form }) {
       />
       <Field className="sm:col-span-2" data-invalid={!!errors.companyIntro}>
         <Label htmlFor="companyIntro" required>
-          Firmanız Hakkında En Az 3 Cümleden Oluşan Tanıtım Yazısı
+          Firmanız Hakkında Tanıtım Yazısı
         </Label>
         <Textarea
           id="companyIntro"
-          rows={6}
+          rows={10}
           aria-invalid={!!errors.companyIntro}
+          aria-describedby="companyIntro-count"
           {...form.register("companyIntro")}
         />
+        <CompanyIntroCount control={form.control} />
         <FieldError errors={[errors.companyIntro]} />
       </Field>
     </div>
+  );
+}
+
+/** Its own component so typing re-renders only the count */
+function CompanyIntroCount({
+  control,
+}: {
+  control: Control<ApplicationFormInput, unknown, ApplicationFormValues>;
+}) {
+  const value = useWatch({ control, name: "companyIntro" });
+  const length = value.trim().length;
+  return (
+    <FieldDescription id="companyIntro-count">
+      En az {COMPANY_INTRO_MIN_LENGTH} karakter ({length} /{" "}
+      {COMPANY_INTRO_MIN_LENGTH})
+    </FieldDescription>
   );
 }
 

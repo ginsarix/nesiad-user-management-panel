@@ -137,7 +137,7 @@ function fields(title: string, overrides: Record<string, string | File> = {}) {
     address: "Nevşehir Merkez",
     phone: "0384 213 00 00",
     website: "ornek.com",
-    companyIntro: "Bir. İki. Üç.",
+    companyIntro: "Bir. İki. Üç. ".repeat(80),
     referenceName: "Mehmet Demir",
     otherAssociations: "",
     logo: png("logo.png"),
