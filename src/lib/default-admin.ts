@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
+import { normalizePhone } from "@/lib/sms/phone";
 
 export type DefaultAdminResult =
   | "not_configured"
@@ -18,12 +19,29 @@ export async function ensureDefaultAdmin(): Promise<DefaultAdminResult> {
   const password = env.DEFAULT_ADMIN_PASSWORD;
   if (!email || !password) return "not_configured";
 
+  let phone: string | undefined;
+  if (env.DEFAULT_ADMIN_PHONE) {
+    const result = normalizePhone(env.DEFAULT_ADMIN_PHONE);
+    if (!result.ok) {
+      throw new Error(
+        "DEFAULT_ADMIN_PHONE is not a valid Turkish mobile number",
+      );
+    }
+    phone = result.phone;
+  }
+
   const { internalAdapter } = await auth.$context;
   if (await internalAdapter.findUserByEmail(email)) return "exists";
 
   try {
     await auth.api.createUser({
-      body: { email, password, name: "Admin User", role: "admin" },
+      body: {
+        email,
+        password,
+        name: "Admin User",
+        role: "admin",
+        data: phone ? { phone } : undefined,
+      },
     });
   } catch (error) {
     // Another app process (Passenger can start several) got there first

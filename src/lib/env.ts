@@ -14,6 +14,7 @@ export const env = createEnv({
     // (src/lib/default-admin.ts; also `pnpm db:seed`)
     DEFAULT_ADMIN_EMAIL: z.email().optional(),
     DEFAULT_ADMIN_PASSWORD: z.string().min(8).max(128).optional(),
+    DEFAULT_ADMIN_PHONE: z.string().min(1).optional(),
 
     SMTP_HOST: z.string().min(1),
     SMTP_PORT: safeNumSchema().optional(),

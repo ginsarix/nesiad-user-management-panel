@@ -10,6 +10,7 @@ vi.mock("@/lib/mail", () => ({ sendEmail: vi.fn(async () => {}) }));
 const admin = vi.hoisted(() => ({
   email: undefined as string | undefined,
   password: undefined as string | undefined,
+  phone: undefined as string | undefined,
 }));
 vi.mock("@/lib/env", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/env")>();
@@ -20,7 +21,9 @@ vi.mock("@/lib/env", async (importOriginal) => {
           ? admin.email
           : key === "DEFAULT_ADMIN_PASSWORD"
             ? admin.password
-            : target[key as keyof typeof target],
+            : key === "DEFAULT_ADMIN_PHONE"
+              ? admin.phone
+              : target[key as keyof typeof target],
     }),
   };
 });
@@ -46,6 +49,7 @@ function configure() {
 beforeEach(() => {
   admin.email = undefined;
   admin.password = undefined;
+  admin.phone = undefined;
   vi.mocked(sendEmail).mockClear();
 });
 
@@ -74,6 +78,27 @@ describe("ensureDefaultAdmin", () => {
     expect(user?.emailVerified).toBe(false);
     expect(sendEmail).toHaveBeenCalledOnce();
     expect(vi.mocked(sendEmail).mock.calls[0]?.[0].to).toBe(email);
+  });
+
+  it("stores DEFAULT_ADMIN_PHONE normalized, with two-factor on", async () => {
+    const email = configure();
+    admin.phone = "0555 000 00 03";
+
+    expect(await ensureDefaultAdmin()).toBe("created");
+
+    const user = await findUser(email);
+    expect(user?.phone).toBe("5550000003");
+    expect(user?.twoFactorEnabled).toBe(true);
+  });
+
+  it("rejects an invalid DEFAULT_ADMIN_PHONE", async () => {
+    const email = configure();
+    admin.phone = "0384 213 00 00";
+
+    await expect(ensureDefaultAdmin()).rejects.toThrow(
+      "DEFAULT_ADMIN_PHONE is not a valid Turkish mobile number",
+    );
+    expect(await findUser(email)).toBeNull();
   });
 
   it("leaves an existing admin alone and sends nothing", async () => {

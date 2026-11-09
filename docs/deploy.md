@@ -46,6 +46,7 @@ mkdir -p /var/www/vhosts/<domain>/httpdocs/public /var/www/vhosts/<domain>/nesia
 - `UPLOAD_DIR`: the absolute logo folder from above. Left unset, logos go into the app folder; the deploy is told to keep `uploads/` there, but backups and moves are easier outside it.
 - `NEXT_PUBLIC_APP_URL`: exactly the same value as the GitHub `APP_URL` variable. The build bakes in GitHub's value; the server reads Plesk's.
 - `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD`: the first admin (section 5).
+- `DEFAULT_ADMIN_PHONE` (optional): the first admin's Turkish mobile number (e.g. `05xx xxx xx xx`). Login codes go to it by SMS and it is trusted without a code. Left empty, the admin gets codes by email until a number is added. An invalid number stops the admin from being created.
 
 The app checks these when it starts. A missing or invalid one is printed in the app's log (Node.js page → logs) and every request fails with 500 until it's fixed. Restart the app after changing them.
 
