@@ -286,6 +286,7 @@ describe("audit log of better-auth events", () => {
       details: [
         { label: "Ad Soyad", value: "__test__ Yeni Ad" },
         { label: "E-posta", value: target.email },
+        { label: "Telefon", value: "—" },
       ],
     });
   });

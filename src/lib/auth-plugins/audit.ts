@@ -9,10 +9,13 @@ import { db } from "@/db";
 import { type AuditActor, type AuditEntry, recordAudit } from "../audit";
 import { authErrorMessage } from "../auth-errors";
 import type { LoginCodeChannel } from "../login-code";
+import { maskPhone } from "../sms/phone";
 import { pendingLoginUser } from "./pending-login";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
 type User = { id: string; name: string; email: string };
+/** better-auth's user types don't carry the additional fields */
+type UserWithPhone = User & { phone?: string | null };
 
 const LOGIN_FAILURE_REASONS: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: "E-posta veya şifre hatalı",
@@ -62,10 +65,11 @@ async function safeRecord(entry: AuditEntry) {
   }
 }
 
-function userFields(user: User) {
+function userFields(user: UserWithPhone) {
   return [
     { label: "Ad Soyad", value: user.name },
     { label: "E-posta", value: user.email },
+    { label: "Telefon", value: maskPhone(user.phone ?? null) },
   ];
 }
 
