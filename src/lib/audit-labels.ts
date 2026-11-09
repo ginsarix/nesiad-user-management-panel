@@ -55,6 +55,7 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     login_failed: "Başarısız giriş denemesi",
     login_code_sent: "Giriş kodu gönderildi",
     login_code_failed: "Hatalı giriş kodu",
+    login_code_locked: "Giriş kodu denemeleri kilitlendi (15 dakika)",
     logout: "Çıkış yaptı",
     password_change: "Şifresini değiştirdi",
     initial_password_set: "İlk şifresini belirledi",

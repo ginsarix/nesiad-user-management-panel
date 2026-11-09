@@ -5,10 +5,14 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db, type Executor, type Transaction } from "@/db";
 import { verificationTable } from "@/db/schema";
 import { loginCodeSentTo } from "../login-code";
+import { requestInfo, safeRecord } from "./audit";
 import { loginCodeChannelOf } from "./login-code-channel";
 import { pendingLoginUser } from "./pending-login";
 
 type Ctx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
+type PendingUser = NonNullable<
+  Awaited<ReturnType<typeof pendingLoginUser>>
+>["user"];
 
 /** One new login code a minute per pending login */
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -108,15 +112,28 @@ async function isLocked(userId: string) {
   return !!row && Number(row.value) >= MAX_FAILURES;
 }
 
-async function recordFailure(userId: string) {
-  const identifier = failuresId(userId);
-  await withRowLock(identifier, async (tx, row) => {
+/** Counts a wrong code; the 10th in a row locks the code step and is audited */
+async function recordFailure(ctx: Ctx, user: PendingUser) {
+  const identifier = failuresId(user.id);
+  const count = await withRowLock(identifier, async (tx, row) => {
     // a run-out count starts again
     const count = (row ? Number(row.value) || 0 : 0) + 1;
     const expiresAt = new Date(
       Date.now() + (count >= MAX_FAILURES ? LOCK_MS : FAILURE_WINDOW_MS),
     );
     await writeRow(tx, identifier, String(count), expiresAt);
+    return count;
+  });
+  // exactly the 10th: the locked account's later codes are refused before
+  // they're counted, so the lock is recorded once
+  if (count !== MAX_FAILURES) return;
+  await safeRecord({
+    actor: { id: user.id, name: user.name, email: user.email },
+    action: "login_code_locked",
+    entityType: "auth",
+    entityId: user.id,
+    entityLabel: user.name,
+    ...requestInfo(ctx),
   });
 }
 
@@ -258,7 +275,7 @@ export const twoFactorGuard = () =>
               if (returned.body?.code !== "INVALID_CODE") return;
               // a wrong code leaves the pending login in place
               const pending = await pendingLoginUser(ctx);
-              if (pending) await recordFailure(pending.user.id);
+              if (pending) await recordFailure(ctx, pending.user);
               return;
             }
             // logged in: the wrong codes in a row are over

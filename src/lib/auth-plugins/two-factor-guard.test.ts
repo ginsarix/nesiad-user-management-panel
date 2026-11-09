@@ -1,7 +1,7 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
-import { userTable, verificationTable } from "@/db/schema";
+import { auditLogTable, userTable, verificationTable } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { env } from "@/lib/env";
@@ -226,6 +226,23 @@ describe("two-factor guard", () => {
         expect((await res.json()).code).toBe("INVALID_CODE");
       }
     }
+
+    // the lock is in the audit log, once
+    const lockEntries = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityId, userId),
+          eq(auditLogTable.action, "login_code_locked"),
+        ),
+      );
+    expect(lockEntries).toHaveLength(1);
+    expect(lockEntries[0]).toMatchObject({
+      entityType: "auth",
+      actorId: userId,
+      entityLabel: "__test__ Kullanıcı",
+    });
 
     const headers = await startLogin(email, "verilen-sifre");
     const locked = await verify(headers, "000000");
