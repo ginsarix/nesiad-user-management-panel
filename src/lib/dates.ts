@@ -83,8 +83,13 @@ export function todayInIstanbul(now = new Date()) {
   }).format(now);
 }
 
-export function isFutureDate(date: Date, today = new Date()) {
-  return date.getTime() > today.getTime();
+/**
+ * Whether a typed date (a parsed calendar day) is after today in Türkiye.
+ * Compares days, not instants, so it doesn't depend on the server's time
+ * zone: just after midnight in Istanbul a UTC server still has yesterday.
+ */
+export function isFutureDate(date: Date, now = new Date()) {
+  return format(date, ISO_FORMAT) > todayInIstanbul(now);
 }
 
 const SENIORITY_STEP = 5;
