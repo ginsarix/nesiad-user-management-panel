@@ -14,7 +14,8 @@
       "!dist",
       "!build",
       "!src/components/ui",
-      "!drizzle"
+      "!drizzle",
+      "!src/lib/turkey/*.json"
     ]
   },
   "formatter": {
