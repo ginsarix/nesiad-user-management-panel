@@ -1,0 +1,442 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "87d9835a-2032-47e5-a4ba-158e00dfbbc4",
+  "prevIds": [
+    "0530793a-6095-439a-af9c-69d43b0fb16e"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment"
+      ],
+      "writes": [
+        "s|tbl|public.payment",
+        "n|tbl|public.payment",
+        "e|tbl|public.payment",
+        "n|rel|public.payment",
+        "n|type|public.payment",
+        "n|rel|public.payment_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment",
+        "payment_date_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_date_idx",
+        "n|idx|public.payment_date_idx",
+        "e|idx|public.payment_date_idx",
+        "n|rel|public.payment_date_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment",
+        "n|sch|public",
+        "n|col|public.payment.date",
+        "n|col|public.payment.id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment",
+        "payment_counterparty_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_counterparty_idx",
+        "n|idx|public.payment_counterparty_idx",
+        "e|idx|public.payment_counterparty_idx",
+        "n|rel|public.payment_counterparty_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment",
+        "n|sch|public",
+        "n|col|public.payment.counterparty_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment"
+      ],
+      "writes": [
+        "s|fk|public.payment.payment_counterparty_id_counterparty_id_fkey",
+        "n|fk|public.payment.payment_counterparty_id_counterparty_id_fkey",
+        "e|fk|public.payment.payment_counterparty_id_counterparty_id_fkey",
+        "n|con|public.payment.payment_counterparty_id_counterparty_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment",
+        "n|sch|public",
+        "n|tbl|public.counterparty",
+        "n|sch|public",
+        "n|col|public.payment.counterparty_id",
+        "n|col|public.counterparty.id",
+        "e|uniqueness|public.counterparty.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment"
+      ],
+      "writes": [
+        "s|fk|public.payment.payment_category_id_parameter_id_fkey",
+        "n|fk|public.payment.payment_category_id_parameter_id_fkey",
+        "e|fk|public.payment.payment_category_id_parameter_id_fkey",
+        "n|con|public.payment.payment_category_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.payment.category_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment"
+      ],
+      "writes": [
+        "s|fk|public.payment.payment_method_id_parameter_id_fkey",
+        "n|fk|public.payment.payment_method_id_parameter_id_fkey",
+        "e|fk|public.payment.payment_method_id_parameter_id_fkey",
+        "n|con|public.payment.payment_method_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.payment.method_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "payment",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "payment_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "counterparty_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "amount",
+        "type": "numeric(12,2)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "date",
+        "type": "date",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "category_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "method_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "note",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "payment_date_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "date",
+            "isExpression": false,
+            "asc": false,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": false,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "payment_counterparty_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "counterparty_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "payment_counterparty_id_counterparty_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "counterparty_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "counterparty",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "payment_category_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "category_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "payment_method_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "method_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "payment_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "payment",
+        "name": "payment_amount_positive",
+        "value": "\"amount\" > 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

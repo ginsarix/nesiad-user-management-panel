@@ -1,18 +1,62 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { auditLogTable, counterpartyTable } from "@/db/schema";
+import {
+  auditLogTable,
+  counterpartyTable,
+  parameterTable,
+  paymentTable,
+} from "@/db/schema";
 import { counterpartiesRoute } from "./counterparties";
 
 const createdIds: number[] = [];
+const parameterIds: number[] = [];
 
 afterAll(async () => {
   if (createdIds.length) {
     await db
+      .delete(paymentTable)
+      .where(inArray(paymentTable.counterpartyId, createdIds));
+    await db
       .delete(counterpartyTable)
       .where(inArray(counterpartyTable.id, createdIds));
   }
+  if (parameterIds.length) {
+    await db
+      .delete(parameterTable)
+      .where(inArray(parameterTable.id, parameterIds));
+  }
 });
+
+/** Two payments (100.00 and 50.25) to the cari, inserted directly */
+async function addPayments(counterpartyId: number) {
+  const parameters = await db
+    .insert(parameterTable)
+    .values([
+      {
+        kind: "payment_category" as const,
+        name: `__test__ Tür ${counterpartyId}`,
+        nameKey: `__test__ tür ${counterpartyId}`,
+      },
+      {
+        kind: "payment_method" as const,
+        name: `__test__ Tip ${counterpartyId}`,
+        nameKey: `__test__ tip ${counterpartyId}`,
+      },
+    ])
+    .returning({ id: parameterTable.id });
+  parameterIds.push(...parameters.map((p) => p.id));
+  const [category, method] = parameters.map((p) => p.id);
+  await db.insert(paymentTable).values(
+    ["100.00", "50.25"].map((amount) => ({
+      counterpartyId,
+      amount,
+      date: "2026-11-01",
+      categoryId: category,
+      methodId: method,
+    })),
+  );
+}
 
 // Ünvan is unique; keep this file's names apart from parallel runs
 const suffix = crypto.randomUUID().slice(0, 8);
@@ -180,11 +224,26 @@ describe("GET /api/counterparties", () => {
   });
 
   it("includes the payment count and total paid", async () => {
+    const { body: empty } = await createCounterparty({
+      title: `__test__ Boş ${suffix}`,
+    });
     const { body } = await createCounterparty({
       title: `__test__ Toplam ${suffix}`,
     });
-    const listed = (await listAll()).find((c) => c.id === body.id);
-    expect(listed).toMatchObject({ paymentCount: 0, totalPaid: "0.00" });
+    await addPayments(body.id);
+
+    const listed = await listAll();
+    expect(listed.find((c) => c.id === empty.id)).toMatchObject({
+      paymentCount: 0,
+      totalPaid: "0.00",
+    });
+    expect(listed.find((c) => c.id === body.id)).toMatchObject({
+      paymentCount: 2,
+      totalPaid: "150.25",
+    });
+    expect(await (await getOne(body.id)).json()).toMatchObject({
+      paymentCount: 2,
+    });
   });
 });
 
@@ -242,6 +301,24 @@ describe("DELETE /api/counterparties/:id", () => {
       label: "Şehir",
       value: "Nevşehir",
     });
+  });
+});
+
+describe("DELETE a cari with payments", () => {
+  it("refuses and keeps the cari", async () => {
+    const { body } = await createCounterparty({
+      title: `__test__ Ödemeli ${suffix}`,
+    });
+    await addPayments(body.id);
+
+    const res = await counterpartiesRoute.request(`/${body.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu cariye ait 2 ödeme var. Önce ödemeleri silin.",
+    );
+    expect((await getOne(body.id)).status).toBe(200);
   });
 });
 

@@ -6,6 +6,7 @@ export const ENTITY_TYPE_LABELS: Record<AuditEntityTypeFilter, string> = {
   sector: "Sektörler",
   parameter: "Parametreler",
   counterparty: "Cariler",
+  payment: "Ödemeler",
   panel_user: "Panel kullanıcıları",
   sms: "SMS",
   auth: "Oturum açma",
@@ -41,6 +42,11 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     create: "Cari eklendi",
     update: "Cari güncellendi",
     delete: "Cari silindi",
+  },
+  payment: {
+    create: "Ödeme eklendi",
+    update: "Ödeme güncellendi",
+    delete: "Ödeme silindi",
   },
   panel_user: {
     create: "Panel kullanıcısı eklendi",

@@ -56,3 +56,19 @@ export const optionalIsoDateSchema = optionalPastDate(parseIsoDate)
 
 /** Forms: gg.aa.yyyy as typed, blank allowed */
 export const optionalDisplayDateSchema = optionalPastDate(parseDisplayDate);
+
+export const REQUIRED_DATE_MESSAGE = "Tarih boş olamaz";
+
+/** API: a required past-or-today yyyy-aa-gg date */
+export const requiredIsoDateSchema = z
+  .string()
+  .trim()
+  .min(1, REQUIRED_DATE_MESSAGE)
+  .pipe(optionalPastDate(parseIsoDate));
+
+/** Forms: a required past-or-today gg.aa.yyyy date, as typed */
+export const requiredDisplayDateSchema = z
+  .string()
+  .trim()
+  .min(1, REQUIRED_DATE_MESSAGE)
+  .pipe(optionalPastDate(parseDisplayDate));

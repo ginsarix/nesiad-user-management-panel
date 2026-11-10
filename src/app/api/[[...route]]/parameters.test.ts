@@ -1,12 +1,26 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { auditLogTable, parameterTable } from "@/db/schema";
+import {
+  auditLogTable,
+  counterpartyTable,
+  parameterTable,
+  paymentTable,
+} from "@/db/schema";
 import { parametersRoute } from "./parameters";
 
 const createdIds: number[] = [];
+const counterpartyIds: number[] = [];
 
 afterAll(async () => {
+  if (counterpartyIds.length) {
+    await db
+      .delete(paymentTable)
+      .where(inArray(paymentTable.counterpartyId, counterpartyIds));
+    await db
+      .delete(counterpartyTable)
+      .where(inArray(counterpartyTable.id, counterpartyIds));
+  }
   if (createdIds.length) {
     await db
       .delete(parameterTable)
@@ -34,7 +48,29 @@ async function createParameter(kind: string, name: string) {
 
 async function listParameters() {
   const res = await parametersRoute.request("/");
-  return (await res.json()) as { id: number; kind: string; name: string }[];
+  return (await res.json()) as {
+    id: number;
+    kind: string;
+    name: string;
+    paymentCount: number;
+  }[];
+}
+
+/** One payment using the two entries, to a cari made for it */
+async function addPayment(categoryId: number, methodId: number) {
+  const title = `__test__ Cari ${crypto.randomUUID().slice(0, 8)}`;
+  const [counterparty] = await db
+    .insert(counterpartyTable)
+    .values({ title, titleKey: title.toLocaleLowerCase("tr") })
+    .returning({ id: counterpartyTable.id });
+  counterpartyIds.push(counterparty.id);
+  await db.insert(paymentTable).values({
+    counterpartyId: counterparty.id,
+    amount: "10.00",
+    date: "2026-11-01",
+    categoryId,
+    methodId,
+  });
 }
 
 async function lastEntry(action: string, id: number) {
@@ -66,6 +102,7 @@ describe("POST /api/parameters", () => {
       id: body.id,
       kind: "payment_method",
       name: `__test__ Nakit ${suffix}`,
+      paymentCount: 0,
     });
 
     const entry = await lastEntry("create", body.id);
@@ -186,6 +223,33 @@ describe("PATCH /api/parameters/:id", () => {
       json("PATCH", { name: `__test__ Yok ${suffix}` }),
     );
     expect(res.status).toBe(404);
+  });
+});
+
+describe("parameters used by payments", () => {
+  it("counts payments per entry and refuses to delete a used one", async () => {
+    const category = (
+      await createParameter("payment_category", `__test__ Kullanılan ${suffix}`)
+    ).body.id;
+    const method = (
+      await createParameter("payment_method", `__test__ Havale ${suffix}`)
+    ).body.id;
+    await addPayment(category, method);
+
+    const listed = await listParameters();
+    expect(listed.find((p) => p.id === category)?.paymentCount).toBe(1);
+    expect(listed.find((p) => p.id === method)?.paymentCount).toBe(1);
+
+    for (const id of [category, method]) {
+      const res = await parametersRoute.request(`/${id}`, {
+        method: "DELETE",
+      });
+      expect(res.status).toBe(409);
+      expect((await res.json()).error).toBe(
+        "Bu kayıt 1 ödemede kullanılıyor, silinemez.",
+      );
+    }
+    expect((await listParameters()).some((p) => p.id === category)).toBe(true);
   });
 });
 

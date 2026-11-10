@@ -11,6 +11,7 @@ export type AuditEntityType =
   | "sector"
   | "parameter"
   | "counterparty"
+  | "payment"
   | "panel_user"
   | "sms"
   | "auth";

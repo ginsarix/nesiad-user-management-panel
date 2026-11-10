@@ -1,8 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "@/db";
-import { counterpartyTable } from "@/db/schema";
+import { counterpartyTable, paymentTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
@@ -12,8 +12,13 @@ import {
 } from "@/lib/audit-diff";
 import { compareTr } from "@/lib/turkish";
 import { counterpartySchema } from "@/lib/zod-schemas/counterparty";
-import { pgErrorCode, UNIQUE_VIOLATION } from "./db-errors";
+import {
+  FOREIGN_KEY_VIOLATION,
+  pgErrorCode,
+  UNIQUE_VIOLATION,
+} from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import { sumOfAmounts } from "./payment-queries";
 import {
   idParamSchema,
   respondWithFirstField,
@@ -45,6 +50,13 @@ const counterpartyColumns = {
   email: counterpartyTable.email,
 };
 
+/** null when a concurrent payment made the count unknown */
+function hasPaymentsError(paymentCount: number | null) {
+  return paymentCount
+    ? `Bu cariye ait ${paymentCount} ödeme var. Önce ödemeleri silin.`
+    : "Bu cariye ait ödemeler var. Önce ödemeleri silin.";
+}
+
 function withTitleKey<T extends { title: string }>(values: T) {
   return { ...values, titleKey: values.title.toLocaleLowerCase("tr") };
 }
@@ -52,18 +64,19 @@ function withTitleKey<T extends { title: string }>(values: T) {
 export const counterpartiesRoute = new Hono<AppEnv>()
   .get("/", async (c) => {
     const counterparties = await db
-      .select(counterpartyColumns)
-      .from(counterpartyTable);
+      .select({
+        ...counterpartyColumns,
+        paymentCount: count(paymentTable.id),
+        totalPaid: sumOfAmounts(),
+      })
+      .from(counterpartyTable)
+      .leftJoin(
+        paymentTable,
+        eq(paymentTable.counterpartyId, counterpartyTable.id),
+      )
+      .groupBy(counterpartyTable.id);
 
-    return c.json(
-      counterparties
-        .map((counterparty) => ({
-          ...counterparty,
-          paymentCount: 0,
-          totalPaid: "0.00",
-        }))
-        .sort((a, b) => compareTr(a.title, b.title)),
-    );
+    return c.json(counterparties.sort((a, b) => compareTr(a.title, b.title)));
   })
   .get(
     "/:id",
@@ -77,7 +90,11 @@ export const counterpartiesRoute = new Hono<AppEnv>()
 
       if (!counterparty) return c.json({ error: NOT_FOUND_ERROR }, 404);
 
-      return c.json({ ...counterparty, paymentCount: 0 }, 200);
+      const paymentCount = await db.$count(
+        paymentTable,
+        eq(paymentTable.counterpartyId, id),
+      );
+      return c.json({ ...counterparty, paymentCount }, 200);
     },
   )
   .post(
@@ -163,25 +180,43 @@ export const counterpartiesRoute = new Hono<AppEnv>()
     async (c) => {
       const { id } = c.req.valid("param");
 
-      const deleted = await db.transaction(async (tx) => {
-        const [counterparty] = await tx
-          .delete(counterpartyTable)
-          .where(eq(counterpartyTable.id, id))
-          .returning();
-        if (!counterparty) return null;
+      const result = await db
+        .transaction(async (tx) => {
+          // payments keep their cari: refuse while it has any
+          const paymentCount = await tx.$count(
+            paymentTable,
+            eq(paymentTable.counterpartyId, id),
+          );
+          if (paymentCount > 0) return { paymentCount };
 
-        await recordAudit(tx, {
-          actor: actorOf(c),
-          action: "delete",
-          entityType: "counterparty",
-          entityId: id,
-          entityLabel: counterparty.title,
-          details: describeFields(counterpartyAuditSpec, counterparty),
+          const [counterparty] = await tx
+            .delete(counterpartyTable)
+            .where(eq(counterpartyTable.id, id))
+            .returning();
+          if (!counterparty) return null;
+
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "delete",
+            entityType: "counterparty",
+            entityId: id,
+            entityLabel: counterparty.title,
+            details: describeFields(counterpartyAuditSpec, counterparty),
+          });
+          return { paymentCount: 0 };
+        })
+        .catch((error) => {
+          // a payment added between the count and the delete
+          if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+            return { paymentCount: null };
+          }
+          throw error;
         });
-        return counterparty;
-      });
 
-      if (!deleted) return c.json({ error: NOT_FOUND_ERROR }, 404);
+      if (!result) return c.json({ error: NOT_FOUND_ERROR }, 404);
+      if (result.paymentCount !== 0) {
+        return c.json({ error: hasPaymentsError(result.paymentCount) }, 409);
+      }
 
       return c.json({ message: "Cari silindi" }, 200);
     },

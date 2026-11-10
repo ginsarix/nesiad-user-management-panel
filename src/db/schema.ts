@@ -6,6 +6,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -83,6 +84,43 @@ export const counterpartyTable = pgTable("counterparty", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+/** Ödemeler: what the association paid to a cari */
+export const paymentTable = pgTable(
+  "payment",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // a cari or parameter with payments can't be deleted
+    counterpartyId: integer("counterparty_id")
+      .notNull()
+      .references(() => counterpartyTable.id, { onDelete: "restrict" }),
+    // TL; travels as a string ("1250.50") so it never becomes a float
+    amount: numeric({ precision: 12, scale: 2, mode: "string" }).notNull(),
+    date: date({ mode: "string" }).notNull(),
+    // Ödeme Türü: a payment_category parameter
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => parameterTable.id, { onDelete: "restrict" }),
+    // Ödeme Tipi: a payment_method parameter
+    methodId: integer("method_id")
+      .notNull()
+      .references(() => parameterTable.id, { onDelete: "restrict" }),
+    note: text(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("payment_amount_positive", sql`${table.amount} > 0`),
+    index("payment_date_idx").on(table.date.desc(), table.id.desc()),
+    index("payment_counterparty_idx").on(table.counterpartyId),
+  ],
+);
 
 export const memberTable = pgTable(
   "member",
@@ -314,7 +352,7 @@ export const auditLogTable = pgTable(
     // e.g. "create", "update", "login_failed"; see src/lib/audit-labels.ts
     action: text().notNull(),
     // "member", "representative", "sector", "parameter", "counterparty",
-    // "panel_user", "auth"
+    // "payment", "panel_user", "auth"
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id"),
     // the record's name at the time, e.g. the member's title
