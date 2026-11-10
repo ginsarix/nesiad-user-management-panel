@@ -186,6 +186,33 @@ describe("GET /api/projects", () => {
   });
 });
 
+describe("project number order", () => {
+  it("sorts numbers inside the code by value: 2 before 10", async () => {
+    const ids: number[] = [];
+    for (const n of ["10", "2", "9"]) {
+      ids.push(
+        (
+          await createProject({
+            name: "__test__ Sıra",
+            number: `SR-${suffix}-${n}`,
+          })
+        ).body.id,
+      );
+    }
+    const listed = (
+      (await (await projectsRoute.request("/")).json()) as {
+        id: number;
+        number: string;
+      }[]
+    ).filter((p) => ids.includes(p.id));
+    expect(listed.map((p) => p.number)).toEqual([
+      `SR-${suffix}-2`,
+      `SR-${suffix}-9`,
+      `SR-${suffix}-10`,
+    ]);
+  });
+});
+
 describe("PATCH /api/projects/:id", () => {
   it("records only changed fields", async () => {
     const fields = { name: "__test__ Durum", number: `D-${suffix}` };

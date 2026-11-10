@@ -3,6 +3,11 @@ const collator = new Intl.Collator("tr");
 /** Turkish alphabetical comparator (Ç after C, Ş after S, etc.) */
 export const compareTr = collator.compare;
 
+const numericCollator = new Intl.Collator("tr", { numeric: true });
+
+/** Like compareTr, but digit runs compare by value: "PR-2" before "PR-10" */
+export const compareTrNumeric = numericCollator.compare;
+
 /**
  * Normalizes text for search: Turkish-aware lowercasing, then strips
  * diacritics so "simsek" matches "Şimşek" and "isik" matches "IŞIK".

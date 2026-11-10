@@ -33,7 +33,7 @@ import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visib
 import { getProjects, type ProjectListItem } from "@/lib/fetches/project";
 import { rememberListSearch } from "@/lib/list-href";
 import { formatAmount } from "@/lib/money";
-import { compareTr, foldTr } from "@/lib/turkish";
+import { compareTr, compareTrNumeric, foldTr } from "@/lib/turkish";
 
 const features = tableFeatures({
   columnVisibilityFeature,
@@ -43,6 +43,10 @@ const features = tableFeatures({
 
 const sortByText: SortFn<typeof features, ProjectListItem> = (a, b, columnId) =>
   compareTr(a.getValue<string>(columnId), b.getValue<string>(columnId));
+
+/** Proje Numarası: digit runs by value, "PR-2" before "PR-10" */
+const sortByNumber: SortFn<typeof features, ProjectListItem> = (a, b) =>
+  compareTrNumeric(a.original.number, b.original.number);
 
 const sortByCount: SortFn<typeof features, ProjectListItem> = (a, b) =>
   a.original.collectionCount - b.original.collectionCount;
@@ -56,7 +60,7 @@ const columns = helper.columns([
   helper.accessor("number", {
     header: "Proje Numarası",
     enableHiding: false,
-    sortFn: sortByText,
+    sortFn: sortByNumber,
     cell: (info) => <span className="tabular-nums">{info.getValue()}</span>,
   }),
   helper.accessor("name", {

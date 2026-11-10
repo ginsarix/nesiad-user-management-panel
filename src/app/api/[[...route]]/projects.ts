@@ -11,7 +11,7 @@ import {
   formatAudit,
 } from "@/lib/audit-diff";
 import { projectNumberKey } from "@/lib/projects";
-import { compareTr } from "@/lib/turkish";
+import { compareTr, compareTrNumeric } from "@/lib/turkish";
 import {
   type ProjectFields,
   projectFieldsSchema,
@@ -97,7 +97,8 @@ export const projectsRoute = new Hono<AppEnv>()
       .groupBy(projectTable.id);
     return c.json(
       projects.sort(
-        (a, b) => compareTr(a.number, b.number) || compareTr(a.name, b.name),
+        (a, b) =>
+          compareTrNumeric(a.number, b.number) || compareTr(a.name, b.name),
       ),
     );
   })
