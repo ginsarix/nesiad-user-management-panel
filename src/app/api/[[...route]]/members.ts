@@ -24,12 +24,13 @@ import {
   formatAudit,
 } from "@/lib/audit-diff";
 import { createFile, deleteFiles } from "@/lib/file-storage";
+import { logoOriginalKind } from "@/lib/logo-original";
 import { isEstablished, type MemberStatus } from "@/lib/member-status";
 import { maskNationalId } from "@/lib/national-id";
 import { netgsmClient } from "@/lib/sms/netgsm";
 import {
   DOCUMENT_MIME_TYPES,
-  LOGO_PDF_MIME_TYPES,
+  storeLogoOriginal,
   storeUpload,
 } from "@/lib/uploads";
 import {
@@ -113,37 +114,43 @@ async function saveLogo(logo: File) {
   });
 }
 
-type StoredLogo = { logo: string; logoPdf: string | null };
+type StoredLogo = { logo: string; logoOriginal: string | null };
 
 /**
- * Stores a new logo and, for a PDF logo, the PDF it was drawn from. Resolves
+ * Stores a new logo and, for a PDF or SVG logo, the file it was drawn from. Resolves
  * to null, with nothing left stored, when either isn't what it should be.
  */
 async function saveLogoFiles(
   logo: File,
-  logoPdf: File | undefined,
+  logoOriginal: File | undefined,
 ): Promise<StoredLogo | null> {
   const image = await saveLogo(logo);
   if (!image) return null;
-  if (!logoPdf) return { logo: image, logoPdf: null };
+  if (!logoOriginal) return { logo: image, logoOriginal: null };
 
-  const pdf = await storeUpload(logoPdf, LOGO_PDF_MIME_TYPES, "logo");
-  if (!pdf) {
+  const original = await storeLogoOriginal(logoOriginal);
+  if (!original) {
     await deleteFiles([image]);
     return null;
   }
-  return { logo: image, logoPdf: pdf };
+  return { logo: image, logoOriginal: original };
 }
 
-const NOT_A_LOGO_ERROR = "Sadece resim veya PDF dosyaları kabul edilir";
-// the panel always sends the PNG drawn from a PDF with it
-const LOGO_PDF_ALONE_ERROR = "Logo PDF'i, ondan çizilen resimle gönderilmeli";
+const NOT_A_LOGO_ERROR = "Sadece resim, PDF veya SVG dosyaları kabul edilir";
+// the panel always sends the PNG drawn from a PDF or SVG with it
+const LOGO_ORIGINAL_ALONE_ERROR =
+  "Logonun asıl dosyası, ondan çizilen resimle gönderilmeli";
 
 /** How a logo shows in create and delete entries */
 const logoAuditValue = (member: {
   logo: string | null;
-  logoPdf: string | null;
-}) => (member.logo ? (member.logoPdf ? "Var (PDF)" : "Var") : "—");
+  logoOriginal: string | null;
+}) => {
+  if (!member.logo) return "—";
+  return member.logoOriginal
+    ? `Var (${logoOriginalKind(member.logoOriginal)})`
+    : "Var";
+};
 
 const requestBodyLimit = bodyLimit({
   // a logo (with its PDF) and two documents plus some room for the text fields
@@ -415,17 +422,22 @@ export const membersRoute = new Hono<AppEnv>()
     requestBodyLimit,
     zValidator("form", createMemberSchema, respondWithFirstIssue),
     async (c) => {
-      const { logo, logoPdf, identityDocument, activityDocument, ...fields } =
-        c.req.valid("form");
+      const {
+        logo,
+        logoOriginal,
+        identityDocument,
+        activityDocument,
+        ...fields
+      } = c.req.valid("form");
 
-      if (logoPdf && !logo) {
-        return c.json({ error: LOGO_PDF_ALONE_ERROR }, 400);
+      if (logoOriginal && !logo) {
+        return c.json({ error: LOGO_ORIGINAL_ALONE_ERROR }, 400);
       }
-      const storedLogo = logo ? await saveLogoFiles(logo, logoPdf) : null;
+      const storedLogo = logo ? await saveLogoFiles(logo, logoOriginal) : null;
       if (logo && !storedLogo) {
         return c.json({ error: NOT_A_LOGO_ERROR }, 415);
       }
-      const logoFiles = [storedLogo?.logo, storedLogo?.logoPdf];
+      const logoFiles = [storedLogo?.logo, storedLogo?.logoOriginal];
 
       const documents = await storeDocuments({
         identityDocument,
@@ -444,7 +456,7 @@ export const membersRoute = new Hono<AppEnv>()
               ...fields,
               ...documents.stored,
               logo: storedLogo?.logo ?? null,
-              logoPdf: storedLogo?.logoPdf ?? null,
+              logoOriginal: storedLogo?.logoOriginal ?? null,
             })
             .returning();
 
@@ -485,7 +497,7 @@ export const membersRoute = new Hono<AppEnv>()
       const { id } = c.req.valid("param");
       const {
         logo,
-        logoPdf,
+        logoOriginal,
         removeLogo,
         identityDocument,
         activityDocument,
@@ -503,18 +515,18 @@ export const membersRoute = new Hono<AppEnv>()
         );
       }
 
-      if (logoPdf && !logo) {
-        return c.json({ error: LOGO_PDF_ALONE_ERROR }, 400);
+      if (logoOriginal && !logo) {
+        return c.json({ error: LOGO_ORIGINAL_ALONE_ERROR }, 400);
       }
       // undefined keeps the current logo, null removes it
       let newLogo: StoredLogo | null | undefined;
       if (logo) {
-        newLogo = await saveLogoFiles(logo, logoPdf);
+        newLogo = await saveLogoFiles(logo, logoOriginal);
         if (!newLogo) return c.json({ error: NOT_A_LOGO_ERROR }, 415);
       } else if (removeLogo) {
         newLogo = null;
       }
-      const newLogoFiles = [newLogo?.logo, newLogo?.logoPdf];
+      const newLogoFiles = [newLogo?.logo, newLogo?.logoOriginal];
 
       const documents = await storeDocuments({
         identityDocument,
@@ -533,7 +545,7 @@ export const membersRoute = new Hono<AppEnv>()
             ...newDocuments,
             ...(newLogo !== undefined && {
               logo: newLogo?.logo ?? null,
-              logoPdf: newLogo?.logoPdf ?? null,
+              logoOriginal: newLogo?.logoOriginal ?? null,
             }),
           };
           // a blank TC number alone leaves nothing to set
@@ -561,9 +573,13 @@ export const membersRoute = new Hono<AppEnv>()
               ? change(
                   "Logo",
                   existing.logo &&
-                    (existing.logoPdf ? "Eski logo (PDF)" : "Eski logo"),
+                    (existing.logoOriginal
+                      ? `Eski logo (${logoOriginalKind(existing.logoOriginal)})`
+                      : "Eski logo"),
                   newLogo &&
-                    (newLogo.logoPdf ? "Yeni logo (PDF)" : "Yeni logo"),
+                    (newLogo.logoOriginal
+                      ? `Yeni logo (${logoOriginalKind(newLogo.logoOriginal)})`
+                      : "Yeni logo"),
                 )
               : []),
           ];
@@ -587,7 +603,9 @@ export const membersRoute = new Hono<AppEnv>()
       }
 
       await deleteFiles([
-        ...(newLogo !== undefined ? [existing.logo, existing.logoPdf] : []),
+        ...(newLogo !== undefined
+          ? [existing.logo, existing.logoOriginal]
+          : []),
         ...DOCUMENT_FIELDS.map((field) =>
           newDocuments[field] ? existing[field] : null,
         ),
@@ -638,7 +656,7 @@ export const membersRoute = new Hono<AppEnv>()
 
       await deleteFiles([
         deleted.logo,
-        deleted.logoPdf,
+        deleted.logoOriginal,
         deleted.identityDocument,
         deleted.activityDocument,
       ]);

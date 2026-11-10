@@ -1,6 +1,11 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { deleteFile } from "./file-storage";
-import { DOCUMENT_MIME_TYPES, LOGO_MIME_TYPES, storeUpload } from "./uploads";
+import {
+  DOCUMENT_MIME_TYPES,
+  LOGO_MIME_TYPES,
+  looksLikeSvg,
+  storeUpload,
+} from "./uploads";
 
 // 1x1 transparent PNG
 const PNG = Buffer.from(
@@ -60,5 +65,29 @@ describe("storeUpload", () => {
       "document",
     );
     expect(name).not.toContain("ayse");
+  });
+});
+
+describe("looksLikeSvg", () => {
+  const bytes = (text: string) => new TextEncoder().encode(text).buffer;
+
+  it.each([
+    ["a bare <svg>", '<svg xmlns="http://www.w3.org/2000/svg"/>'],
+    ["an XML declaration", '<?xml version="1.0"?>\n<svg viewBox="0 0 1 1">'],
+    [
+      "an Illustrator header with comment, doctype and entities",
+      '\uFEFF<?xml version="1.0" encoding="utf-8"?>\n<!-- Generator: Adobe Illustrator 24 -->\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd" [\n<!ENTITY ns_flows "http://ns.adobe.com/Flows/1.0/">\n]>\n<svg version="1.1">',
+    ],
+  ])("accepts %s", (_, text) => {
+    expect(looksLikeSvg(bytes(text))).toBe(true);
+  });
+
+  it.each([
+    ["HTML", "<html><svg></svg></html>"],
+    ["an <svg> after other content", "hello <svg>"],
+    ["a tag that only starts with svg", "<svgfoo>"],
+    ["empty text", ""],
+  ])("refuses %s", (_, text) => {
+    expect(looksLikeSvg(bytes(text))).toBe(false);
   });
 });

@@ -86,7 +86,7 @@ describe("submitApplication", () => {
     expect(body.get("consentRules")).toBe("true");
     expect(body.get("otherAssociations")).toBe("");
     expect(body.get("logo")).toBeInstanceOf(File);
-    expect(body.has("logoPdf")).toBe(false);
+    expect(body.has("logoOriginal")).toBe(false);
   });
 
   it("sends a PDF logo's original next to its image", async () => {
@@ -96,9 +96,12 @@ describe("submitApplication", () => {
     vi.stubGlobal("fetch", fetchStub);
     const image = new File([new Uint8Array([1])], "logo.png");
     const pdf = new File([new Uint8Array([2])], "logo.pdf");
-    await submitApplication({ ...values, logo: { logo: image, logoPdf: pdf } });
+    await submitApplication({
+      ...values,
+      logo: { logo: image, logoOriginal: pdf },
+    });
     const body = fetchStub.mock.calls[0][1].body as FormData;
     expect((body.get("logo") as File).name).toBe("logo.png");
-    expect((body.get("logoPdf") as File).name).toBe("logo.pdf");
+    expect((body.get("logoOriginal") as File).name).toBe("logo.pdf");
   });
 });

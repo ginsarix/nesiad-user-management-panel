@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { contentBounds, isPdf } from "./pdf-logo";
+import {
+  contentBounds,
+  isDrawnLogo,
+  isPdf,
+  isSvg,
+  svgDrawingBox,
+} from "./logo-upload";
 
 type Rgba = [number, number, number, number];
 const CLEAR: Rgba = [0, 0, 0, 0];
@@ -66,5 +72,43 @@ describe("isPdf", () => {
     expect(isPdf(new File([], "logo.PDF"))).toBe(true);
     expect(isPdf(new File([], "logo", { type: "application/pdf" }))).toBe(true);
     expect(isPdf(new File([], "logo.png", { type: "image/png" }))).toBe(false);
+  });
+});
+
+describe("isSvg / isDrawnLogo", () => {
+  it("draws PDFs and SVGs, sends other images as they are", () => {
+    expect(isSvg(new File([], "logo.SVG"))).toBe(true);
+    expect(isSvg(new File([], "x", { type: "image/svg+xml" }))).toBe(true);
+    expect(isDrawnLogo(new File([], "logo.pdf"))).toBe(true);
+    expect(isDrawnLogo(new File([], "logo.svg"))).toBe(true);
+    expect(isDrawnLogo(new File([], "logo.png", { type: "image/png" }))).toBe(
+      false,
+    );
+  });
+});
+
+describe("svgDrawingBox", () => {
+  it("uses the viewBox, whatever the width and height say", () => {
+    expect(
+      svgDrawingBox({ viewBox: "-5 10 200,100", width: "50%", height: null }),
+    ).toEqual({ x: -5, y: 10, width: 200, height: 100 });
+  });
+
+  it("falls back to width and height in px", () => {
+    expect(
+      svgDrawingBox({ viewBox: null, width: "120", height: "1in" }),
+    ).toEqual({ x: 0, y: 0, width: 120, height: 96 });
+    expect(
+      svgDrawingBox({ viewBox: "0 0 0 10", width: "25.4mm", height: "12pt" }),
+    ).toEqual({ x: 0, y: 0, width: 96, height: 16 });
+  });
+
+  it("has no box without a usable viewBox or absolute size", () => {
+    expect(
+      svgDrawingBox({ viewBox: null, width: "100%", height: "100%" }),
+    ).toBeNull();
+    expect(
+      svgDrawingBox({ viewBox: "0 0 a b", width: "10", height: null }),
+    ).toBeNull();
   });
 });

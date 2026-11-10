@@ -1,8 +1,8 @@
 import type { ClientRequestOptions } from "hono/client";
 import { displayToIso } from "../dates";
+import type { LogoUpload } from "../logo-upload";
 import type { MemberStatus } from "../member-status";
 import type { NoticeOutcomes } from "../notice-outcome";
-import type { LogoUpload } from "../pdf-logo";
 import { rpcClient } from "../rpc-client";
 import type { MemberFormValues } from "../zod-schemas/member";
 import type { MemberDecisionInput } from "../zod-schemas/member-decision";

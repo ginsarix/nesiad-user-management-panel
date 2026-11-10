@@ -21,7 +21,7 @@ import {
   type MemberDetails,
   setMemberLogo,
 } from "@/lib/fetches/member";
-import { pdfLogoError, toLogoUpload } from "@/lib/pdf-logo";
+import { drawnLogoError, toLogoUpload } from "@/lib/logo-upload";
 import { memberLogoFormSchema } from "@/lib/zod-schemas/member";
 import { LogoDropZone } from "../_components/logo-drop-zone";
 
@@ -84,8 +84,8 @@ function ChangeLogoForm({
   const pick = async (file: File | null) => {
     logo.field.onChange(file);
     if (!(await form.trigger("logo"))) return;
-    // a PDF is drawn now, so one that can't be is reported before saving
-    const message = await pdfLogoError(file);
+    // a PDF or SVG is drawn now, so one that can't be is reported before saving
+    const message = await drawnLogoError(file);
     if (message && form.getValues("logo") === file) {
       form.setError("logo", { message });
     }

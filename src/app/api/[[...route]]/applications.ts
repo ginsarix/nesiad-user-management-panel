@@ -10,7 +10,7 @@ import { createRateLimiter } from "@/lib/rate-limit";
 import {
   DOCUMENT_MIME_TYPES,
   LOGO_MIME_TYPES,
-  LOGO_PDF_MIME_TYPES,
+  storeLogoOriginal,
   storeUpload,
 } from "@/lib/uploads";
 import { applicationApiSchema } from "@/lib/zod-schemas/application";
@@ -24,7 +24,7 @@ export const applicationLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000,
 });
 
-const LOGO_ERROR = "Logo PNG, JPG veya PDF olmalıdır";
+const LOGO_ERROR = "Logo PNG, JPG, PDF veya SVG olmalıdır";
 const LIMITED_RESPONSE = {
   error: "Çok fazla başvuru gönderildi. Lütfen daha sonra tekrar deneyin.",
 };
@@ -53,7 +53,7 @@ export const applicationsRoute = new Hono().post(
     const {
       leaveBlank,
       logo,
-      logoPdf,
+      logoOriginal,
       identityDocument,
       activityDocument,
       ...fields
@@ -73,34 +73,34 @@ export const applicationsRoute = new Hono().post(
     const stored: string[] = [];
     try {
       const uploads = [
-        { field: "logo", file: logo, allowed: LOGO_MIME_TYPES, base: "logo" },
-        // a PDF logo: `logo` is the PNG the applicant's browser drew from it
-        ...(logoPdf
+        {
+          field: "logo",
+          store: () => storeUpload(logo, LOGO_MIME_TYPES, "logo"),
+        },
+        // a PDF or SVG logo: `logo` is the PNG the applicant's browser drew
+        // from it
+        ...(logoOriginal
           ? [
               {
-                field: "logoPdf",
-                file: logoPdf,
-                allowed: LOGO_PDF_MIME_TYPES,
-                base: "logo",
-              } as const,
+                field: "logoOriginal",
+                store: () => storeLogoOriginal(logoOriginal),
+              },
             ]
           : []),
         {
           field: "identityDocument",
-          file: identityDocument,
-          allowed: DOCUMENT_MIME_TYPES,
-          base: "document",
+          store: () =>
+            storeUpload(identityDocument, DOCUMENT_MIME_TYPES, "document"),
         },
         {
           field: "activityDocument",
-          file: activityDocument,
-          allowed: DOCUMENT_MIME_TYPES,
-          base: "document",
+          store: () =>
+            storeUpload(activityDocument, DOCUMENT_MIME_TYPES, "document"),
         },
-      ] as const;
+      ];
       const names: Record<string, string> = {};
-      for (const { field, file, allowed, base } of uploads) {
-        const name = await storeUpload(file, allowed, base);
+      for (const { field, store } of uploads) {
+        const name = await store();
         if (!name) {
           applicationLimiter.release(ip);
           await deleteFiles(stored);
@@ -108,7 +108,7 @@ export const applicationsRoute = new Hono().post(
             {
               error: field.startsWith("logo") ? LOGO_ERROR : DOCUMENT_ERROR,
               // the form has one logo field for both
-              field: field === "logoPdf" ? "logo" : field,
+              field: field === "logoOriginal" ? "logo" : field,
             },
             415,
           );
@@ -122,7 +122,7 @@ export const applicationsRoute = new Hono().post(
         .values({
           ...values,
           logo: names.logo,
-          logoPdf: names.logoPdf ?? null,
+          logoOriginal: names.logoOriginal ?? null,
           identityDocument: names.identityDocument,
           activityDocument: names.activityDocument,
           status: "candidate",

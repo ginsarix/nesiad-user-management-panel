@@ -2,13 +2,13 @@ import { FileText, ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { type DragEvent, useEffect, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { isPdf, pdfLogoImage } from "@/lib/pdf-logo";
+import { drawnLogoImage, isDrawnLogo } from "@/lib/logo-upload";
 import { cn } from "@/lib/utils";
 
 /**
- * Blob URL for previewing a picked file, revoked when it changes. A PDF shows
+ * Blob URL for previewing a picked file, revoked when it changes. A PDF or SVG shows
  * the image that will be uploaded for it; `drawing` is true until it's ready,
- * and the URL stays null when the PDF can't be drawn.
+ * and the URL stays null when the file can't be drawn.
  */
 function usePreviewUrl(file: File | null) {
   const [url, setUrl] = useState<string | null>(null);
@@ -27,10 +27,10 @@ function usePreviewUrl(file: File | null) {
       setUrl(objectUrl);
     };
 
-    if (isPdf(file)) {
+    if (isDrawnLogo(file)) {
       setDrawing(true);
-      pdfLogoImage(file)
-        // the form shows why a PDF can't be used
+      drawnLogoImage(file)
+        // the form shows why the file can't be used
         .then(show, () => {})
         .finally(() => current && setDrawing(false));
     } else {
@@ -106,7 +106,7 @@ export function LogoDropZone({
       <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white">
         {picked.drawing ? (
           <Loader2
-            aria-label="PDF hazırlanıyor"
+            aria-label="Logo hazırlanıyor"
             className="size-5 animate-spin text-muted-foreground"
           />
         ) : previewUrl ? (
@@ -131,7 +131,7 @@ export function LogoDropZone({
             <input
               id={id}
               type="file"
-              accept="image/*,application/pdf,.pdf"
+              accept="image/*,application/pdf,.pdf,.svg"
               className="sr-only"
               onChange={(event) => {
                 onPick(event.target.files?.[0] ?? null);
@@ -149,7 +149,7 @@ export function LogoDropZone({
         <span className="text-xs text-muted-foreground">
           {dragging
             ? "Bırakın"
-            : "veya buraya sürükleyin · resim veya PDF, en fazla 5 MB"}
+            : "veya buraya sürükleyin · resim, PDF veya SVG, en fazla 5 MB"}
         </span>
       </div>
     </div>

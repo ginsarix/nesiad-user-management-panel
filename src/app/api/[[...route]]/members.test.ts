@@ -62,6 +62,14 @@ function pdfFile(name = "belge.pdf") {
   return new File([PDF], name, { type: "application/pdf" });
 }
 
+const SVG = Buffer.from(
+  '<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/></svg>',
+);
+
+function svgFile(name = "logo.svg") {
+  return new File([SVG], name, { type: "image/svg+xml" });
+}
+
 function pngFile(name = "logo.png") {
   return new File([PNG], name, { type: "image/png" });
 }
@@ -173,22 +181,24 @@ describe("POST /api/members", () => {
       logo: fake,
     });
     expect(res.status).toBe(415);
-    expect(body.error).toBe("Sadece resim veya PDF dosyaları kabul edilir");
+    expect(body.error).toBe(
+      "Sadece resim, PDF veya SVG dosyaları kabul edilir",
+    );
   });
 
   it("stores a PDF logo's original next to its image", async () => {
     const { res, body } = await createMember({
       title: "__test__ PDF Logolu",
       logo: pngFile(),
-      logoPdf: pdfFile("logo.pdf"),
+      logoOriginal: pdfFile("logo.pdf"),
     });
     expect(res.status).toBe(201);
 
     const { body: member } = await getMember(body.id);
-    createdFiles.push(member.logo, member.logoPdf);
+    createdFiles.push(member.logo, member.logoOriginal);
     expect(member.logo).toMatch(/^logo_.+\.png$/);
-    expect(member.logoPdf).toMatch(/^logo_.+\.pdf$/);
-    expect(await readStoredFile(member.logoPdf)).not.toBeNull();
+    expect(member.logoOriginal).toMatch(/^logo_.+\.pdf$/);
+    expect(await readStoredFile(member.logoOriginal)).not.toBeNull();
 
     const [entry] = await db
       .select()
@@ -202,10 +212,54 @@ describe("POST /api/members", () => {
     expect(entry.details).toContainEqual({ label: "Logo", value: "Var (PDF)" });
   });
 
+  it("stores an SVG logo's original next to its image", async () => {
+    const { res, body } = await createMember({
+      title: "__test__ SVG Logolu",
+      logo: pngFile(),
+      logoOriginal: svgFile(),
+    });
+    expect(res.status).toBe(201);
+
+    const { body: member } = await getMember(body.id);
+    createdFiles.push(member.logo, member.logoOriginal);
+    expect(member.logoOriginal).toMatch(/^logo_.+\.svg$/);
+
+    const [entry] = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "member"),
+          eq(auditLogTable.entityId, String(body.id)),
+        ),
+      );
+    expect(entry.details).toContainEqual({ label: "Logo", value: "Var (SVG)" });
+  });
+
+  it("refuses HTML sent as an SVG original", async () => {
+    const html = new File(["<html><script>alert(1)</script></html>"], "x.svg", {
+      type: "image/svg+xml",
+    });
+    const { res } = await createMember({
+      title: "__test__ Sahte SVG Logo",
+      logo: pngFile(),
+      logoOriginal: html,
+    });
+    expect(res.status).toBe(415);
+  });
+
+  it("refuses an SVG as the logo image itself", async () => {
+    const { res } = await createMember({
+      title: "__test__ SVG Resim",
+      logo: svgFile(),
+    });
+    expect(res.status).toBe(415);
+  });
+
   it("refuses a logo PDF without the image drawn from it", async () => {
     const { res } = await createMember({
       title: "__test__ Yalnız PDF",
-      logoPdf: pdfFile("logo.pdf"),
+      logoOriginal: pdfFile("logo.pdf"),
     });
     expect(res.status).toBe(400);
   });
@@ -214,10 +268,12 @@ describe("POST /api/members", () => {
     const { res, body } = await createMember({
       title: "__test__ Sahte PDF Logo",
       logo: pngFile(),
-      logoPdf: pngFile("logo.pdf"),
+      logoOriginal: pngFile("logo.pdf"),
     });
     expect(res.status).toBe(415);
-    expect(body.error).toBe("Sadece resim veya PDF dosyaları kabul edilir");
+    expect(body.error).toBe(
+      "Sadece resim, PDF veya SVG dosyaları kabul edilir",
+    );
   });
 });
 
@@ -393,36 +449,36 @@ describe("PATCH /api/members/:id", () => {
     const { body } = await createMember({
       title: "__test__ PDF Logo Değişimi",
       logo: pngFile(),
-      logoPdf: pdfFile("logo.pdf"),
+      logoOriginal: pdfFile("logo.pdf"),
     });
     const { body: before } = await getMember(body.id);
-    createdFiles.push(before.logo, before.logoPdf);
+    createdFiles.push(before.logo, before.logoOriginal);
 
     const { res } = await patchMember(body.id, { logo: pngFile("yeni.png") });
     expect(res.status).toBe(200);
 
     const { body: after } = await getMember(body.id);
     createdFiles.push(after.logo);
-    expect(after.logoPdf).toBeNull();
+    expect(after.logoOriginal).toBeNull();
     expect(await readStoredFile(before.logo)).toBeNull();
-    expect(await readStoredFile(before.logoPdf)).toBeNull();
+    expect(await readStoredFile(before.logoOriginal)).toBeNull();
   });
 
   it("removes a PDF logo with its PDF", async () => {
     const { body } = await createMember({
       title: "__test__ PDF Logo Silme",
       logo: pngFile(),
-      logoPdf: pdfFile("logo.pdf"),
+      logoOriginal: pdfFile("logo.pdf"),
     });
     const { body: before } = await getMember(body.id);
-    createdFiles.push(before.logo, before.logoPdf);
+    createdFiles.push(before.logo, before.logoOriginal);
 
     await patchMember(body.id, { removeLogo: "true" });
 
     const { body: after } = await getMember(body.id);
     expect(after.logo).toBeNull();
-    expect(after.logoPdf).toBeNull();
-    expect(await readStoredFile(before.logoPdf)).toBeNull();
+    expect(after.logoOriginal).toBeNull();
+    expect(await readStoredFile(before.logoOriginal)).toBeNull();
   });
 
   it("removes the logo", async () => {
@@ -457,14 +513,14 @@ describe("DELETE /api/members/:id", () => {
     const { body } = await createMember({
       title: "__test__ Silinecek",
       logo: pngFile(),
-      logoPdf: pdfFile("logo.pdf"),
+      logoOriginal: pdfFile("logo.pdf"),
       identityDocument: pdfFile("kimlik.pdf"),
       activityDocument: pdfFile("faaliyet.pdf"),
     });
     const { body: member } = await getMember(body.id);
     createdFiles.push(
       member.logo,
-      member.logoPdf,
+      member.logoOriginal,
       member.identityDocument,
       member.activityDocument,
     );
@@ -478,7 +534,7 @@ describe("DELETE /api/members/:id", () => {
 
     expect((await getMember(body.id)).res.status).toBe(404);
     expect(await readStoredFile(member.logo)).toBeNull();
-    expect(await readStoredFile(member.logoPdf)).toBeNull();
+    expect(await readStoredFile(member.logoOriginal)).toBeNull();
     expect(await readStoredFile(member.identityDocument)).toBeNull();
     expect(await readStoredFile(member.activityDocument)).toBeNull();
   });
@@ -746,6 +802,26 @@ describe("GET /api/files/:filename", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("application/pdf");
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("serves an SVG original sandboxed, so it can't run scripts", async () => {
+    const { body } = await createMember({
+      title: "__test__ SVG Servis",
+      logo: pngFile(),
+      logoOriginal: svgFile(),
+    });
+    const { body: member } = await getMember(body.id);
+    createdFiles.push(member.logo, member.logoOriginal);
+
+    const res = await filesRoute.request(`/${member.logoOriginal}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/svg+xml");
+    expect(res.headers.get("Content-Security-Policy")).toMatch(
+      /^sandbox; default-src 'none'/,
+    );
+
+    const png = await filesRoute.request(`/${member.logo}`);
+    expect(png.headers.get("Content-Security-Policy")).toBeNull();
   });
 
   it("keeps the immutable cache header on logos", async () => {

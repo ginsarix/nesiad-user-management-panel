@@ -41,10 +41,10 @@ export const memberTable = pgTable(
 
     status: text().$type<MemberStatus>().default("active").notNull(),
 
-    // the image shown everywhere; a PDF logo is shown as a PNG the uploader's
-    // browser drew from its first page, and the PDF itself is kept here
+    // the image shown everywhere. A PDF or SVG logo is shown as a PNG the
+    // uploader's browser drew from it, and the uploaded file is kept here
     logo: text(),
-    logoPdf: text("logo_pdf"),
+    logoOriginal: text("logo_original"),
     address: text(),
     phone: text(),
     // a deleted sector leaves its members without one

@@ -6,7 +6,7 @@ import { isValidNationalId } from "../national-id";
 import { checkPhone } from "../sms/recipients";
 import {
   documentFileSchema,
-  logoPdfFileSchema,
+  logoOriginalFileSchema,
   MAX_LOGO_SIZE,
   normalizeWebsite,
 } from "./member";
@@ -146,8 +146,8 @@ function requiredDate(parse: (text: string) => Date | null) {
 /**
  * The logo as a public applicant sends it. Unlike the staff logo schema it
  * doesn't trust the declared type (browsers may send none): the name is a
- * hint and the server checks the contents. A PDF logo arrives as the PNG the
- * applicant's browser drew from it, with the PDF as `logoPdf`.
+ * hint and the server checks the contents. A PDF or SVG logo arrives as the
+ * PNG the applicant's browser drew from it, with the file as `logoOriginal`.
  */
 const publicLogoSchema = z
   .instanceof(File, { error: "Logo seçin" })
@@ -155,14 +155,14 @@ const publicLogoSchema = z
   .refine((f) => f.size <= MAX_LOGO_SIZE, "Dosyalar 5 MB'dan küçük olmalıdır")
   .refine((f) => /\.(png|jpe?g)$/i.test(f.name), "Logo PNG veya JPG olmalıdır");
 
-/** The logo as the applicant picks it; a PDF is drawn to PNG before sending */
+/** The logo as the applicant picks it; a PDF/SVG is drawn to PNG before sending */
 const publicLogoFormSchema = z
   .instanceof(File, { error: "Logo seçin" })
   .refine((f) => f.size > 0, "Dosya boş olamaz")
   .refine((f) => f.size <= MAX_LOGO_SIZE, "Dosyalar 5 MB'dan küçük olmalıdır")
   .refine(
-    (f) => /\.(png|jpe?g|pdf)$/i.test(f.name),
-    "Logo PNG, JPG veya PDF olmalıdır",
+    (f) => /\.(png|jpe?g|pdf|svg)$/i.test(f.name),
+    "Logo PNG, JPG, PDF veya SVG olmalıdır",
   );
 
 /** Fields whose rules are the same on the form and on the server */
@@ -222,7 +222,7 @@ export const applicationApiSchema = z.object({
 
   logo: publicLogoSchema,
   /** Only together with `logo`, which is drawn from it */
-  logoPdf: logoPdfFileSchema.optional(),
+  logoOriginal: logoOriginalFileSchema.optional(),
   identityDocument: documentFileSchema,
   activityDocument: documentFileSchema,
 

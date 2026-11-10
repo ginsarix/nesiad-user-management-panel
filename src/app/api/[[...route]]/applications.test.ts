@@ -262,24 +262,39 @@ describe("POST /api/applications", () => {
   it("stores a PDF logo's original next to its image", async () => {
     const title = newTitle();
 
-    const res = await submit(fields(title, { logoPdf: pdf("logo.pdf") }));
+    const res = await submit(fields(title, { logoOriginal: pdf("logo.pdf") }));
 
     expect(res.status).toBe(201);
     const member = await findByTitle(title);
     expect(member.logo).toMatch(/^logo_.+\.png$/);
-    expect(member.logoPdf).toMatch(/^logo_.+\.pdf$/);
-    expect(await readStoredFile(member.logoPdf as string)).not.toBeNull();
+    expect(member.logoOriginal).toMatch(/^logo_.+\.pdf$/);
+    expect(await readStoredFile(member.logoOriginal as string)).not.toBeNull();
+  });
+
+  it("stores an SVG logo's original next to its image", async () => {
+    const title = newTitle();
+    const svg = new File(
+      ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"/>'],
+      "logo.svg",
+      { type: "image/svg+xml" },
+    );
+
+    const res = await submit(fields(title, { logoOriginal: svg }));
+
+    expect(res.status).toBe(201);
+    const member = await findByTitle(title);
+    expect(member.logoOriginal).toMatch(/^logo_.+\.svg$/);
   });
 
   it("refuses a logo PDF that isn't a PDF and keeps nothing", async () => {
     const title = newTitle();
     const before = storedFiles.length;
 
-    const res = await submit(fields(title, { logoPdf: png("logo.pdf") }));
+    const res = await submit(fields(title, { logoOriginal: png("logo.pdf") }));
 
     expect(res.status).toBe(415);
     expect(await res.json()).toEqual({
-      error: "Logo PNG, JPG veya PDF olmalıdır",
+      error: "Logo PNG, JPG, PDF veya SVG olmalıdır",
       field: "logo",
     });
     const written = storedFiles.slice(before);

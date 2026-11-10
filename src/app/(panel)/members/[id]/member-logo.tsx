@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { logoUrl, type MemberDetails } from "@/lib/fetches/member";
+import { logoOriginalKind } from "@/lib/logo-original";
 import { cn } from "@/lib/utils";
 import { MemberAvatar } from "../_components/member-info";
 import { ChangeLogoButton } from "./change-logo-button";
@@ -20,7 +21,8 @@ import { DeleteLogoButton } from "./delete-logo-button";
 
 /**
  * The member's avatar; a logo opens full size in a dialog when clicked. A
- * logo uploaded as PDF shows the image drawn from it and links the original.
+ * logo uploaded as PDF or SVG shows the image drawn from it and links the
+ * uploaded file.
  */
 export function MemberLogo({ member }: { member: MemberDetails }) {
   const [open, setOpen] = useState(false);
@@ -55,9 +57,9 @@ export function MemberLogo({ member }: { member: MemberDetails }) {
           className="mx-auto h-auto max-h-[65vh] w-auto max-w-full rounded-md border bg-white object-contain"
         />
         <DialogFooter>
-          {member.logoPdf && (
+          {member.logoOriginal && (
             <a
-              href={logoUrl(member.logoPdf)}
+              href={logoUrl(member.logoOriginal)}
               target="_blank"
               rel="noopener noreferrer"
               className={cn(
@@ -66,7 +68,7 @@ export function MemberLogo({ member }: { member: MemberDetails }) {
               )}
             >
               <FileText />
-              Orijinal PDF
+              Orijinal {logoOriginalKind(member.logoOriginal)}
             </a>
           )}
           <DeleteLogoButton member={member} onDeleted={() => setOpen(false)} />

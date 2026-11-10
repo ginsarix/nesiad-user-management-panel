@@ -35,8 +35,8 @@ import {
 } from "@/lib/fetches/member";
 import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
+import { drawnLogoError, LogoFileError, toLogoUpload } from "@/lib/logo-upload";
 import { isEstablished } from "@/lib/member-status";
-import { PdfLogoError, pdfLogoError, toLogoUpload } from "@/lib/pdf-logo";
 import {
   type MemberFormValues,
   memberFormSchema,
@@ -117,9 +117,9 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
       await updateMember(member.id, values);
       return member.id;
     },
-    // a PDF that can't be drawn belongs to the logo field
+    // a PDF or SVG that can't be drawn belongs to the logo field
     onError: (error) => {
-      if (error instanceof PdfLogoError) {
+      if (error instanceof LogoFileError) {
         form.setError("logo", { message: error.message });
       }
     },
@@ -358,7 +358,7 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t px-4 py-3">
-          {error && !(error instanceof PdfLogoError) && (
+          {error && !(error instanceof LogoFileError) && (
             <FieldError className="mr-auto">{error.message}</FieldError>
           )}
           <Link
@@ -421,8 +421,8 @@ function LogoField({
   const pick = async (file: File | null) => {
     logo.field.onChange(file);
     if (!(await form.trigger("logo"))) return;
-    // a PDF is drawn now, so one that can't be is reported before saving
-    const message = await pdfLogoError(file);
+    // a PDF or SVG is drawn now, so one that can't be is reported before saving
+    const message = await drawnLogoError(file);
     if (message && form.getValues("logo") === file) {
       form.setError("logo", { message });
     }

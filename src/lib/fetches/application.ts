@@ -1,5 +1,5 @@
 import { displayToIso } from "../dates";
-import type { LogoUpload } from "../pdf-logo";
+import type { LogoUpload } from "../logo-upload";
 import type { ApplicationFormValues } from "../zod-schemas/application";
 
 const FALLBACK_MESSAGE =
@@ -37,7 +37,7 @@ export async function submitApplication({
     else body.append(key, String(value ?? ""));
   }
   body.append("logo", logo.logo);
-  if (logo.logoPdf) body.append("logoPdf", logo.logoPdf);
+  if (logo.logoOriginal) body.append("logoOriginal", logo.logoOriginal);
   for (const key of DOCUMENT_FIELDS) {
     const file = values[key];
     if (file) body.append(key, file);

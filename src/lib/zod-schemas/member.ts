@@ -9,7 +9,7 @@ import {
 
 export const MAX_LOGO_SIZE = 5 * 1024 * 1024; // 5 MiB
 
-/** Room for a logo (with its PDF) and two documents plus the text fields */
+/** Room for a logo (with its PDF/SVG) and two documents plus the text fields */
 export const MAX_REQUEST_SIZE = 4 * MAX_LOGO_SIZE + 1024 * 1024;
 
 export const documentFileSchema = z
@@ -42,7 +42,7 @@ export function normalizeWebsite(value: string): string | null {
   }
 }
 
-/** The logo image the API stores; a PDF logo arrives already drawn as PNG */
+/** The logo image the API stores; a PDF/SVG logo arrives already drawn as PNG */
 export const logoFileSchema = z
   .instanceof(File)
   .refine((f) => f.size <= MAX_LOGO_SIZE, "Logo 5 MB'dan küçük olmalıdır")
@@ -51,13 +51,13 @@ export const logoFileSchema = z
     "Sadece resim dosyaları kabul edilir",
   );
 
-/** The original of a PDF logo, sent with the PNG drawn from it */
-export const logoPdfFileSchema = z
+/** The PDF or SVG a logo was drawn from, sent with the PNG; checked by contents */
+export const logoOriginalFileSchema = z
   .instanceof(File)
   .refine((f) => f.size > 0, "Dosya boş olamaz")
   .refine((f) => f.size <= MAX_LOGO_SIZE, "Logo 5 MB'dan küçük olmalıdır");
 
-/** A logo as picked in a panel form: an image, or a PDF drawn before upload */
+/** A logo as picked in a panel form: an image, or a PDF/SVG drawn before upload */
 export const logoFormFileSchema = z
   .instanceof(File)
   .refine((f) => f.size <= MAX_LOGO_SIZE, "Logo 5 MB'dan küçük olmalıdır")
@@ -65,8 +65,8 @@ export const logoFormFileSchema = z
     (f) =>
       f.type.startsWith("image/") ||
       f.type === "application/pdf" ||
-      /\.pdf$/i.test(f.name),
-    "Sadece resim veya PDF dosyaları kabul edilir",
+      /\.(pdf|svg)$/i.test(f.name),
+    "Sadece resim, PDF veya SVG dosyaları kabul edilir",
   );
 
 const titleSchema = z.string().trim().min(1, "Ünvan boş olamaz");
@@ -186,7 +186,7 @@ export const createMemberSchema = z.object({
 
   logo: logoFileSchema.optional(),
   /** Only together with `logo`, which is drawn from it */
-  logoPdf: logoPdfFileSchema.optional(),
+  logoOriginal: logoOriginalFileSchema.optional(),
 
   address: optionalTextSchema,
   phone: optionalTextSchema,

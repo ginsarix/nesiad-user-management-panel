@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "fc92e13c-5903-48ee-8d7f-7ec4e218b7f4",
+  "id": "3006988c-f4fe-47d0-bad0-7422d2a54e79",
   "prevIds": [
     "1ccc5b18-f8db-47f8-9214-9c30a2212d41"
   ],
@@ -13,12 +13,12 @@
         "column",
         "public",
         "member",
-        "logo_pdf"
+        "logo_original"
       ],
       "writes": [
-        "s|col|public.member.logo_pdf",
-        "n|col|public.member.logo_pdf",
-        "e|col|public.member.logo_pdf"
+        "s|col|public.member.logo_original",
+        "n|col|public.member.logo_original",
+        "e|col|public.member.logo_original"
       ],
       "reads": [
         "n|tbl|public.member",
@@ -32,7 +32,7 @@
       "row": {
         "schema": "public",
         "table": "member",
-        "name": "logo_pdf",
+        "name": "logo_original",
         "type": "text",
         "typeSchema": null,
         "notNull": false,

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { type FieldErrors, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { ApplicationError, submitApplication } from "@/lib/fetches/application";
-import { PdfLogoError, toLogoUpload } from "@/lib/pdf-logo";
+import { LogoFileError, toLogoUpload } from "@/lib/logo-upload";
 import {
   type ApplicationFormInput,
   type ApplicationFormValues,
@@ -116,9 +116,9 @@ export function ApplicationForm() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      // a PDF logo goes as the PNG drawn from it, plus the PDF
+      // a PDF or SVG logo goes as the PNG drawn from it, plus the file itself
       const logo = await toLogoUpload(values.logo as File).catch((error) => {
-        throw error instanceof PdfLogoError
+        throw error instanceof LogoFileError
           ? new ApplicationError(error.message, "logo")
           : error;
       });
