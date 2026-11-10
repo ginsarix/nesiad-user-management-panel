@@ -13,3 +13,12 @@ An edit button next to the note on the member page, shown only while the member 
 - An endpoint that changes only `rejection_note`, and only while the status is still `rejected`.
 - An audit entry that, like the existing ones, records only `Ret Notu: ••• → •••` and never the text.
 - No notice to the applicant.
+
+## Adding a cari from the payment form
+
+_Added 2026-11-10_
+
+Recording a payment to someone new means leaving the Ödeme form, creating the cari on the Cariler page, and coming back. A "Yeni cari" option at the bottom of the form's cari picker, opening a small dialog with just Ünvan (and optionally Şehir/İlçe), would keep staff in the form. It needs:
+
+- The dialog to reuse `counterpartyFormSchema` and `POST /api/counterparties` (which already audits and checks the Ünvan is unique).
+- The new cari to be selected in the form once created, and `["counterparties"]` invalidated.
