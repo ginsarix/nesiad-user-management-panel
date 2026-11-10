@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { type FieldErrors, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { ApplicationError, submitApplication } from "@/lib/fetches/application";
+import { PdfLogoError, toLogoUpload } from "@/lib/pdf-logo";
 import {
   type ApplicationFormInput,
   type ApplicationFormValues,
@@ -115,7 +116,13 @@ export function ApplicationForm() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      await submitApplication(values);
+      // a PDF logo goes as the PNG drawn from it, plus the PDF
+      const logo = await toLogoUpload(values.logo as File).catch((error) => {
+        throw error instanceof PdfLogoError
+          ? new ApplicationError(error.message, "logo")
+          : error;
+      });
+      await submitApplication({ ...values, logo });
       setDone(true);
       window.scrollTo({ top: 0 });
     } catch (error) {

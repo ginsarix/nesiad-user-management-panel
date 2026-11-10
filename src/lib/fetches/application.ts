@@ -1,4 +1,5 @@
 import { displayToIso } from "../dates";
+import type { LogoUpload } from "../pdf-logo";
 import type { ApplicationFormValues } from "../zod-schemas/application";
 
 const FALLBACK_MESSAGE =
@@ -16,18 +17,28 @@ export class ApplicationError extends Error {
   }
 }
 
-const FILE_FIELDS = ["logo", "identityDocument", "activityDocument"] as const;
+const DOCUMENT_FIELDS = ["identityDocument", "activityDocument"] as const;
+
+/** The application's values with the picked logo made ready to send */
+export type ApplicationUpload = Omit<ApplicationFormValues, "logo"> & {
+  logo: LogoUpload;
+};
 
 /** Sends the public membership application as multipart form data */
-export async function submitApplication(values: ApplicationFormValues) {
+export async function submitApplication({
+  logo,
+  ...values
+}: ApplicationUpload) {
   const body = new FormData();
   for (const [key, value] of Object.entries(values)) {
-    if ((FILE_FIELDS as readonly string[]).includes(key)) continue;
+    if ((DOCUMENT_FIELDS as readonly string[]).includes(key)) continue;
     if (key === "birthDate") body.append(key, displayToIso(String(value)));
     else if (typeof value === "boolean") body.append(key, String(value));
     else body.append(key, String(value ?? ""));
   }
-  for (const key of FILE_FIELDS) {
+  body.append("logo", logo.logo);
+  if (logo.logoPdf) body.append("logoPdf", logo.logoPdf);
+  for (const key of DOCUMENT_FIELDS) {
     const file = values[key];
     if (file) body.append(key, file);
   }

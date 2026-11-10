@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ApplicationFormValues } from "../zod-schemas/application";
-import { ApplicationError, submitApplication } from "./application";
+import {
+  ApplicationError,
+  type ApplicationUpload,
+  submitApplication,
+} from "./application";
 
-const values: ApplicationFormValues = {
+const values: ApplicationUpload = {
   applicantFirstName: "Ayşe",
   applicantLastName: "Yılmaz",
   birthDate: "25.03.1985",
@@ -21,7 +24,9 @@ const values: ApplicationFormValues = {
   companyIntro: "Tanıtım",
   referenceName: "Ref",
   otherAssociations: "",
-  logo: new File([new Uint8Array([1])], "logo.png", { type: "image/png" }),
+  logo: {
+    logo: new File([new Uint8Array([1])], "logo.png", { type: "image/png" }),
+  },
   identityDocument: new File([new Uint8Array([1])], "id.pdf"),
   activityDocument: new File([new Uint8Array([1])], "act.jpg"),
   consentRules: true,
@@ -81,5 +86,19 @@ describe("submitApplication", () => {
     expect(body.get("consentRules")).toBe("true");
     expect(body.get("otherAssociations")).toBe("");
     expect(body.get("logo")).toBeInstanceOf(File);
+    expect(body.has("logoPdf")).toBe(false);
+  });
+
+  it("sends a PDF logo's original next to its image", async () => {
+    const fetchStub = vi.fn(async (_url: string, _init: RequestInit) =>
+      Response.json({ message: "ok" }, { status: 201 }),
+    );
+    vi.stubGlobal("fetch", fetchStub);
+    const image = new File([new Uint8Array([1])], "logo.png");
+    const pdf = new File([new Uint8Array([2])], "logo.pdf");
+    await submitApplication({ ...values, logo: { logo: image, logoPdf: pdf } });
+    const body = fetchStub.mock.calls[0][1].body as FormData;
+    expect((body.get("logo") as File).name).toBe("logo.png");
+    expect((body.get("logoPdf") as File).name).toBe("logo.pdf");
   });
 });

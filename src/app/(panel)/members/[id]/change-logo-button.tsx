@@ -21,6 +21,7 @@ import {
   type MemberDetails,
   setMemberLogo,
 } from "@/lib/fetches/member";
+import { pdfLogoError, toLogoUpload } from "@/lib/pdf-logo";
 import { memberLogoFormSchema } from "@/lib/zod-schemas/member";
 import { LogoDropZone } from "../_components/logo-drop-zone";
 
@@ -67,7 +68,8 @@ function ChangeLogoForm({
   const logo = useController({ control: form.control, name: "logo" });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (file: File) => setMemberLogo(member.id, file),
+    mutationFn: async (file: File) =>
+      setMemberLogo(member.id, await toLogoUpload(file)),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["members"] }),
@@ -79,9 +81,14 @@ function ChangeLogoForm({
     onError: (error) => form.setError("logo", { message: error.message }),
   });
 
-  const pick = (file: File | null) => {
+  const pick = async (file: File | null) => {
     logo.field.onChange(file);
-    void form.trigger("logo");
+    if (!(await form.trigger("logo"))) return;
+    // a PDF is drawn now, so one that can't be is reported before saving
+    const message = await pdfLogoError(file);
+    if (message && form.getValues("logo") === file) {
+      form.setError("logo", { message });
+    }
   };
 
   return (

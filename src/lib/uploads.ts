@@ -2,6 +2,8 @@ import { fileTypeFromBuffer } from "file-type";
 import { createFile } from "./file-storage";
 
 export const LOGO_MIME_TYPES = ["image/png", "image/jpeg"] as const;
+/** The original of a PDF logo; what is shown is a PNG drawn from it */
+export const LOGO_PDF_MIME_TYPES = ["application/pdf"] as const;
 export const DOCUMENT_MIME_TYPES = [
   "application/pdf",
   "image/png",

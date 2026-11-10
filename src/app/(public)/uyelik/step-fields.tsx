@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { pdfLogoError } from "@/lib/pdf-logo";
 import {
   type ApplicationFormInput,
   type ApplicationFormValues,
@@ -360,12 +361,15 @@ function FileStepField({
   label,
   hint,
   accept,
+  onPicked,
 }: {
   control: Control<ApplicationFormInput>;
   name: "logo" | "identityDocument" | "activityDocument";
   label: string;
   hint: string;
   accept: string;
+  /** Runs after a picked file is in form state */
+  onPicked?: (file: File) => void;
 }) {
   return (
     <Controller
@@ -381,7 +385,10 @@ function FileStepField({
             id={name}
             file={field.value}
             accept={accept}
-            onPick={field.onChange}
+            onPick={(file) => {
+              field.onChange(file);
+              if (file) onPicked?.(file);
+            }}
             onBlur={field.onBlur}
             invalid={fieldState.invalid}
             describedBy={`${name}-hint`}
@@ -394,14 +401,25 @@ function FileStepField({
 }
 
 export function DocumentsStep({ form }: { form: Form }) {
+  // a PDF logo is drawn as soon as it's picked, so one that can't be is
+  // reported now rather than when the form is sent
+  const checkLogo = async (file: File) => {
+    if (!(await form.trigger("logo"))) return;
+    const message = await pdfLogoError(file);
+    if (message && form.getValues("logo") === file) {
+      form.setError("logo", { message });
+    }
+  };
+
   return (
     <div className="grid gap-4">
       <FileStepField
         control={form.control}
         name="logo"
         label="Firma Logosu"
-        hint="PNG veya JPG, en fazla 5 MB"
-        accept=".png,.jpg,.jpeg"
+        hint="PNG, JPG veya PDF, en fazla 5 MB"
+        accept=".png,.jpg,.jpeg,.pdf"
+        onPicked={(file) => void checkLogo(file)}
       />
       <FileStepField
         control={form.control}

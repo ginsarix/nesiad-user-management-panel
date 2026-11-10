@@ -2,6 +2,7 @@ import type { ClientRequestOptions } from "hono/client";
 import { displayToIso } from "../dates";
 import type { MemberStatus } from "../member-status";
 import type { NoticeOutcomes } from "../notice-outcome";
+import type { LogoUpload } from "../pdf-logo";
 import { rpcClient } from "../rpc-client";
 import type { MemberFormValues } from "../zod-schemas/member";
 import type { MemberDecisionInput } from "../zod-schemas/member-decision";
@@ -33,6 +34,11 @@ export async function getMember(id: number, options?: ClientRequestOptions) {
   return await res.json();
 }
 
+/** The member form's values with the picked logo made ready to send */
+export type MemberUpload = Omit<MemberFormValues, "logo"> & {
+  logo: LogoUpload | null;
+};
+
 /**
  * Text fields are always sent so clearing one in the form clears it in the DB.
  * The TC number and documents are sent only when given, so they keep their value.
@@ -49,7 +55,7 @@ function toMemberForm({
   identityDocument,
   activityDocument,
   ...fields
-}: MemberFormValues) {
+}: MemberUpload) {
   return {
     ...fields,
     sectorId: sectorId === null ? "" : String(sectorId),
@@ -61,7 +67,7 @@ function toMemberForm({
     ...(identityDocument && { identityDocument }),
     ...(activityDocument && { activityDocument }),
     ...(status && { status }),
-    ...(logo ? { logo } : removeLogo && { removeLogo: "true" }),
+    ...(logo ?? (removeLogo && { removeLogo: "true" })),
   };
 }
 
@@ -77,7 +83,7 @@ export async function getMemberNationalId(id: number) {
   return body.nationalId;
 }
 
-export async function createMember(values: MemberFormValues) {
+export async function createMember(values: MemberUpload) {
   const res = await rpcClient.api.members.$post({
     form: toMemberForm(values),
   });
@@ -87,7 +93,7 @@ export async function createMember(values: MemberFormValues) {
   return (await res.json()) as { id: number };
 }
 
-export async function updateMember(id: number, values: MemberFormValues) {
+export async function updateMember(id: number, values: MemberUpload) {
   const res = await rpcClient.api.members[":id"].$patch({
     param: { id: String(id) },
     form: toMemberForm(values),
@@ -124,10 +130,10 @@ export async function decideMember(id: number, decision: MemberDecisionInput) {
 }
 
 /** Replaces the logo; the API deletes the old file */
-export async function setMemberLogo(id: number, logo: File) {
+export async function setMemberLogo(id: number, logo: LogoUpload) {
   const res = await rpcClient.api.members[":id"].$patch({
     param: { id: String(id) },
-    form: { logo },
+    form: logo,
   });
 
   if (!res.ok) await throwResponseError(res, "Logo kaydedilemedi");

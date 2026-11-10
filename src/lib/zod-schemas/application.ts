@@ -4,7 +4,12 @@ import { z } from "zod";
 import { isFutureDate, parseDisplayDate, parseIsoDate } from "../dates";
 import { isValidNationalId } from "../national-id";
 import { checkPhone } from "../sms/recipients";
-import { documentFileSchema, MAX_LOGO_SIZE, normalizeWebsite } from "./member";
+import {
+  documentFileSchema,
+  logoPdfFileSchema,
+  MAX_LOGO_SIZE,
+  normalizeWebsite,
+} from "./member";
 import { FUTURE_DATE_MESSAGE, INVALID_DATE_MESSAGE } from "./shared";
 
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
@@ -141,13 +146,24 @@ function requiredDate(parse: (text: string) => Date | null) {
 /**
  * The logo as a public applicant sends it. Unlike the staff logo schema it
  * doesn't trust the declared type (browsers may send none): the name is a
- * hint and the server checks the contents.
+ * hint and the server checks the contents. A PDF logo arrives as the PNG the
+ * applicant's browser drew from it, with the PDF as `logoPdf`.
  */
 const publicLogoSchema = z
   .instanceof(File, { error: "Logo seçin" })
   .refine((f) => f.size > 0, "Dosya boş olamaz")
   .refine((f) => f.size <= MAX_LOGO_SIZE, "Dosyalar 5 MB'dan küçük olmalıdır")
   .refine((f) => /\.(png|jpe?g)$/i.test(f.name), "Logo PNG veya JPG olmalıdır");
+
+/** The logo as the applicant picks it; a PDF is drawn to PNG before sending */
+const publicLogoFormSchema = z
+  .instanceof(File, { error: "Logo seçin" })
+  .refine((f) => f.size > 0, "Dosya boş olamaz")
+  .refine((f) => f.size <= MAX_LOGO_SIZE, "Dosyalar 5 MB'dan küçük olmalıdır")
+  .refine(
+    (f) => /\.(png|jpe?g|pdf)$/i.test(f.name),
+    "Logo PNG, JPG veya PDF olmalıdır",
+  );
 
 /** Fields whose rules are the same on the form and on the server */
 const sharedFields = {
@@ -205,6 +221,8 @@ export const applicationApiSchema = z.object({
     .transform((v) => v || null),
 
   logo: publicLogoSchema,
+  /** Only together with `logo`, which is drawn from it */
+  logoPdf: logoPdfFileSchema.optional(),
   identityDocument: documentFileSchema,
   activityDocument: documentFileSchema,
 
@@ -238,7 +256,7 @@ export const applicationFormSchema = z.object({
   referenceName: sharedFields.referenceName,
   otherAssociations: sharedFields.otherAssociations,
 
-  logo: publicLogoSchema.nullable().refine((f) => f !== null, "Logo seçin"),
+  logo: publicLogoFormSchema.nullable().refine((f) => f !== null, "Logo seçin"),
   identityDocument: documentFileSchema
     .nullable()
     .refine((f) => f !== null, "Kimlik belgesi seçin"),

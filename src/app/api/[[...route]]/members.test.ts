@@ -173,7 +173,51 @@ describe("POST /api/members", () => {
       logo: fake,
     });
     expect(res.status).toBe(415);
-    expect(body.error).toBe("Sadece resim dosyaları kabul edilir");
+    expect(body.error).toBe("Sadece resim veya PDF dosyaları kabul edilir");
+  });
+
+  it("stores a PDF logo's original next to its image", async () => {
+    const { res, body } = await createMember({
+      title: "__test__ PDF Logolu",
+      logo: pngFile(),
+      logoPdf: pdfFile("logo.pdf"),
+    });
+    expect(res.status).toBe(201);
+
+    const { body: member } = await getMember(body.id);
+    createdFiles.push(member.logo, member.logoPdf);
+    expect(member.logo).toMatch(/^logo_.+\.png$/);
+    expect(member.logoPdf).toMatch(/^logo_.+\.pdf$/);
+    expect(await readStoredFile(member.logoPdf)).not.toBeNull();
+
+    const [entry] = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "member"),
+          eq(auditLogTable.entityId, String(body.id)),
+        ),
+      );
+    expect(entry.details).toContainEqual({ label: "Logo", value: "Var (PDF)" });
+  });
+
+  it("refuses a logo PDF without the image drawn from it", async () => {
+    const { res } = await createMember({
+      title: "__test__ Yalnız PDF",
+      logoPdf: pdfFile("logo.pdf"),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses a logo PDF that isn't a PDF", async () => {
+    const { res, body } = await createMember({
+      title: "__test__ Sahte PDF Logo",
+      logo: pngFile(),
+      logoPdf: pngFile("logo.pdf"),
+    });
+    expect(res.status).toBe(415);
+    expect(body.error).toBe("Sadece resim veya PDF dosyaları kabul edilir");
   });
 });
 
@@ -345,6 +389,42 @@ describe("PATCH /api/members/:id", () => {
     expect(await readStoredFile(after.logo)).not.toBeNull();
   });
 
+  it("replaces a PDF logo, deleting its image and its PDF", async () => {
+    const { body } = await createMember({
+      title: "__test__ PDF Logo Değişimi",
+      logo: pngFile(),
+      logoPdf: pdfFile("logo.pdf"),
+    });
+    const { body: before } = await getMember(body.id);
+    createdFiles.push(before.logo, before.logoPdf);
+
+    const { res } = await patchMember(body.id, { logo: pngFile("yeni.png") });
+    expect(res.status).toBe(200);
+
+    const { body: after } = await getMember(body.id);
+    createdFiles.push(after.logo);
+    expect(after.logoPdf).toBeNull();
+    expect(await readStoredFile(before.logo)).toBeNull();
+    expect(await readStoredFile(before.logoPdf)).toBeNull();
+  });
+
+  it("removes a PDF logo with its PDF", async () => {
+    const { body } = await createMember({
+      title: "__test__ PDF Logo Silme",
+      logo: pngFile(),
+      logoPdf: pdfFile("logo.pdf"),
+    });
+    const { body: before } = await getMember(body.id);
+    createdFiles.push(before.logo, before.logoPdf);
+
+    await patchMember(body.id, { removeLogo: "true" });
+
+    const { body: after } = await getMember(body.id);
+    expect(after.logo).toBeNull();
+    expect(after.logoPdf).toBeNull();
+    expect(await readStoredFile(before.logoPdf)).toBeNull();
+  });
+
   it("removes the logo", async () => {
     const { body } = await createMember({
       title: "__test__ Logo Silme",
@@ -377,12 +457,14 @@ describe("DELETE /api/members/:id", () => {
     const { body } = await createMember({
       title: "__test__ Silinecek",
       logo: pngFile(),
+      logoPdf: pdfFile("logo.pdf"),
       identityDocument: pdfFile("kimlik.pdf"),
       activityDocument: pdfFile("faaliyet.pdf"),
     });
     const { body: member } = await getMember(body.id);
     createdFiles.push(
       member.logo,
+      member.logoPdf,
       member.identityDocument,
       member.activityDocument,
     );
@@ -396,6 +478,7 @@ describe("DELETE /api/members/:id", () => {
 
     expect((await getMember(body.id)).res.status).toBe(404);
     expect(await readStoredFile(member.logo)).toBeNull();
+    expect(await readStoredFile(member.logoPdf)).toBeNull();
     expect(await readStoredFile(member.identityDocument)).toBeNull();
     expect(await readStoredFile(member.activityDocument)).toBeNull();
   });

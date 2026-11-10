@@ -9,8 +9,8 @@ import {
 
 export const MAX_LOGO_SIZE = 5 * 1024 * 1024; // 5 MiB
 
-/** Room for a logo and two documents plus the text fields */
-export const MAX_REQUEST_SIZE = 3 * MAX_LOGO_SIZE + 1024 * 1024;
+/** Room for a logo (with its PDF) and two documents plus the text fields */
+export const MAX_REQUEST_SIZE = 4 * MAX_LOGO_SIZE + 1024 * 1024;
 
 export const documentFileSchema = z
   .instanceof(File)
@@ -42,12 +42,31 @@ export function normalizeWebsite(value: string): string | null {
   }
 }
 
+/** The logo image the API stores; a PDF logo arrives already drawn as PNG */
 export const logoFileSchema = z
   .instanceof(File)
   .refine((f) => f.size <= MAX_LOGO_SIZE, "Logo 5 MB'dan küçük olmalıdır")
   .refine(
     (f) => f.type.startsWith("image/"),
     "Sadece resim dosyaları kabul edilir",
+  );
+
+/** The original of a PDF logo, sent with the PNG drawn from it */
+export const logoPdfFileSchema = z
+  .instanceof(File)
+  .refine((f) => f.size > 0, "Dosya boş olamaz")
+  .refine((f) => f.size <= MAX_LOGO_SIZE, "Logo 5 MB'dan küçük olmalıdır");
+
+/** A logo as picked in a panel form: an image, or a PDF drawn before upload */
+export const logoFormFileSchema = z
+  .instanceof(File)
+  .refine((f) => f.size <= MAX_LOGO_SIZE, "Logo 5 MB'dan küçük olmalıdır")
+  .refine(
+    (f) =>
+      f.type.startsWith("image/") ||
+      f.type === "application/pdf" ||
+      /\.pdf$/i.test(f.name),
+    "Sadece resim veya PDF dosyaları kabul edilir",
   );
 
 const titleSchema = z.string().trim().min(1, "Ünvan boş olamaz");
@@ -166,6 +185,8 @@ export const createMemberSchema = z.object({
   status: z.enum(["active", "passive"]).optional(),
 
   logo: logoFileSchema.optional(),
+  /** Only together with `logo`, which is drawn from it */
+  logoPdf: logoPdfFileSchema.optional(),
 
   address: optionalTextSchema,
   phone: optionalTextSchema,
@@ -206,7 +227,7 @@ export const memberFormSchema = z.object({
   phone: z.string(),
   sectorId: z.number().nullable(),
   foundingDate: optionalDisplayDateSchema,
-  logo: logoFileSchema.nullable(),
+  logo: logoFormFileSchema.nullable(),
   removeLogo: z.boolean(),
 
   // Applicant fields. Text is sent as typed, so blank clears the stored value;
@@ -234,7 +255,7 @@ export type MemberFormValues = z.infer<typeof memberFormSchema>;
 
 /** Logo Değiştir dialog on the member page; a new file is required */
 export const memberLogoFormSchema = z.object({
-  logo: logoFileSchema
+  logo: logoFormFileSchema
     .nullable()
     .refine((logo) => logo !== null, "Yeni bir logo seçin"),
 });

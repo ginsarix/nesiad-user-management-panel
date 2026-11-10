@@ -36,6 +36,7 @@ import {
 import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
 import { isEstablished } from "@/lib/member-status";
+import { PdfLogoError, pdfLogoError, toLogoUpload } from "@/lib/pdf-logo";
 import {
   type MemberFormValues,
   memberFormSchema,
@@ -110,10 +111,17 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
   const { errors } = form.formState;
 
   const { mutate, isPending, error } = useMutation({
-    mutationFn: async (values: MemberFormValues) => {
+    mutationFn: async ({ logo, ...rest }: MemberFormValues) => {
+      const values = { ...rest, logo: logo && (await toLogoUpload(logo)) };
       if (!member) return (await createMember(values)).id;
       await updateMember(member.id, values);
       return member.id;
+    },
+    // a PDF that can't be drawn belongs to the logo field
+    onError: (error) => {
+      if (error instanceof PdfLogoError) {
+        form.setError("logo", { message: error.message });
+      }
     },
     onSuccess: async (id) => {
       await Promise.all([
@@ -210,11 +218,7 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
             label="Kuruluş Tarihi"
           />
 
-          <LogoField
-            control={form.control}
-            trigger={form.trigger}
-            currentLogo={member?.logo ?? null}
-          />
+          <LogoField form={form} currentLogo={member?.logo ?? null} />
 
           {(!member || isEstablished(member.status)) && (
             <Controller
@@ -354,7 +358,7 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t px-4 py-3">
-          {error && (
+          {error && !(error instanceof PdfLogoError) && (
             <FieldError className="mr-auto">{error.message}</FieldError>
           )}
           <Link
@@ -404,20 +408,24 @@ function DateField({
 }
 
 function LogoField({
-  control,
-  trigger,
+  form,
   currentLogo,
 }: {
-  control: Control<MemberFormValues>;
-  trigger: UseFormTrigger<MemberFormValues>;
+  form: UseFormReturn<MemberFormValues>;
   currentLogo: string | null;
 }) {
+  const { control } = form;
   const logo = useController({ control, name: "logo" });
   const removeLogo = useController({ control, name: "removeLogo" });
 
-  const pick = (file: File | null) => {
+  const pick = async (file: File | null) => {
     logo.field.onChange(file);
-    void trigger("logo");
+    if (!(await form.trigger("logo"))) return;
+    // a PDF is drawn now, so one that can't be is reported before saving
+    const message = await pdfLogoError(file);
+    if (message && form.getValues("logo") === file) {
+      form.setError("logo", { message });
+    }
   };
 
   return (

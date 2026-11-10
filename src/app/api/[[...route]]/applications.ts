@@ -10,6 +10,7 @@ import { createRateLimiter } from "@/lib/rate-limit";
 import {
   DOCUMENT_MIME_TYPES,
   LOGO_MIME_TYPES,
+  LOGO_PDF_MIME_TYPES,
   storeUpload,
 } from "@/lib/uploads";
 import { applicationApiSchema } from "@/lib/zod-schemas/application";
@@ -23,7 +24,7 @@ export const applicationLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000,
 });
 
-const LOGO_ERROR = "Logo PNG veya JPG olmalıdır";
+const LOGO_ERROR = "Logo PNG, JPG veya PDF olmalıdır";
 const LIMITED_RESPONSE = {
   error: "Çok fazla başvuru gönderildi. Lütfen daha sonra tekrar deneyin.",
 };
@@ -49,8 +50,14 @@ export const applicationsRoute = new Hono().post(
   },
   zValidator("form", applicationApiSchema, respondWithFirstField),
   async (c) => {
-    const { leaveBlank, logo, identityDocument, activityDocument, ...fields } =
-      c.req.valid("form");
+    const {
+      leaveBlank,
+      logo,
+      logoPdf,
+      identityDocument,
+      activityDocument,
+      ...fields
+    } = c.req.valid("form");
     const { consentRules: _rules, consentData: _data, ...values } = fields;
 
     // a bot filled the hidden field: look successful, save nothing
@@ -67,6 +74,17 @@ export const applicationsRoute = new Hono().post(
     try {
       const uploads = [
         { field: "logo", file: logo, allowed: LOGO_MIME_TYPES, base: "logo" },
+        // a PDF logo: `logo` is the PNG the applicant's browser drew from it
+        ...(logoPdf
+          ? [
+              {
+                field: "logoPdf",
+                file: logoPdf,
+                allowed: LOGO_PDF_MIME_TYPES,
+                base: "logo",
+              } as const,
+            ]
+          : []),
         {
           field: "identityDocument",
           file: identityDocument,
@@ -87,7 +105,11 @@ export const applicationsRoute = new Hono().post(
           applicationLimiter.release(ip);
           await deleteFiles(stored);
           return c.json(
-            { error: field === "logo" ? LOGO_ERROR : DOCUMENT_ERROR, field },
+            {
+              error: field.startsWith("logo") ? LOGO_ERROR : DOCUMENT_ERROR,
+              // the form has one logo field for both
+              field: field === "logoPdf" ? "logo" : field,
+            },
             415,
           );
         }
@@ -100,6 +122,7 @@ export const applicationsRoute = new Hono().post(
         .values({
           ...values,
           logo: names.logo,
+          logoPdf: names.logoPdf ?? null,
           identityDocument: names.identityDocument,
           activityDocument: names.activityDocument,
           status: "candidate",

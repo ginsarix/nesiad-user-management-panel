@@ -259,6 +259,35 @@ describe("POST /api/applications", () => {
     expect(storedFiles.length).toBe(before);
   });
 
+  it("stores a PDF logo's original next to its image", async () => {
+    const title = newTitle();
+
+    const res = await submit(fields(title, { logoPdf: pdf("logo.pdf") }));
+
+    expect(res.status).toBe(201);
+    const member = await findByTitle(title);
+    expect(member.logo).toMatch(/^logo_.+\.png$/);
+    expect(member.logoPdf).toMatch(/^logo_.+\.pdf$/);
+    expect(await readStoredFile(member.logoPdf as string)).not.toBeNull();
+  });
+
+  it("refuses a logo PDF that isn't a PDF and keeps nothing", async () => {
+    const title = newTitle();
+    const before = storedFiles.length;
+
+    const res = await submit(fields(title, { logoPdf: png("logo.pdf") }));
+
+    expect(res.status).toBe(415);
+    expect(await res.json()).toEqual({
+      error: "Logo PNG, JPG veya PDF olmalıdır",
+      field: "logo",
+    });
+    const written = storedFiles.slice(before);
+    expect(written).toHaveLength(1);
+    expect(await readStoredFile(written[0])).toBeNull();
+    expect(await findByTitle(title)).toBeUndefined();
+  });
+
   it("removes the stored files when a later upload is refused", async () => {
     const title = newTitle();
     const before = storedFiles.length;

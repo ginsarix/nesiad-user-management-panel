@@ -1,24 +1,49 @@
-import { ImageIcon } from "lucide-react";
+import { FileText, ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { type DragEvent, useEffect, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { isPdf, pdfLogoImage } from "@/lib/pdf-logo";
 import { cn } from "@/lib/utils";
 
-/** Blob URL for previewing a picked file; revoked when it changes */
-function useObjectUrl(file: File | null) {
+/**
+ * Blob URL for previewing a picked file, revoked when it changes. A PDF shows
+ * the image that will be uploaded for it; `drawing` is true until it's ready,
+ * and the URL stays null when the PDF can't be drawn.
+ */
+function usePreviewUrl(file: File | null) {
   const [url, setUrl] = useState<string | null>(null);
+  const [drawing, setDrawing] = useState(false);
 
   useEffect(() => {
-    if (!file) {
-      setUrl(null);
-      return;
+    setUrl(null);
+    setDrawing(false);
+    if (!file) return;
+
+    let objectUrl: string | null = null;
+    let current = true;
+    const show = (image: File) => {
+      if (!current) return;
+      objectUrl = URL.createObjectURL(image);
+      setUrl(objectUrl);
+    };
+
+    if (isPdf(file)) {
+      setDrawing(true);
+      pdfLogoImage(file)
+        // the form shows why a PDF can't be used
+        .then(show, () => {})
+        .finally(() => current && setDrawing(false));
+    } else {
+      show(file);
     }
-    const objectUrl = URL.createObjectURL(file);
-    setUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
+
+    return () => {
+      current = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [file]);
 
-  return url;
+  return { url, drawing };
 }
 
 const hasFiles = (event: DragEvent) =>
@@ -27,7 +52,7 @@ const hasFiles = (event: DragEvent) =>
 /**
  * Logo preview with a file button that also takes a dropped file.
  * Shows `file` when one is picked, else `currentUrl`; "Kaldır" appears
- * only with `onRemove` and something to preview.
+ * only with `onRemove` and a logo to remove.
  */
 export function LogoDropZone({
   id,
@@ -42,8 +67,9 @@ export function LogoDropZone({
   onPick: (file: File | null) => void;
   onRemove?: () => void;
 }) {
-  const pickedUrl = useObjectUrl(file);
-  const previewUrl = pickedUrl ?? currentUrl;
+  const picked = usePreviewUrl(file);
+  const previewUrl = file ? picked.url : currentUrl;
+  const hasLogo = !!file || !!currentUrl;
   const [dragging, setDragging] = useState(false);
 
   return (
@@ -78,7 +104,12 @@ export function LogoDropZone({
       }}
     >
       <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white">
-        {previewUrl ? (
+        {picked.drawing ? (
+          <Loader2
+            aria-label="PDF hazırlanıyor"
+            className="size-5 animate-spin text-muted-foreground"
+          />
+        ) : previewUrl ? (
           <Image
             src={previewUrl}
             alt="Logo önizleme"
@@ -87,6 +118,8 @@ export function LogoDropZone({
             unoptimized
             className="size-full object-contain"
           />
+        ) : file ? (
+          <FileText className="size-5 text-muted-foreground" />
         ) : (
           <ImageIcon className="size-5 text-muted-foreground" />
         )}
@@ -94,11 +127,11 @@ export function LogoDropZone({
       <div className="flex flex-col gap-1">
         <div className="flex gap-1">
           <label className={buttonVariants({ variant: "outline", size: "sm" })}>
-            {previewUrl ? "Değiştir" : "Logo seç"}
+            {hasLogo ? "Değiştir" : "Logo seç"}
             <input
               id={id}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf,.pdf"
               className="sr-only"
               onChange={(event) => {
                 onPick(event.target.files?.[0] ?? null);
@@ -107,7 +140,7 @@ export function LogoDropZone({
               }}
             />
           </label>
-          {previewUrl && onRemove && (
+          {hasLogo && onRemove && (
             <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
               Kaldır
             </Button>
@@ -116,7 +149,7 @@ export function LogoDropZone({
         <span className="text-xs text-muted-foreground">
           {dragging
             ? "Bırakın"
-            : "veya buraya sürükleyin · resim, en fazla 5 MB"}
+            : "veya buraya sürükleyin · resim veya PDF, en fazla 5 MB"}
         </span>
       </div>
     </div>
