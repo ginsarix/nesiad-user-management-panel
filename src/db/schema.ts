@@ -333,8 +333,8 @@ export const smsSettingsTable = pgTable(
   "sms_settings",
   {
     id: integer().primaryKey().default(1),
-    // off until someone turns it on, so a fresh database sends nothing
-    autoEnabled: boolean("auto_enabled").default(false).notNull(),
+    // on by default; staff can turn it off from the Ayarlar tab
+    autoEnabled: boolean("auto_enabled").default(true).notNull(),
     // "HH:mm", Istanbul time
     sendTime: text("send_time").default("09:00").notNull(),
     // templates with {ad} and {yil}

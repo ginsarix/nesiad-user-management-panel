@@ -5,7 +5,7 @@ import { DEFAULT_MESSAGES } from "./templates";
 
 export type SmsSettings = typeof smsSettingsTable.$inferSelect;
 
-/** The settings row, created with the defaults (automatic SMS off) if missing */
+/** The settings row, created with the defaults (automatic SMS on) if missing */
 export async function getSmsSettings(): Promise<SmsSettings> {
   const [existing] = await db
     .select()

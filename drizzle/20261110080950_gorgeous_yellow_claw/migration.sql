@@ -1,0 +1,1 @@
+ALTER TABLE "sms_settings" ALTER COLUMN "auto_enabled" SET DEFAULT true;

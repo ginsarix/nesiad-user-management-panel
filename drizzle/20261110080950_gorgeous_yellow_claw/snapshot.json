@@ -1,0 +1,38 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "3815e365-fbda-4a1a-a487-6ff166991517",
+  "prevIds": [
+    "3006988c-f4fe-47d0-bad0-7422d2a54e79"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "sms_settings",
+        "auto_enabled"
+      ],
+      "writes": [
+        "s|colprop|public.sms_settings.auto_enabled.default"
+      ],
+      "reads": [
+        "n|tbl|public.sms_settings",
+        "n|sch|public",
+        "n|col|public.sms_settings.auto_enabled"
+      ],
+      "sqlHash": "f055a3af167588a0"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"sms_settings\",\"auto_enabled\"]",
+      "set": {
+        "default": "true"
+      }
+    }
+  ]
+}
