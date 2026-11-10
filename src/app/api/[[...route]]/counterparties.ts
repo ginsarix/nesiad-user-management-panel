@@ -1,6 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { count, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import writeXlsxFile from "write-excel-file/node";
+import { z } from "zod";
 import { db } from "@/db";
 import { counterpartyTable, paymentTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
@@ -10,7 +12,7 @@ import {
   diffFields,
   formatAudit,
 } from "@/lib/audit-diff";
-import { compareTr } from "@/lib/turkish";
+import { compareTr, foldTr } from "@/lib/turkish";
 import { counterpartySchema } from "@/lib/zod-schemas/counterparty";
 import {
   FOREIGN_KEY_VIOLATION,
@@ -18,6 +20,7 @@ import {
   UNIQUE_VIOLATION,
 } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import { amountCell, header, xlsxResponse } from "./excel";
 import { sumOfAmounts } from "./payment-queries";
 import {
   idParamSchema,
@@ -61,23 +64,69 @@ function withTitleKey<T extends { title: string }>(values: T) {
   return { ...values, titleKey: values.title.toLocaleLowerCase("tr") };
 }
 
-export const counterpartiesRoute = new Hono<AppEnv>()
-  .get("/", async (c) => {
-    const counterparties = await db
-      .select({
-        ...counterpartyColumns,
-        paymentCount: count(paymentTable.id),
-        totalPaid: sumOfAmounts(),
-      })
-      .from(counterpartyTable)
-      .leftJoin(
-        paymentTable,
-        eq(paymentTable.counterpartyId, counterpartyTable.id),
-      )
-      .groupBy(counterpartyTable.id);
+/** Every cari with its payment count and total paid, sorted by Ünvan */
+async function selectCounterparties() {
+  const counterparties = await db
+    .select({
+      ...counterpartyColumns,
+      paymentCount: count(paymentTable.id),
+      totalPaid: sumOfAmounts(),
+    })
+    .from(counterpartyTable)
+    .leftJoin(
+      paymentTable,
+      eq(paymentTable.counterpartyId, counterpartyTable.id),
+    )
+    .groupBy(counterpartyTable.id);
 
-    return c.json(counterparties.sort((a, b) => compareTr(a.title, b.title)));
-  })
+  return counterparties.sort((a, b) => compareTr(a.title, b.title));
+}
+
+const COLUMN_WIDTHS = [32, 14, 14, 40, 16, 28, 16];
+
+export const counterpartiesRoute = new Hono<AppEnv>()
+  .get("/", async (c) => c.json(await selectCounterparties()))
+  // before "/:id", which would take "export" for an id. `q` filters by
+  // Ünvan the same way the list's search does
+  .get(
+    "/export",
+    zValidator("query", z.object({ q: z.string().optional() })),
+    async (c) => {
+      const needle = foldTr(c.req.valid("query").q?.trim() ?? "");
+      const counterparties = (await selectCounterparties()).filter(
+        (counterparty) => foldTr(counterparty.title).includes(needle),
+      );
+
+      const buffer = await writeXlsxFile(
+        [
+          [
+            "Ünvan",
+            "Şehir",
+            "İlçe",
+            "Adres",
+            "Telefon",
+            "E-posta",
+            "Toplam Ödenen",
+          ].map(header),
+          ...counterparties.map((counterparty) => [
+            counterparty.title,
+            counterparty.city,
+            counterparty.district,
+            counterparty.address,
+            counterparty.phone,
+            counterparty.email,
+            amountCell(counterparty.totalPaid),
+          ]),
+        ],
+        {
+          sheet: "Cariler",
+          stickyRowsCount: 1,
+          columns: COLUMN_WIDTHS.map((width) => ({ width })),
+        },
+      ).toBuffer();
+      return xlsxResponse(c, buffer, "cariler");
+    },
+  )
   .get(
     "/:id",
     zValidator("param", idParamSchema, respondWithFirstIssue),

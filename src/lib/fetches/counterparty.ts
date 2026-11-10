@@ -63,3 +63,9 @@ export type CounterpartyListItem = Awaited<
 export type Counterparty = NonNullable<
   Awaited<ReturnType<typeof getCounterparty>>
 >;
+
+/** Where the Excel download of the searched list is; used as a plain link */
+export function counterpartiesExportHref(query: string) {
+  const q = query.trim();
+  return `/api/counterparties/export${q ? `?${new URLSearchParams({ q })}` : ""}`;
+}

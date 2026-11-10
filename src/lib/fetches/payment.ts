@@ -87,3 +87,9 @@ export async function deletePayment(id: number) {
 export type PaymentList = Awaited<ReturnType<typeof getPayments>>;
 export type PaymentRow = PaymentList["payments"][number];
 export type Payment = NonNullable<Awaited<ReturnType<typeof getPayment>>>;
+
+/** Where the Excel download of the filtered list is; used as a plain link */
+export function paymentsExportHref(filters: PaymentFilters) {
+  const search = new URLSearchParams(paymentFiltersToParams(filters));
+  return `/api/payments/export${search.size ? `?${search}` : ""}`;
+}

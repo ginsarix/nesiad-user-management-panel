@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { readSheet } from "read-excel-file/node";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
@@ -318,5 +319,49 @@ describe("DELETE /api/payments/:id", () => {
       method: "DELETE",
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/payments/export", () => {
+  it("exports the filtered payments with real cells and a total", async () => {
+    const excelCari = await insertCounterparty(`__test__ Excel ${suffix}`);
+    for (const [amount, date] of [
+      ["0.10", "2026-10-01"],
+      ["0.20", "2026-10-15"],
+      ["100.00", "2026-11-01"],
+    ]) {
+      await createPayment({ counterpartyId: excelCari, amount, date });
+    }
+
+    const res = await paymentsRoute.request(
+      `/export?counterparty=${excelCari}&from=2026-10-01&to=2026-10-15`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    expect(res.headers.get("Content-Disposition")).toMatch(
+      /^attachment; filename="odemeler-\d{4}-\d{2}-\d{2}\.xlsx"$/,
+    );
+
+    const rows = await readSheet(Buffer.from(await res.arrayBuffer()));
+    expect(rows[0]).toEqual([
+      "Tarih",
+      "Cari",
+      "Tutar",
+      "Ödeme Türü",
+      "Ödeme Tipi",
+      "Not",
+    ]);
+    expect(rows[1][0]).toEqual(new Date("2026-10-15T00:00:00Z"));
+    expect(rows[1][1]).toBe(`__test__ Excel ${suffix}`);
+    expect(rows[1][2]).toBe(0.2);
+    expect(rows[2][0]).toEqual(new Date("2026-10-01T00:00:00Z"));
+    expect(rows[2][2]).toBe(0.1);
+
+    const totalRow = rows[rows.length - 1];
+    expect(totalRow[0]).toBe("Toplam");
+    expect(totalRow[2]).toBeCloseTo(0.3, 10);
+    expect(rows).toHaveLength(5); // header, 2 payments, blank, total
   });
 });

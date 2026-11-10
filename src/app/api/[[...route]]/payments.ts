@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
+import writeXlsxFile from "write-excel-file/node";
 import { z } from "zod";
 import { db, type Transaction } from "@/db";
 import { counterpartyTable, parameterTable, paymentTable } from "@/db/schema";
@@ -16,6 +17,7 @@ import { formatAmount } from "@/lib/money";
 import { parsePaymentFilters } from "@/lib/payment-filters";
 import { paymentSchema } from "@/lib/zod-schemas/payment";
 import { type AppEnv, actorOf } from "./env";
+import { amountCell, dateCell, header, xlsxResponse } from "./excel";
 import {
   type PaymentRow,
   selectPayment,
@@ -115,6 +117,35 @@ const filtersQuerySchema = z.object({
   method: z.string().optional(),
 });
 
+const COLUMN_WIDTHS = [12, 32, 14, 20, 16, 40];
+
+/** The Ödemeler list as an .xlsx: the payments, a blank row, the total */
+async function paymentsWorkbook({
+  payments,
+  total,
+}: Awaited<ReturnType<typeof selectPayments>>) {
+  return writeXlsxFile(
+    [
+      ["Tarih", "Cari", "Tutar", "Ödeme Türü", "Ödeme Tipi", "Not"].map(header),
+      ...payments.map((payment) => [
+        dateCell(payment.date),
+        payment.counterpartyTitle,
+        amountCell(payment.amount),
+        payment.categoryName,
+        payment.methodName,
+        payment.note,
+      ]),
+      [],
+      [header("Toplam"), null, { ...amountCell(total), fontWeight: "bold" }],
+    ],
+    {
+      sheet: "Ödemeler",
+      stickyRowsCount: 1,
+      columns: COLUMN_WIDTHS.map((width) => ({ width })),
+    },
+  ).toBuffer();
+}
+
 export const paymentsRoute = new Hono<AppEnv>()
   .get("/", zValidator("query", filtersQuerySchema), async (c) => {
     const query = c.req.valid("query");
@@ -122,6 +153,15 @@ export const paymentsRoute = new Hono<AppEnv>()
       get: (name) => query[name as keyof typeof query] ?? null,
     });
     return c.json(await selectPayments(filters));
+  })
+  // before "/:id", which would take "export" for an id
+  .get("/export", zValidator("query", filtersQuerySchema), async (c) => {
+    const query = c.req.valid("query");
+    const filters = parsePaymentFilters({
+      get: (name) => query[name as keyof typeof query] ?? null,
+    });
+    const buffer = await paymentsWorkbook(await selectPayments(filters));
+    return xlsxResponse(c, buffer, "odemeler");
   })
   .get(
     "/:id",

@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { readSheet } from "read-excel-file/node";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
@@ -334,5 +335,42 @@ describe("unknown cari", () => {
       method: "DELETE",
     });
     expect(del.status).toBe(404);
+  });
+});
+
+describe("GET /api/counterparties/export", () => {
+  it("exports the searched cariler sorted by Ünvan", async () => {
+    const { body: zeytin } = await createCounterparty({
+      title: `__test__ Zeytin Excel ${suffix}`,
+      city: "Nevşehir",
+    });
+    await createCounterparty({ title: `__test__ Çay Excel ${suffix}` });
+    await addPayments(zeytin.id);
+
+    const res = await counterpartiesRoute.request(
+      `/export?q=${encodeURIComponent(`excel ${suffix}`)}`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toMatch(
+      /^attachment; filename="cariler-\d{4}-\d{2}-\d{2}\.xlsx"$/,
+    );
+
+    const rows = await readSheet(Buffer.from(await res.arrayBuffer()));
+    expect(rows[0]).toEqual([
+      "Ünvan",
+      "Şehir",
+      "İlçe",
+      "Adres",
+      "Telefon",
+      "E-posta",
+      "Toplam Ödenen",
+    ]);
+    expect(rows.slice(1).map((row) => row[0])).toEqual([
+      `__test__ Çay Excel ${suffix}`,
+      `__test__ Zeytin Excel ${suffix}`,
+    ]);
+    expect(rows[2][1]).toBe("Nevşehir");
+    expect(rows[2][6]).toBe(150.25);
+    expect(rows[1][6]).toBe(0);
   });
 });
