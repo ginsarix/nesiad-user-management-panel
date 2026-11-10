@@ -53,23 +53,43 @@ export function DeleteParameterButton({ parameter }: { parameter: Parameter }) {
         }
       />
       <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>“{parameter.name}” silinsin mi?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {label} listesinden kalıcı olarak silinir. Bu işlem geri alınamaz.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {error && <FieldError>{error.message}</FieldError>}
-        <AlertDialogFooter>
-          <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={isPending}
-            onClick={() => mutate()}
-          >
-            {isPending ? "Siliniyor…" : "Sil"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
+        {parameter.paymentCount > 0 ? (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle>“{parameter.name}” silinemez</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bu kayıt {parameter.paymentCount} ödemede kullanılıyor. Silmek
+                için önce bu ödemelerin {label} alanını değiştirin.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Tamam</AlertDialogCancel>
+            </AlertDialogFooter>
+          </>
+        ) : (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                “{parameter.name}” silinsin mi?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {label} listesinden kalıcı olarak silinir. Bu işlem geri
+                alınamaz.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {error && <FieldError>{error.message}</FieldError>}
+            <AlertDialogFooter>
+              <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={isPending}
+                onClick={() => mutate()}
+              >
+                {isPending ? "Siliniyor…" : "Sil"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </>
+        )}
       </AlertDialogContent>
     </AlertDialog>
   );

@@ -79,7 +79,11 @@ function ParameterForm({
         ? updateParameter(parameter.id, values)
         : createParameter({ kind, ...values }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["parameters"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["parameters"] }),
+        // payments show the tür and tip names
+        queryClient.invalidateQueries({ queryKey: ["payments"] }),
+      ]);
       onSaved();
     },
     // e.g. "Bu listede aynı isimde bir kayıt zaten var"
