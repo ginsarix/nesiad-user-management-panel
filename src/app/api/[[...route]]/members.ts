@@ -6,6 +6,7 @@ import { bodyLimit } from "hono/body-limit";
 import { db, type Executor } from "@/db";
 import {
   authorizedRepresentativeTable,
+  collectionTable,
   membersRepresentativesTable,
   memberTable,
   sectorTable,
@@ -353,6 +354,11 @@ type MemberRepresentative = Omit<
   "memberId"
 >;
 
+/** null when a concurrent tahsilat made the count unknown */
+function hasCollectionsError(collectionCount: number | null) {
+  return `Bu üyeye ait ${collectionCount ? `${collectionCount} ` : ""}tahsilat var. Silmek yerine pasif yapabilirsiniz.`;
+}
+
 export const membersRoute = new Hono<AppEnv>()
   .get("/", async (c) => {
     const [members, representatives] = await Promise.all([
@@ -384,7 +390,12 @@ export const membersRoute = new Hono<AppEnv>()
 
       if (!full) return c.json({ error: "Üye bulunamadı" }, 404);
 
-      const representatives = (await selectRepresentatives(id)).map(
+      const [linked, collectionCount] = await Promise.all([
+        selectRepresentatives(id),
+        // a member with tahsilatlar can't be deleted; the page says so
+        db.$count(collectionTable, eq(collectionTable.memberId, id)),
+      ]);
+      const representatives = linked.map(
         ({ memberId: _, ...representative }) => representative,
       );
 
@@ -394,6 +405,7 @@ export const membersRoute = new Hono<AppEnv>()
           ...member,
           nationalIdMasked: nationalId ? maskNationalId(nationalId) : null,
           representatives,
+          collectionCount,
         },
         200,
       );
@@ -620,40 +632,63 @@ export const membersRoute = new Hono<AppEnv>()
     async (c) => {
       const { id } = c.req.valid("param");
 
-      const deleted = await db.transaction(async (tx) => {
-        const [member] = await selectFullMember(tx).where(
-          eq(memberTable.id, id),
-        );
-        if (!member) return null;
+      const result = await db
+        .transaction(async (tx) => {
+          // tahsilatlar keep their member: refuse while it has any
+          const collectionCount = await tx.$count(
+            collectionTable,
+            eq(collectionTable.memberId, id),
+          );
+          if (collectionCount > 0) return { refused: collectionCount };
 
-        // the links cascade away with the member, so name them now
-        const representatives = await selectRepresentatives(id, tx);
+          const [member] = await selectFullMember(tx).where(
+            eq(memberTable.id, id),
+          );
+          if (!member) return null;
 
-        await tx.delete(memberTable).where(eq(memberTable.id, id));
-        await recordAudit(tx, {
-          actor: actorOf(c),
-          action: "delete",
-          entityType: "member",
-          entityId: id,
-          entityLabel: member.title,
-          details: [
-            ...describeFields(memberAuditSpec, member),
-            { label: "Sektör", value: member.sector ?? "—" },
-            { label: "Logo", value: logoAuditValue(member) },
-            {
-              label: "Yetkililer",
-              value:
-                representatives
-                  .map((r) => (r.role ? `${r.name} (${r.role})` : r.name))
-                  .join(", ") || "—",
-            },
-          ],
+          // the links cascade away with the member, so name them now
+          const representatives = await selectRepresentatives(id, tx);
+
+          await tx.delete(memberTable).where(eq(memberTable.id, id));
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "delete",
+            entityType: "member",
+            entityId: id,
+            entityLabel: member.title,
+            details: [
+              ...describeFields(memberAuditSpec, member),
+              { label: "Sektör", value: member.sector ?? "—" },
+              { label: "Logo", value: logoAuditValue(member) },
+              {
+                label: "Yetkililer",
+                value:
+                  representatives
+                    .map((r) => (r.role ? `${r.name} (${r.role})` : r.name))
+                    .join(", ") || "—",
+              },
+            ],
+          });
+          return { deleted: member };
+        })
+        .catch((error) => {
+          // a tahsilat added between the count and the delete
+          if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+            return { refused: null };
+          }
+          throw error;
         });
-        return member;
-      });
 
-      if (!deleted) return c.json({ error: "Üye bulunamadı" }, 404);
+      if (!result) return c.json({ error: "Üye bulunamadı" }, 404);
+      if ("refused" in result) {
+        return c.json(
+          { error: hasCollectionsError(result.refused ?? null) },
+          409,
+        );
+      }
+      const { deleted } = result;
 
+      // only now: a refused delete keeps the member's files
       await deleteFiles([
         deleted.logo,
         deleted.logoOriginal,

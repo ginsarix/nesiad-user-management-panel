@@ -23,6 +23,8 @@ export function DeleteParameterButton({ parameter }: { parameter: Parameter }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const label = PARAMETER_KIND_LABELS[parameter.kind];
+  // each list is used by one feature only
+  const usedBy = parameter.kind.startsWith("payment_") ? "ödeme" : "tahsilat";
 
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: () => deleteParameter(parameter.id),
@@ -53,13 +55,16 @@ export function DeleteParameterButton({ parameter }: { parameter: Parameter }) {
         }
       />
       <AlertDialogContent>
-        {parameter.paymentCount > 0 ? (
+        {parameter.usageCount > 0 ? (
           <>
             <AlertDialogHeader>
               <AlertDialogTitle>“{parameter.name}” silinemez</AlertDialogTitle>
               <AlertDialogDescription>
-                Bu kayıt {parameter.paymentCount} ödemede kullanılıyor. Silmek
-                için önce bu ödemelerin {label} alanını değiştirin.
+                Bu kayıt {parameter.usageCount}{" "}
+                {usedBy === "ödeme" ? "ödemede" : "tahsilatta"} kullanılıyor.
+                Silmek için önce bu{" "}
+                {usedBy === "ödeme" ? "ödemelerin" : "tahsilatların"} {label}{" "}
+                alanını değiştirin.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

@@ -1,8 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db, type Transaction } from "@/db";
-import { projectTable } from "@/db/schema";
+import { collectionTable, projectTable } from "@/db/schema";
 import { type AuditActor, recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
@@ -15,7 +15,12 @@ import {
   type ProjectFields,
   projectFieldsSchema,
 } from "@/lib/zod-schemas/project";
-import { pgErrorCode, UNIQUE_VIOLATION } from "./db-errors";
+import { sumOfCollected } from "./collection-queries";
+import {
+  FOREIGN_KEY_VIOLATION,
+  pgErrorCode,
+  UNIQUE_VIOLATION,
+} from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
 import {
   idParamSchema,
@@ -38,6 +43,11 @@ const projectColumns = {
   number: projectTable.number,
   active: projectTable.active,
 };
+
+/** null when a concurrent tahsilat made the count unknown */
+function hasCollectionsError(collectionCount: number | null) {
+  return `Bu projeye ait ${collectionCount ? `${collectionCount} ` : ""}tahsilat var. Silmek yerine pasif yapabilirsiniz.`;
+}
 
 function withNumberKey(values: ProjectFields) {
   return { ...values, numberKey: values.number.toLocaleLowerCase("tr") };
@@ -75,17 +85,19 @@ export async function insertProject(
 
 export const projectsRoute = new Hono<AppEnv>()
   .get("/", async (c) => {
-    const projects = await db.select(projectColumns).from(projectTable);
+    const projects = await db
+      .select({
+        ...projectColumns,
+        collectionCount: count(collectionTable.id),
+        totalCollected: sumOfCollected(),
+      })
+      .from(projectTable)
+      .leftJoin(collectionTable, eq(collectionTable.projectId, projectTable.id))
+      .groupBy(projectTable.id);
     return c.json(
-      projects
-        .map((project) => ({
-          ...project,
-          collectionCount: 0,
-          totalCollected: "0.00",
-        }))
-        .sort(
-          (a, b) => compareTr(a.number, b.number) || compareTr(a.name, b.name),
-        ),
+      projects.sort(
+        (a, b) => compareTr(a.number, b.number) || compareTr(a.name, b.name),
+      ),
     );
   })
   .get(
@@ -100,7 +112,11 @@ export const projectsRoute = new Hono<AppEnv>()
 
       if (!project) return c.json({ error: NOT_FOUND_ERROR }, 404);
 
-      return c.json({ ...project, collectionCount: 0 }, 200);
+      const collectionCount = await db.$count(
+        collectionTable,
+        eq(collectionTable.projectId, id),
+      );
+      return c.json({ ...project, collectionCount }, 200);
     },
   )
   .post(
@@ -178,25 +194,46 @@ export const projectsRoute = new Hono<AppEnv>()
     async (c) => {
       const { id } = c.req.valid("param");
 
-      const deleted = await db.transaction(async (tx) => {
-        const [project] = await tx
-          .delete(projectTable)
-          .where(eq(projectTable.id, id))
-          .returning();
-        if (!project) return null;
+      const result = await db
+        .transaction(async (tx) => {
+          // tahsilatlar keep their proje: refuse while it has any
+          const collectionCount = await tx.$count(
+            collectionTable,
+            eq(collectionTable.projectId, id),
+          );
+          if (collectionCount > 0) return { collectionCount };
 
-        await recordAudit(tx, {
-          actor: actorOf(c),
-          action: "delete",
-          entityType: "project",
-          entityId: id,
-          entityLabel: project.name,
-          details: describeFields(projectAuditSpec, project),
+          const [project] = await tx
+            .delete(projectTable)
+            .where(eq(projectTable.id, id))
+            .returning();
+          if (!project) return null;
+
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "delete",
+            entityType: "project",
+            entityId: id,
+            entityLabel: project.name,
+            details: describeFields(projectAuditSpec, project),
+          });
+          return { collectionCount: 0 };
+        })
+        .catch((error) => {
+          // a tahsilat added between the count and the delete
+          if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+            return { collectionCount: null };
+          }
+          throw error;
         });
-        return project;
-      });
 
-      if (!deleted) return c.json({ error: NOT_FOUND_ERROR }, 404);
+      if (!result) return c.json({ error: NOT_FOUND_ERROR }, 404);
+      if (result.collectionCount !== 0) {
+        return c.json(
+          { error: hasCollectionsError(result.collectionCount) },
+          409,
+        );
+      }
 
       return c.json({ message: "Proje silindi" }, 200);
     },

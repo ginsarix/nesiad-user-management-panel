@@ -1,7 +1,13 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
-import { auditLogTable, memberTable, sectorTable } from "@/db/schema";
+import {
+  auditLogTable,
+  collectionTable,
+  memberTable,
+  parameterTable,
+  sectorTable,
+} from "@/db/schema";
 import { getApplicationNoticeSettings } from "@/lib/application-notice-settings";
 import { deleteFile, readStoredFile } from "@/lib/file-storage";
 import type { NetgsmClient } from "@/lib/sms/netgsm";
@@ -38,14 +44,24 @@ const createdIds: number[] = [];
 const createdSectorIds: number[] = [];
 const createdFiles: string[] = [];
 
+const createdParameterIds: number[] = [];
+
 afterAll(async () => {
   if (createdIds.length) {
+    await db
+      .delete(collectionTable)
+      .where(inArray(collectionTable.memberId, createdIds));
     await db.delete(memberTable).where(inArray(memberTable.id, createdIds));
   }
   if (createdSectorIds.length) {
     await db
       .delete(sectorTable)
       .where(inArray(sectorTable.id, createdSectorIds));
+  }
+  if (createdParameterIds.length) {
+    await db
+      .delete(parameterTable)
+      .where(inArray(parameterTable.id, createdParameterIds));
   }
   await Promise.all(createdFiles.map(deleteFile));
 });
@@ -505,6 +521,63 @@ describe("PATCH /api/members/:id", () => {
       body: form({ title: "__test__ Yok" }),
     });
     expect(res.status).toBe(404);
+  });
+});
+
+/** One tahsilat for the member, inserted directly */
+async function addCollection(memberId: number) {
+  const key = crypto.randomUUID().slice(0, 8);
+  const parameters = await db
+    .insert(parameterTable)
+    .values([
+      {
+        kind: "collection_category" as const,
+        name: `__test__ Tür ${key}`,
+        nameKey: `__test__ tür ${key}`,
+      },
+      {
+        kind: "collection_method" as const,
+        name: `__test__ Tip ${key}`,
+        nameKey: `__test__ tip ${key}`,
+      },
+    ])
+    .returning({ id: parameterTable.id });
+  createdParameterIds.push(...parameters.map((p) => p.id));
+  await db.insert(collectionTable).values({
+    memberId,
+    categoryId: parameters[0].id,
+    methodId: parameters[1].id,
+    amount: "10.00",
+    date: "2026-11-01",
+  });
+}
+
+describe("members with tahsilatlar", () => {
+  it("includes collectionCount in the member detail", async () => {
+    const { body } = await createMember({ title: "__test__ Tahsilatlı" });
+    expect((await getMember(body.id)).body.collectionCount).toBe(0);
+    await addCollection(body.id);
+    expect((await getMember(body.id)).body.collectionCount).toBe(1);
+  });
+
+  it("refuses to delete a member with tahsilatlar", async () => {
+    const { body } = await createMember({
+      title: "__test__ Silinemez",
+      logo: pngFile(),
+    });
+    const { body: member } = await getMember(body.id);
+    createdFiles.push(member.logo);
+    await addCollection(body.id);
+
+    const res = await membersRoute.request(`/${body.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu üyeye ait 1 tahsilat var. Silmek yerine pasif yapabilirsiniz.",
+    );
+    expect((await getMember(body.id)).res.status).toBe(200);
+    expect(await readStoredFile(member.logo)).not.toBeNull();
   });
 });
 

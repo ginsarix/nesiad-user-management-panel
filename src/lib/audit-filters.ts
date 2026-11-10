@@ -10,6 +10,7 @@ export const AUDIT_ENTITY_TYPES = [
   "counterparty",
   "payment",
   "project",
+  "collection",
   "panel_user",
   "sms",
   "auth",

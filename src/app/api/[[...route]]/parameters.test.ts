@@ -3,7 +3,9 @@ import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
+  collectionTable,
   counterpartyTable,
+  memberTable,
   parameterTable,
   paymentTable,
 } from "@/db/schema";
@@ -11,8 +13,15 @@ import { parametersRoute } from "./parameters";
 
 const createdIds: number[] = [];
 const counterpartyIds: number[] = [];
+const memberIds: number[] = [];
 
 afterAll(async () => {
+  if (memberIds.length) {
+    await db
+      .delete(collectionTable)
+      .where(inArray(collectionTable.memberId, memberIds));
+    await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
+  }
   if (counterpartyIds.length) {
     await db
       .delete(paymentTable)
@@ -52,7 +61,7 @@ async function listParameters() {
     id: number;
     kind: string;
     name: string;
-    paymentCount: number;
+    usageCount: number;
   }[];
 }
 
@@ -102,7 +111,7 @@ describe("POST /api/parameters", () => {
       id: body.id,
       kind: "payment_method",
       name: `__test__ Nakit ${suffix}`,
-      paymentCount: 0,
+      usageCount: 0,
     });
 
     const entry = await lastEntry("create", body.id);
@@ -237,8 +246,8 @@ describe("parameters used by payments", () => {
     await addPayment(category, method);
 
     const listed = await listParameters();
-    expect(listed.find((p) => p.id === category)?.paymentCount).toBe(1);
-    expect(listed.find((p) => p.id === method)?.paymentCount).toBe(1);
+    expect(listed.find((p) => p.id === category)?.usageCount).toBe(1);
+    expect(listed.find((p) => p.id === method)?.usageCount).toBe(1);
 
     for (const id of [category, method]) {
       const res = await parametersRoute.request(`/${id}`, {
@@ -250,6 +259,40 @@ describe("parameters used by payments", () => {
       );
     }
     expect((await listParameters()).some((p) => p.id === category)).toBe(true);
+  });
+});
+
+describe("parameters used by tahsilatlar", () => {
+  it("counts them in usageCount and refuses to delete a used entry", async () => {
+    const category = (
+      await createParameter("collection_category", `__test__ Aidat K ${suffix}`)
+    ).body.id;
+    const method = (
+      await createParameter("collection_method", `__test__ EFT ${suffix}`)
+    ).body.id;
+    const [member] = await db
+      .insert(memberTable)
+      .values({ title: `__test__ Üye ${suffix}` })
+      .returning({ id: memberTable.id });
+    memberIds.push(member.id);
+    await db.insert(collectionTable).values({
+      memberId: member.id,
+      categoryId: category,
+      methodId: method,
+      amount: "10.00",
+      date: "2026-11-01",
+    });
+
+    expect(
+      (await listParameters()).find((p) => p.id === category)?.usageCount,
+    ).toBe(1);
+    const res = await parametersRoute.request(`/${method}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu kayıt 1 tahsilatta kullanılıyor, silinemez.",
+    );
   });
 });
 

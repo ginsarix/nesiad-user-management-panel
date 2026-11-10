@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import { auth } from "@/lib/auth";
 import { applicationsRoute } from "./applications";
 import { auditLogsRoute } from "./audit-logs";
+import { collectionsRoute } from "./collections";
 import { counterpartiesRoute } from "./counterparties";
 import { cronRoute } from "./cron";
 import { pgErrorCode } from "./db-errors";
@@ -42,6 +43,7 @@ export const app = new Hono<AppEnv>()
   .route("/counterparties", counterpartiesRoute)
   .route("/payments", paymentsRoute)
   .route("/projects", projectsRoute)
+  .route("/collections", collectionsRoute)
   .route("/representatives", representativesRoute)
   .route("/panel-users", panelUsersRoute)
   .route("/audit-logs", auditLogsRoute)

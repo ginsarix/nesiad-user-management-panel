@@ -1,16 +1,71 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { auditLogTable, projectTable } from "@/db/schema";
+import {
+  auditLogTable,
+  collectionTable,
+  memberTable,
+  parameterTable,
+  projectTable,
+} from "@/db/schema";
 import { projectsRoute } from "./projects";
 
 const createdIds: number[] = [];
 
+const memberIds: number[] = [];
+const parameterIds: number[] = [];
+
 afterAll(async () => {
+  if (memberIds.length) {
+    await db
+      .delete(collectionTable)
+      .where(inArray(collectionTable.memberId, memberIds));
+    await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
+  }
   if (createdIds.length) {
     await db.delete(projectTable).where(inArray(projectTable.id, createdIds));
   }
+  if (parameterIds.length) {
+    await db
+      .delete(parameterTable)
+      .where(inArray(parameterTable.id, parameterIds));
+  }
 });
+
+/** Two tahsilatlar (100.00 and 50.25) for the project, inserted directly */
+async function addCollections(projectId: number) {
+  const [member] = await db
+    .insert(memberTable)
+    .values({ title: `__test__ Üye ${projectId}` })
+    .returning({ id: memberTable.id });
+  memberIds.push(member.id);
+  const parameters = await db
+    .insert(parameterTable)
+    .values([
+      {
+        kind: "collection_category" as const,
+        name: `__test__ Tür ${projectId}`,
+        nameKey: `__test__ tür ${projectId}`,
+      },
+      {
+        kind: "collection_method" as const,
+        name: `__test__ Tip ${projectId}`,
+        nameKey: `__test__ tip ${projectId}`,
+      },
+    ])
+    .returning({ id: parameterTable.id });
+  parameterIds.push(...parameters.map((p) => p.id));
+  await db.insert(collectionTable).values(
+    ["100.00", "50.25"].map((amount) => ({
+      memberId: member.id,
+      categoryId: parameters[0].id,
+      methodId: parameters[1].id,
+      amount,
+      date: "2026-11-01",
+      projectId,
+    })),
+  );
+}
 
 // Proje Numarası is unique; keep this file's apart from parallel runs
 const suffix = crypto.randomUUID().slice(0, 8);
@@ -176,6 +231,36 @@ describe("DELETE /api/projects/:id", () => {
       label: "Proje Numarası",
       value: `S-${suffix}`,
     });
+  });
+});
+
+describe("projects with tahsilatlar", () => {
+  it("counts tahsilatlar and refuses to delete the project", async () => {
+    const { body } = await createProject({
+      name: "__test__ Dolu",
+      number: `T-${suffix}`,
+    });
+    await addCollections(body.id);
+
+    const listed = (
+      (await (await projectsRoute.request("/")).json()) as { id: number }[]
+    ).find((p) => p.id === body.id);
+    expect(listed).toMatchObject({
+      collectionCount: 2,
+      totalCollected: "150.25",
+    });
+    expect(
+      await (await projectsRoute.request(`/${body.id}`)).json(),
+    ).toMatchObject({ collectionCount: 2 });
+
+    const res = await projectsRoute.request(`/${body.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu projeye ait 2 tahsilat var. Silmek yerine pasif yapabilirsiniz.",
+    );
+    expect((await projectsRoute.request(`/${body.id}`)).status).toBe(200);
   });
 });
 

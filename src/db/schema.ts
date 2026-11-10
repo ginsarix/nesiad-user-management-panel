@@ -104,6 +104,48 @@ export const projectTable = pgTable("project", {
     .notNull(),
 });
 
+/** Tahsilatlar: what the association collected from a member */
+export const collectionTable = pgTable(
+  "collection",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // a member, parameter or proje with tahsilatlar can't be deleted
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => memberTable.id, { onDelete: "restrict" }),
+    // Tahsilat Türü: a collection_category parameter
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => parameterTable.id, { onDelete: "restrict" }),
+    // Tahsilat Tipi: a collection_method parameter
+    methodId: integer("method_id")
+      .notNull()
+      .references(() => parameterTable.id, { onDelete: "restrict" }),
+    // TL; travels as a string ("1250.50") so it never becomes a float
+    amount: numeric({ precision: 12, scale: 2, mode: "string" }).notNull(),
+    date: date({ mode: "string" }).notNull(),
+    note: text(),
+    // optional
+    projectId: integer("project_id").references(() => projectTable.id, {
+      onDelete: "restrict",
+    }),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("collection_amount_positive", sql`${table.amount} > 0`),
+    index("collection_date_idx").on(table.date.desc(), table.id.desc()),
+    index("collection_member_idx").on(table.memberId),
+    index("collection_project_idx").on(table.projectId),
+  ],
+);
+
 /** Ödemeler: what the association paid to a cari */
 export const paymentTable = pgTable(
   "payment",

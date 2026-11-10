@@ -1,8 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
-import { count, eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { db } from "@/db";
-import { parameterTable, paymentTable } from "@/db/schema";
+import { db, type Executor } from "@/db";
+import { collectionTable, parameterTable, paymentTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
 import { PARAMETER_KIND_LABELS, type ParameterKind } from "@/lib/parameters";
@@ -27,15 +27,34 @@ function nameValues(name: string) {
 }
 
 /** Payments that use the entry as their Ödeme Türü or Ödeme Tipi */
-function usedBy(id: typeof parameterTable.id | number) {
+function paymentsUsing(id: typeof parameterTable.id | number) {
   return or(eq(paymentTable.categoryId, id), eq(paymentTable.methodId, id));
 }
 
-/** null when a concurrent payment made the count unknown */
-function inUseError(paymentCount: number | null) {
-  return paymentCount
-    ? `Bu kayıt ${paymentCount} ödemede kullanılıyor, silinemez.`
-    : "Bu kayıt ödemelerde kullanılıyor, silinemez.";
+/** Tahsilatlar that use the entry as their Tahsilat Türü or Tahsilat Tipi */
+function collectionsUsing(id: typeof parameterTable.id | number) {
+  return or(
+    eq(collectionTable.categoryId, id),
+    eq(collectionTable.methodId, id),
+  );
+}
+
+/** How many payments and tahsilatlar use the entry */
+async function usageOf(executor: Executor, id: number) {
+  const [payments, collections] = await Promise.all([
+    executor.$count(paymentTable, paymentsUsing(id)),
+    executor.$count(collectionTable, collectionsUsing(id)),
+  ]);
+  return payments + collections;
+}
+
+/** null when a concurrent record made the count unknown */
+function inUseError(kind: ParameterKind, usageCount: number | null) {
+  // each kind is used by one feature only
+  const noun = kind.startsWith("payment_") ? "ödemede" : "tahsilatta";
+  return usageCount
+    ? `Bu kayıt ${usageCount} ${noun} kullanılıyor, silinemez.`
+    : `Bu kayıt ${noun} kullanılıyor, silinemez.`;
 }
 
 /** e.g. "Ödeme Tipi: Nakit", the audit log's record name */
@@ -51,11 +70,12 @@ export const parametersRoute = new Hono<AppEnv>()
         id: parameterTable.id,
         kind: parameterTable.kind,
         name: parameterTable.name,
-        paymentCount: count(paymentTable.id),
+        usageCount: sql<number>`(
+          (select count(*) from ${paymentTable} where ${paymentsUsing(parameterTable.id)})
+          + (select count(*) from ${collectionTable} where ${collectionsUsing(parameterTable.id)})
+        )::int`,
       })
-      .from(parameterTable)
-      .leftJoin(paymentTable, usedBy(parameterTable.id))
-      .groupBy(parameterTable.id);
+      .from(parameterTable);
 
     return c.json(parameters.toSorted((a, b) => compareTr(a.name, b.name)));
   })
@@ -147,11 +167,19 @@ export const parametersRoute = new Hono<AppEnv>()
     async (c) => {
       const { id } = c.req.valid("param");
 
+      // the kind decides the refusal's wording, so read it first
+      const [target] = await db
+        .select({ kind: parameterTable.kind })
+        .from(parameterTable)
+        .where(eq(parameterTable.id, id));
+      if (!target) return c.json({ error: NOT_FOUND_ERROR }, 404);
+
       const result = await db
         .transaction(async (tx) => {
-          // payments keep their tür and tip: refuse while any uses it
-          const paymentCount = await tx.$count(paymentTable, usedBy(id));
-          if (paymentCount > 0) return { paymentCount };
+          // payments and tahsilatlar keep their tür and tip: refuse while
+          // any uses it
+          const usageCount = await usageOf(tx, id);
+          if (usageCount > 0) return { usageCount };
 
           const [parameter] = await tx
             .delete(parameterTable)
@@ -173,19 +201,22 @@ export const parametersRoute = new Hono<AppEnv>()
               { label: "Ad", value: parameter.name },
             ],
           });
-          return { paymentCount: 0 };
+          return { usageCount: 0 };
         })
         .catch((error) => {
-          // a payment added between the count and the delete
+          // a record added between the count and the delete
           if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
-            return { paymentCount: null };
+            return { usageCount: null };
           }
           throw error;
         });
 
       if (!result) return c.json({ error: NOT_FOUND_ERROR }, 404);
-      if (result.paymentCount !== 0) {
-        return c.json({ error: inUseError(result.paymentCount) }, 409);
+      if (result.usageCount !== 0) {
+        return c.json(
+          { error: inUseError(target.kind, result.usageCount) },
+          409,
+        );
       }
 
       return c.json({ message: "Silindi" }, 200);

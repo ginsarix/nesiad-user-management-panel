@@ -39,7 +39,10 @@ export function respondWithFirstField(
     return c.json(
       {
         error: issue?.message ?? "Geçersiz istek",
-        field: issue?.path[0] === undefined ? undefined : String(issue.path[0]),
+        // nested fields as "project.number"
+        field: issue?.path.length
+          ? issue.path.map(String).join(".")
+          : undefined,
       },
       400,
     );

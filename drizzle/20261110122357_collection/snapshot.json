@@ -1,0 +1,545 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "765e12aa-dbdc-43d5-8b7e-e00753952e54",
+  "prevIds": [
+    "341458a0-5101-40c0-972c-b0da1f18647f"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|tbl|public.collection",
+        "n|tbl|public.collection",
+        "e|tbl|public.collection",
+        "n|rel|public.collection",
+        "n|type|public.collection",
+        "n|rel|public.collection_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "collection",
+        "collection_date_idx"
+      ],
+      "writes": [
+        "s|idx|public.collection_date_idx",
+        "n|idx|public.collection_date_idx",
+        "e|idx|public.collection_date_idx",
+        "n|rel|public.collection_date_idx"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|col|public.collection.date",
+        "n|col|public.collection.id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "collection",
+        "collection_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.collection_member_idx",
+        "n|idx|public.collection_member_idx",
+        "e|idx|public.collection_member_idx",
+        "n|rel|public.collection_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|col|public.collection.member_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "collection",
+        "collection_project_idx"
+      ],
+      "writes": [
+        "s|idx|public.collection_project_idx",
+        "n|idx|public.collection_project_idx",
+        "e|idx|public.collection_project_idx",
+        "n|rel|public.collection_project_idx"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|col|public.collection.project_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_member_id_member_id_fkey",
+        "n|fk|public.collection.collection_member_id_member_id_fkey",
+        "e|fk|public.collection.collection_member_id_member_id_fkey",
+        "n|con|public.collection.collection_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.collection.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_category_id_parameter_id_fkey",
+        "n|fk|public.collection.collection_category_id_parameter_id_fkey",
+        "e|fk|public.collection.collection_category_id_parameter_id_fkey",
+        "n|con|public.collection.collection_category_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.collection.category_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_method_id_parameter_id_fkey",
+        "n|fk|public.collection.collection_method_id_parameter_id_fkey",
+        "e|fk|public.collection.collection_method_id_parameter_id_fkey",
+        "n|con|public.collection.collection_method_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.collection.method_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_project_id_project_id_fkey",
+        "n|fk|public.collection.collection_project_id_project_id_fkey",
+        "e|fk|public.collection.collection_project_id_project_id_fkey",
+        "n|con|public.collection.collection_project_id_project_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|tbl|public.project",
+        "n|sch|public",
+        "n|col|public.collection.project_id",
+        "n|col|public.project.id",
+        "e|uniqueness|public.project.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "collection",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "collection_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "member_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "category_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "method_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "amount",
+        "type": "numeric(12,2)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "date",
+        "type": "date",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "note",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "project_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_date_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "date",
+            "isExpression": false,
+            "asc": false,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "id",
+            "isExpression": false,
+            "asc": false,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_project_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "project_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_category_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "category_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_method_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "method_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_project_id_project_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "project_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "project",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_amount_positive",
+        "value": "\"amount\" > 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}
