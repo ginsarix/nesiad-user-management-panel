@@ -464,3 +464,82 @@ describe("/api/sms/notice-settings", () => {
     }
   });
 });
+
+describe("/api/sms/collection-notice-settings", () => {
+  function put(body: unknown) {
+    return smsRoute.request("/collection-notice-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("creates the tahsilat notice templates with the defaults", async () => {
+    const res = await smsRoute.request("/collection-notice-settings");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Object.keys(body).sort()).toEqual([
+      "memberEmailBody",
+      "memberEmailSubject",
+      "memberSms",
+      "staffEmailBody",
+      "staffEmailSubject",
+      "staffSms",
+    ]);
+    expect(body.memberSms).toContain("{uye}");
+  });
+
+  it("refuses an unknown placeholder", async () => {
+    const original = await (
+      await smsRoute.request("/collection-notice-settings")
+    ).json();
+    const res = await put({ ...original, staffSms: "Yeni: {ad}" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error:
+        "Tanınmayan alan: {ad}. Kullanılabilenler: {uye}, {tutar}, {tarih}, {tur}, {tip}, {proje}",
+    });
+  });
+
+  it("audits a template change", async () => {
+    const original = await (
+      await smsRoute.request("/collection-notice-settings")
+    ).json();
+    const [{ maxId }] = await db
+      .select({ maxId: max(auditLogTable.id) })
+      .from(auditLogTable);
+    try {
+      const values = { ...original, staffSms: "__test__ {uye} {tutar}" };
+      const res = await put(values);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual(values);
+
+      const [audit] = await db
+        .select()
+        .from(auditLogTable)
+        .where(
+          and(
+            gt(auditLogTable.id, maxId ?? 0),
+            eq(auditLogTable.action, "collection_notice_settings_update"),
+          ),
+        );
+      expect(audit.changes).toEqual([
+        {
+          label: "Panel kullanıcılarına SMS",
+          from: original.staffSms,
+          to: values.staffSms,
+        },
+      ]);
+    } finally {
+      await put(original);
+      await db
+        .delete(auditLogTable)
+        .where(
+          and(
+            gt(auditLogTable.id, maxId ?? 0),
+            eq(auditLogTable.action, "collection_notice_settings_update"),
+          ),
+        );
+    }
+  });
+});

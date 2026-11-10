@@ -59,6 +59,7 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     create: "Tahsilat eklendi",
     update: "Tahsilat güncellendi",
     delete: "Tahsilat silindi",
+    collection_notice: "Tahsilat bildirimi gönderildi",
   },
   panel_user: {
     create: "Panel kullanıcısı eklendi",
@@ -78,6 +79,8 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     auto_send_unknown: "Kutlama SMS'i: NetGSM yanıt vermedi",
     settings_update: "SMS ayarları değiştirildi",
     notice_settings_update: "Başvuru bildirim şablonları değiştirildi",
+    collection_notice_settings_update:
+      "Tahsilat bildirim şablonları değiştirildi",
   },
   auth: {
     login: "Giriş yaptı",

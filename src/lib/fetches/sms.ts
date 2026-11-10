@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { ClientRequestOptions } from "hono/client";
 import { rpcClient } from "../rpc-client";
 import type { NoticeSettingsValues } from "../zod-schemas/application-notices";
+import type { CollectionNoticeSettingsValues } from "../zod-schemas/collection-notices";
 import type { SmsSendValues, SmsSettingsValues } from "../zod-schemas/sms";
 import { throwResponseError } from "./errors";
 
@@ -80,6 +81,39 @@ export async function updateNoticeSettings(values: NoticeSettingsValues) {
 
   if (!res.ok) {
     return throwResponseError(res, "Bildirim şablonları kaydedilemedi");
+  }
+
+  return await res.json();
+}
+
+/** Named apart from the server's getCollectionNoticeSettings */
+export async function getCollectionNoticeTemplates(
+  options?: ClientRequestOptions,
+) {
+  const res = await rpcClient.api.sms["collection-notice-settings"].$get(
+    undefined,
+    options,
+  );
+
+  if (!res.ok) {
+    return throwResponseError(res, "Tahsilat bildirim şablonları yüklenemedi");
+  }
+
+  return await res.json();
+}
+
+export async function updateCollectionNoticeTemplates(
+  values: CollectionNoticeSettingsValues,
+) {
+  const res = await rpcClient.api.sms["collection-notice-settings"].$put({
+    json: values,
+  });
+
+  if (!res.ok) {
+    return throwResponseError(
+      res,
+      "Tahsilat bildirim şablonları kaydedilemedi",
+    );
   }
 
   return await res.json();

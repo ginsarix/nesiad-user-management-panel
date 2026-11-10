@@ -11,10 +11,7 @@ import {
   memberTable,
   sectorTable,
 } from "@/db/schema";
-import {
-  type NoticeOutcome,
-  sendApplicationNotices,
-} from "@/lib/application-notices";
+import { sendApplicationNotices } from "@/lib/application-notices";
 import { recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
@@ -28,6 +25,7 @@ import { createFile, deleteFiles } from "@/lib/file-storage";
 import { logoOriginalKind } from "@/lib/logo-original";
 import { isEstablished, type MemberStatus } from "@/lib/member-status";
 import { maskNationalId } from "@/lib/national-id";
+import { NOTICE_OUTCOME_LABELS } from "@/lib/notice-outcome";
 import { netgsmClient } from "@/lib/sms/netgsm";
 import {
   DOCUMENT_MIME_TYPES,
@@ -268,13 +266,6 @@ const DECISIONS = {
     notice: "accepted" | "rejected" | null;
   }
 >;
-
-const NOTICE_OUTCOME_LABELS: Record<NoticeOutcome, string> = {
-  sent: "Gönderildi",
-  failed: "Gönderilemedi",
-  skipped: "Adres yok",
-  unknown: "Yanıt alınamadı",
-};
 
 const STALE_DECISION_ERROR =
   "Bu başvurunun durumu değişmiş. Sayfayı yenileyin.";

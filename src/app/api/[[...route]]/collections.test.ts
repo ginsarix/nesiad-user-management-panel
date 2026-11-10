@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { readSheet } from "read-excel-file/node";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
@@ -12,6 +12,10 @@ import {
 import { todayInIstanbul } from "@/lib/dates";
 import type { MemberStatus } from "@/lib/member-status";
 import { collectionsRoute } from "./collections";
+
+// new tahsilatlar email every panel user; never for real in tests
+const mail = vi.hoisted(() => ({ sendEmail: vi.fn(async () => undefined) }));
+vi.mock("@/lib/mail", () => mail);
 
 const suffix = crypto.randomUUID().slice(0, 8);
 const memberIds: number[] = [];
@@ -536,5 +540,58 @@ describe("GET /api/collections/export", () => {
     expect(total[0]).toBe("Toplam");
     expect(total[2]).toBeCloseTo(0.3, 10);
     expect(rows).toHaveLength(5); // header, 2 tahsilatlar, blank, total
+  });
+});
+
+describe("notices for a new tahsilat", () => {
+  async function noticeEntries(id: number) {
+    return db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "collection"),
+          eq(auditLogTable.action, "collection_notice"),
+          eq(auditLogTable.entityId, String(id)),
+        ),
+      );
+  }
+
+  it("sends them after the tahsilat is saved and records only outcomes", async () => {
+    const { body } = await create();
+    await vi.waitFor(async () => {
+      expect(await noticeEntries(body.id)).toHaveLength(1);
+    });
+
+    const [entry] = await noticeEntries(body.id);
+    expect(entry.entityLabel).toBe(
+      `__test__ Üye ${suffix} · ₺1.250,50 · 01.11.2026`,
+    );
+    const labels = entry.details?.map((d) => d.label);
+    expect(labels).toEqual(
+      expect.arrayContaining([
+        "Üye e-posta",
+        "Üye SMS",
+        "Panel kullanıcıları e-posta",
+        "Panel kullanıcıları SMS",
+      ]),
+    );
+    // the member in this file has no e-mail or mobile number
+    expect(entry.details).toContainEqual({
+      label: "Üye e-posta",
+      value: "Adres yok",
+    });
+    expect(JSON.stringify(entry.details)).not.toContain("@");
+  });
+
+  it("sends nothing when a tahsilat is edited", async () => {
+    const { body } = await create();
+    await vi.waitFor(async () => {
+      expect(await noticeEntries(body.id)).toHaveLength(1);
+    });
+
+    await patch(body.id, { amount: "7.00" });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(await noticeEntries(body.id)).toHaveLength(1);
   });
 });

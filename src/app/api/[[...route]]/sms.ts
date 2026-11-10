@@ -5,6 +5,7 @@ import { db } from "@/db";
 import {
   applicationNoticeSettingsTable,
   authorizedRepresentativeTable,
+  collectionNoticeSettingsTable,
   memberTable,
   smsSendTable,
   smsSettingsTable,
@@ -15,6 +16,10 @@ import {
 } from "@/lib/application-notice-settings";
 import { recordAudit } from "@/lib/audit";
 import { type AuditSpec, diffFields, formatAudit } from "@/lib/audit-diff";
+import {
+  type CollectionNoticeSettings,
+  getCollectionNoticeSettings,
+} from "@/lib/collection-notice-settings";
 import { loadCelebrationsOn } from "@/lib/sms/load-celebrations";
 import {
   decodeSendResponse,
@@ -25,6 +30,7 @@ import { buildRecipients, type Contact } from "@/lib/sms/recipients";
 import { getSmsSettings, type SmsSettings } from "@/lib/sms/settings";
 import { compareTr } from "@/lib/turkish";
 import { noticeSettingsSchema } from "@/lib/zod-schemas/application-notices";
+import { collectionNoticeSettingsSchema } from "@/lib/zod-schemas/collection-notices";
 import {
   celebrationsQuerySchema,
   smsSendSchema,
@@ -134,6 +140,29 @@ const noticeAuditSpec: AuditSpec = {
 };
 
 /** The templates the Ayarlar form edits */
+const collectionNoticeAuditSpec: AuditSpec = {
+  memberSms: { label: "Üyeye SMS", format: formatAudit.text },
+  memberEmailSubject: {
+    label: "Üyeye e-posta konusu",
+    format: formatAudit.text,
+  },
+  memberEmailBody: { label: "Üyeye e-posta metni", format: formatAudit.text },
+  staffSms: { label: "Panel kullanıcılarına SMS", format: formatAudit.text },
+  staffEmailSubject: {
+    label: "Panel kullanıcılarına e-posta konusu",
+    format: formatAudit.text,
+  },
+  staffEmailBody: {
+    label: "Panel kullanıcılarına e-posta metni",
+    format: formatAudit.text,
+  },
+};
+
+function collectionNoticeSettingsResponse(settings: CollectionNoticeSettings) {
+  const { id, updatedAt, ...templates } = settings;
+  return templates;
+}
+
 function noticeSettingsResponse(settings: ApplicationNoticeSettings) {
   const { id, updatedAt, ...templates } = settings;
   return templates;
@@ -237,6 +266,41 @@ export const smsRoute = new Hono<AppEnv>()
       });
 
       return c.json(noticeSettingsResponse(updated));
+    },
+  )
+  /** The Ayarlar tab: templates for the new-tahsilat notices */
+  .get("/collection-notice-settings", async (c) => {
+    return c.json(
+      collectionNoticeSettingsResponse(await getCollectionNoticeSettings()),
+    );
+  })
+  .put(
+    "/collection-notice-settings",
+    zValidator("json", collectionNoticeSettingsSchema, respondWithFirstIssue),
+    async (c) => {
+      const values = c.req.valid("json");
+      const before = await getCollectionNoticeSettings();
+
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(collectionNoticeSettingsTable)
+          .set(values)
+          .where(eq(collectionNoticeSettingsTable.id, 1))
+          .returning();
+        const changes = diffFields(collectionNoticeAuditSpec, before, values);
+        if (changes.length > 0) {
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "collection_notice_settings_update",
+            entityType: "sms",
+            entityLabel: "Tahsilat bildirim şablonları",
+            changes,
+          });
+        }
+        return row;
+      });
+
+      return c.json(collectionNoticeSettingsResponse(updated));
     },
   )
   .post(

@@ -1,6 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { todayInIstanbul } from "@/lib/dates";
 import {
+  getCollectionNoticeTemplates,
   getNoticeSettings,
   getSmsCelebrations,
   getSmsContacts,
@@ -34,6 +35,12 @@ export default async function SmsPage() {
       .query({
         queryKey: ["notice-settings"],
         queryFn: () => getNoticeSettings(options),
+      })
+      .catch(console.error),
+    queryClient
+      .query({
+        queryKey: ["collection-notice-settings"],
+        queryFn: () => getCollectionNoticeTemplates(options),
       })
       .catch(console.error),
     queryClient

@@ -38,6 +38,30 @@ export const DEFAULT_NOTICE_TEMPLATES = {
     "Sayın {ad},\n\n{firma} adına yaptığınız NESİAD üyelik başvurunuz olumlu sonuçlanmamıştır. İlginiz için teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
 } as const;
 
+/** What a tahsilat notice can contain */
+export const COLLECTION_NOTICE_PLACEHOLDERS = {
+  uye: "üyenin unvanı",
+  tutar: "tutar, ör. ₺1.250,00",
+  tarih: "tahsilat tarihi",
+  tur: "tahsilat türü",
+  tip: "tahsilat tipi",
+  proje: "proje (yoksa —)",
+} as const;
+
+/** The tahsilat notice texts shipped before staff edit them (Ayarlar tab) */
+export const DEFAULT_COLLECTION_NOTICE_TEMPLATES = {
+  memberSms:
+    "Sayın {uye}, {tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz. NESİAD",
+  memberEmailSubject: "NESİAD ödemeniz alındı",
+  memberEmailBody:
+    "Sayın {uye},\n\n{tarih} tarihli {tutar} tutarındaki {tur} ödemeniz ({tip}) alınmıştır. Teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
+  staffSms:
+    "Yeni tahsilat: {uye}, {tutar} ({tur}, {tip}), {tarih}. Proje: {proje}",
+  staffEmailSubject: "Yeni tahsilat: {uye}, {tutar}",
+  staffEmailBody:
+    "Panele yeni bir tahsilat kaydedildi.\n\nÜye: {uye}\nTutar: {tutar}\nTarih: {tarih}\nTahsilat Türü: {tur}\nTahsilat Tipi: {tip}\nProje: {proje}",
+} as const;
+
 const PLACEHOLDER = /\{([^{}]*)\}/g;
 
 /**

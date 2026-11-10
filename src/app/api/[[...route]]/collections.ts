@@ -10,7 +10,7 @@ import {
   parameterTable,
   projectTable,
 } from "@/db/schema";
-import { recordAudit } from "@/lib/audit";
+import { type AuditActor, recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
   describeFields,
@@ -18,9 +18,15 @@ import {
   formatAudit,
 } from "@/lib/audit-diff";
 import { parseCollectionFilters } from "@/lib/collection-filters";
+import {
+  type OutcomeCounts,
+  sendCollectionNotices,
+} from "@/lib/collection-notices";
 import { isoToDisplay } from "@/lib/dates";
 import { formatAmount } from "@/lib/money";
+import { NOTICE_OUTCOME_LABELS } from "@/lib/notice-outcome";
 import { projectLabel } from "@/lib/projects";
+import { netgsmClient } from "@/lib/sms/netgsm";
 import { collectionSchema } from "@/lib/zod-schemas/collection";
 import {
   type CollectionRow,
@@ -197,6 +203,60 @@ function columnsOf(values: Values, projectId: number | null) {
   return { ...fields, projectId };
 }
 
+/** "2 gönderildi, 1 adres yok"; "—" when there was no one to send to */
+function countsText(counts: OutcomeCounts) {
+  const parts = Object.entries(counts)
+    .filter(([, n]) => n > 0)
+    .map(
+      ([outcome, n]) =>
+        `${n} ${NOTICE_OUTCOME_LABELS[outcome as keyof OutcomeCounts].toLocaleLowerCase("tr")}`,
+    );
+  return parts.join(", ") || "—";
+}
+
+/**
+ * Emails and texts the member and the other panel users about a new
+ * tahsilat, then records the outcomes (never addresses, numbers or text).
+ * Runs after the response; a failure here never undoes the tahsilat.
+ */
+async function notifyCollectionCreated(id: number, actor: AuditActor) {
+  try {
+    const collection = await selectCollection(id);
+    if (!collection) return;
+    const result = await sendCollectionNotices(collection, actor?.id ?? null);
+    await recordAudit(db, {
+      actor,
+      action: "collection_notice",
+      entityType: "collection",
+      entityId: id,
+      entityLabel: auditLabel(recordOf(collection)),
+      details: [
+        {
+          label: "Üye e-posta",
+          value: NOTICE_OUTCOME_LABELS[result.member.email],
+        },
+        { label: "Üye SMS", value: NOTICE_OUTCOME_LABELS[result.member.sms] },
+        {
+          label: "Panel kullanıcıları e-posta",
+          value: countsText(result.staff.email),
+        },
+        {
+          label: "Panel kullanıcıları SMS",
+          value: countsText(result.staff.sms),
+        },
+        ...(netgsmClient().dryRun
+          ? [{ label: "Mod", value: "Deneme (SMS gönderilmedi)" }]
+          : []),
+      ],
+    });
+  } catch (error) {
+    console.error(
+      "Collection notices failed",
+      error instanceof Error ? error.name : "unknown",
+    );
+  }
+}
+
 // all optional text; parseCollectionFilters drops anything invalid
 const filtersQuerySchema = z.object({
   from: z.string().optional(),
@@ -297,6 +357,9 @@ export const collectionsRoute = new Hono<AppEnv>()
           });
           return { id: collection.id, projectId };
         });
+
+        // not awaited: the save doesn't wait for (or depend on) the notices
+        void notifyCollectionCreated(saved.id, actorOf(c));
 
         return c.json({ ...saved, message: "Tahsilat kaydedildi" }, 201);
       } catch (error) {

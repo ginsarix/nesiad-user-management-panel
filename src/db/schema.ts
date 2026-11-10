@@ -504,6 +504,30 @@ export const smsSettingsTable = pgTable(
 );
 
 /** The one row of application notice templates (Ayarlar tab), {ad} and {firma} */
+/** Tahsilat notice templates (SMS page, Ayarlar tab); a single row */
+export const collectionNoticeSettingsTable = pgTable(
+  "collection_notice_settings",
+  {
+    id: integer().primaryKey().default(1),
+    // to the member the tahsilat is from
+    memberSms: text("member_sms").notNull(),
+    memberEmailSubject: text("member_email_subject").notNull(),
+    memberEmailBody: text("member_email_body").notNull(),
+    // to every other active panel user
+    staffSms: text("staff_sms").notNull(),
+    staffEmailSubject: text("staff_email_subject").notNull(),
+    staffEmailBody: text("staff_email_body").notNull(),
+
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("collection_notice_settings_single_row", sql`${table.id} = 1`),
+  ],
+);
+
 export const applicationNoticeSettingsTable = pgTable(
   "application_notice_settings",
   {

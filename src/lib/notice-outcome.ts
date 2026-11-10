@@ -3,6 +3,14 @@ export type NoticeOutcome = "sent" | "failed" | "skipped" | "unknown";
 
 export type NoticeOutcomes = { email: NoticeOutcome; sms: NoticeOutcome };
 
+/** How the audit log names each outcome */
+export const NOTICE_OUTCOME_LABELS: Record<NoticeOutcome, string> = {
+  sent: "Gönderildi",
+  failed: "Gönderilemedi",
+  skipped: "Adres yok",
+  unknown: "Yanıt alınamadı",
+};
+
 const EMAIL_WARNINGS: Record<Exclude<NoticeOutcome, "sent">, string> = {
   failed: "E-posta gönderilemedi.",
   skipped: "E-posta gönderilmedi: adres eksik veya geçersiz.",

@@ -51,7 +51,9 @@ async function withTimeout(task: Promise<void>, ms: number) {
   }
 }
 
-async function sendNoticeEmail(
+/** Sends one notice email; never throws. `label` starts its log line */
+export async function sendNoticeEmail(
+  label: string,
   to: string | null,
   subject: string,
   text: string,
@@ -65,13 +67,17 @@ async function sendNoticeEmail(
     );
     return "sent";
   } catch (error) {
-    console.error("Application notice email failed", safeErrorInfo(error));
+    console.error(`${label} failed`, safeErrorInfo(error));
     return "failed";
   }
 }
 
-async function sendNoticeSms(
-  kind: NoticeKind,
+/**
+ * Sends one notice SMS; never throws. `label` starts its log lines, e.g.
+ * "Application notice SMS (accepted)"; they never hold the number or text.
+ */
+export async function sendNoticeSms(
+  label: string,
   mobilePhone: string | null,
   message: string,
 ): Promise<NoticeOutcome> {
@@ -80,7 +86,7 @@ async function sendNoticeSms(
   // a truncated message could say something else, so a long one isn't sent
   if (message.length > SMS_MAX_LENGTH) {
     console.error(
-      `Application notice SMS (${kind}) not sent: ${message.length} characters, the limit is ${SMS_MAX_LENGTH}`,
+      `${label} not sent: ${message.length} characters, the limit is ${SMS_MAX_LENGTH}`,
     );
     return "failed";
   }
@@ -89,25 +95,16 @@ async function sendNoticeSms(
   try {
     raw = await netgsmClient().send([{ no: phone.phone, msg: message }]);
   } catch (error) {
-    console.error(
-      "Application notice SMS: NetGSM gave no answer",
-      safeErrorInfo(error),
-    );
+    console.error(`${label}: NetGSM gave no answer`, safeErrorInfo(error));
     return "unknown";
   }
   const result = decodeSendResponse(raw);
   if (!result.ok) {
-    console.error(
-      "Application notice SMS refused by NetGSM, code:",
-      result.code,
-    );
+    console.error(`${label} refused by NetGSM, code:`, result.code);
     return "failed";
   }
   // the job id finds the message in NetGSM's reports; it holds no number or text
-  console.info(
-    `Application notice SMS (${kind}) accepted by NetGSM, job:`,
-    result.jobId,
-  );
+  console.info(`${label} accepted by NetGSM, job:`, result.jobId);
   return "sent";
 }
 
@@ -134,12 +131,13 @@ export async function sendApplicationNotices(
 
     const [email, sms] = await Promise.all([
       sendNoticeEmail(
+        "Application notice email",
         applicant.email,
         fillTemplate(subjectTemplate, values),
         fillTemplate(bodyTemplate, values),
       ),
       sendNoticeSms(
-        kind,
+        `Application notice SMS (${kind})`,
         applicant.mobilePhone,
         fillTemplate(smsTemplate, values),
       ),
