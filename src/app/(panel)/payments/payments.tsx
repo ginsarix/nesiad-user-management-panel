@@ -24,7 +24,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
-import { isoToDisplay } from "@/lib/dates";
+import { dateFilterText, isoToDisplay } from "@/lib/dates";
 import {
   type CounterpartyListItem,
   getCounterparties,
@@ -38,7 +38,6 @@ import {
 import { rememberListSearch } from "@/lib/list-href";
 import { formatAmount } from "@/lib/money";
 import {
-  dateFilterText,
   NO_PAYMENT_FILTERS,
   type PaymentFilters,
   parsePaymentFilters,
