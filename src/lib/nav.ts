@@ -2,6 +2,7 @@ import {
   BookUser,
   Building2,
   HandCoins,
+  Landmark,
   type LucideIcon,
   MessageSquareText,
   ScrollText,
@@ -11,7 +12,8 @@ import {
   Wallet,
 } from "lucide-react";
 
-export type NavItem = {
+/** A page in the sidebar */
+export type NavLink = {
   title: string;
   href: string;
   icon: LucideIcon;
@@ -19,10 +21,23 @@ export type NavItem = {
   comingSoon?: boolean;
 };
 
+/** A sidebar item that opens to show its pages (e.g. Finans) */
+export type NavParent = {
+  title: string;
+  icon: LucideIcon;
+  children: NavLink[];
+};
+
+export type NavItem = NavLink | NavParent;
+
 export type NavGroup = {
   label?: string;
   items: NavItem[];
 };
+
+export function isNavParent(item: NavItem): item is NavParent {
+  return "children" in item;
+}
 
 export const navGroups: NavGroup[] = [
   {
@@ -34,8 +49,14 @@ export const navGroups: NavGroup[] = [
         icon: UserCheck,
       },
       { title: "SMS", href: "/sms", icon: MessageSquareText },
-      { title: "Ödemeler", href: "/payments", icon: HandCoins },
-      { title: "Cariler", href: "/counterparties", icon: BookUser },
+      {
+        title: "Finans",
+        icon: Landmark,
+        children: [
+          { title: "Ödemeler", href: "/payments", icon: HandCoins },
+          { title: "Cariler", href: "/counterparties", icon: BookUser },
+        ],
+      },
       {
         title: "Otomatik Tahsilatlar",
         href: "/collections",
@@ -54,12 +75,19 @@ export const navGroups: NavGroup[] = [
   },
 ];
 
-export function isNavItemActive(item: NavItem, pathname: string) {
+export function isNavItemActive(item: NavLink, pathname: string) {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
+/** Whether one of the parent's pages is open */
+export function isNavParentActive(item: NavParent, pathname: string) {
+  return item.children.some((child) => isNavItemActive(child, pathname));
+}
+
+/** The page the path belongs to, looking inside parents too */
 export function findActiveNavItem(pathname: string) {
   return navGroups
     .flatMap((group) => group.items)
+    .flatMap((item) => (isNavParent(item) ? item.children : [item]))
     .find((item) => isNavItemActive(item, pathname));
 }
