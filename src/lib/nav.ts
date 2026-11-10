@@ -1,5 +1,7 @@
 import {
+  BookUser,
   Building2,
+  HandCoins,
   type LucideIcon,
   MessageSquareText,
   ScrollText,
@@ -32,6 +34,8 @@ export const navGroups: NavGroup[] = [
         icon: UserCheck,
       },
       { title: "SMS", href: "/sms", icon: MessageSquareText },
+      { title: "Ödemeler", href: "/payments", icon: HandCoins },
+      { title: "Cariler", href: "/counterparties", icon: BookUser },
       {
         title: "Otomatik Tahsilatlar",
         href: "/collections",

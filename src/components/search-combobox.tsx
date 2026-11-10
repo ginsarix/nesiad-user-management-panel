@@ -26,6 +26,7 @@ export function SearchCombobox({
   noItemsText,
   noMatchText,
   invalid,
+  disabled,
 }: {
   id?: string;
   items: SearchComboboxItem[];
@@ -38,12 +39,14 @@ export function SearchCombobox({
   /** Shown when the search matches nothing */
   noMatchText: string;
   invalid?: boolean;
+  disabled?: boolean;
 }) {
   const selected = items.find((item) => item.value === value) ?? null;
 
   return (
     <Combobox
       items={items}
+      disabled={disabled}
       value={selected}
       onValueChange={(item) => onChange(item?.value ?? null)}
       isItemEqualToValue={(item, other) => item.value === other.value}
