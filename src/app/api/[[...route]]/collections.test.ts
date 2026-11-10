@@ -303,16 +303,13 @@ describe("POST /api/collections", () => {
     });
   });
 
-  it.each([
-    "memberId",
-    "categoryId",
-    "methodId",
-    "amount",
-    "date",
-  ])("requires %s", async (field) => {
-    const { res } = await create({ [field]: undefined });
-    expect(res.status).toBe(400);
-  });
+  it.each(["memberId", "categoryId", "methodId", "amount", "date"])(
+    "requires %s",
+    async (field) => {
+      const { res } = await create({ [field]: undefined });
+      expect(res.status).toBe(400);
+    },
+  );
 
   it.each(["0.00", "-1.00", "1,5"])("rejects the amount %s", async (amount) => {
     expect((await create({ amount })).res.status).toBe(400);

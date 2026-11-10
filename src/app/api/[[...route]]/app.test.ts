@@ -43,9 +43,7 @@ describe("session check on /api", () => {
 
     await app.request("/api/members", { headers: { cookie: "a=b" } });
 
-    const { headers } = getSession.mock.calls.at(-1)?.[0] as {
-      headers: Headers;
-    };
+    const [{ headers }] = getSession.mock.lastCall as [{ headers: Headers }];
     expect(headers.get("cookie")).toBe("a=b");
   });
 });

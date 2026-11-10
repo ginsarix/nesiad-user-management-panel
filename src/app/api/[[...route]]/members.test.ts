@@ -940,7 +940,7 @@ describe("POST /api/members/:id/decision", () => {
   const MAIL = "basvuran@example.com";
 
   /** A recording NetGSM fake that answers like a success unless told otherwise */
-  function useNetgsm(
+  function fakeNetgsm(
     answer: () => Promise<{ status: number; body: unknown }> = async () => ({
       status: 200,
       body: { code: "00", jobid: "J-1" },
@@ -1023,7 +1023,7 @@ describe("POST /api/members/:id/decision", () => {
   }
 
   it("accepts a candidate", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const sector = await createSector();
     const id = await createApplicant("candidate");
 
@@ -1069,7 +1069,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("rejects a candidate", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("candidate");
 
     const res = await decide(id, { decision: "reject" });
@@ -1095,7 +1095,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("stores a rejection note and logs it without its text", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("candidate");
 
     const res = await decide(id, {
@@ -1124,7 +1124,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("stores a blank rejection note as null", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("candidate");
 
     expect((await decide(id, { decision: "reject", note: "   " })).status).toBe(
@@ -1139,7 +1139,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("refuses a rejection note over 1000 characters", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("candidate");
 
     const res = await decide(id, {
@@ -1152,7 +1152,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("clears the rejection note when reopened", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("rejected", {
       rejectionNote: "Eksik belge",
     });
@@ -1172,7 +1172,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("adds a candidate as passive with no notice", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("candidate");
 
     const res = await decide(id, { ...ACCEPT, decision: "add_passive" });
@@ -1186,7 +1186,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("reopens a rejected member with no notice", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("rejected");
 
     const res = await decide(id, { decision: "reopen" });
@@ -1202,7 +1202,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("then accepts it normally", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("candidate");
 
     expect((await decide(id, { decision: "reject" })).status).toBe(200);
@@ -1232,7 +1232,7 @@ describe("POST /api/members/:id/decision", () => {
     ["reject", "passive", { decision: "reject" }],
     ["reopen", "candidate", { decision: "reopen" }],
   ] as const)("refuses %s on a %s member", async (_decision, status, body) => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant(status);
 
     const res = await decide(id, body);
@@ -1252,7 +1252,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("sends one set of notices for concurrent accepts", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const id = await createApplicant("candidate");
 
     const results = await Promise.all([decide(id, ACCEPT), decide(id, ACCEPT)]);
@@ -1283,7 +1283,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("keeps the decision when notices fail", async () => {
-    useNetgsm(async () => ({ status: 406, body: { code: "40" } }));
+    fakeNetgsm(async () => ({ status: 406, body: { code: "40" } }));
     mail.sendEmail.mockRejectedValue(new Error("smtp down"));
     const id = await createApplicant("candidate");
 
@@ -1298,7 +1298,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("handles a deleted sector", async () => {
-    useNetgsm();
+    fakeNetgsm();
     const sector = await createSector();
     await db.delete(sectorTable).where(eq(sectorTable.id, sector.id));
     const id = await createApplicant("candidate");
@@ -1314,7 +1314,7 @@ describe("POST /api/members/:id/decision", () => {
   });
 
   it("logs notice outcomes without contact details", async () => {
-    useNetgsm(async () => {
+    fakeNetgsm(async () => {
       throw new Error("timeout");
     });
     const id = await createApplicant("candidate");

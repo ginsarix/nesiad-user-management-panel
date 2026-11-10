@@ -6,14 +6,12 @@ describe("isValidNationalId", () => {
     expect(isValidNationalId("10000000146")).toBe(true);
   });
 
-  it.each([
-    "10000000147",
-    "00000000000",
-    "1234567890",
-    "1000000014a",
-  ])("refuses %s", (bad) => {
-    expect(isValidNationalId(bad)).toBe(false);
-  });
+  it.each(["10000000147", "00000000000", "1234567890", "1000000014a"])(
+    "refuses %s",
+    (bad) => {
+      expect(isValidNationalId(bad)).toBe(false);
+    },
+  );
 });
 
 describe("maskNationalId", () => {

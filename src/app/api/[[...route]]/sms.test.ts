@@ -254,15 +254,14 @@ describe("GET /api/sms/celebrations", () => {
     ]);
   });
 
-  it.each([
-    "",
-    "2027-02-30",
-    "28.02.2027",
-  ])("refuses the date %j", async (date) => {
-    const res = await smsRoute.request(`/celebrations?date=${date}`);
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Geçerli bir tarih girin" });
-  });
+  it.each(["", "2027-02-30", "28.02.2027"])(
+    "refuses the date %j",
+    async (date) => {
+      const res = await smsRoute.request(`/celebrations?date=${date}`);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Geçerli bir tarih girin" });
+    },
+  );
 });
 
 describe("GET /api/sms/contacts", () => {

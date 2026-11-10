@@ -164,26 +164,21 @@ describe("POST /api/payments", () => {
     ]);
   });
 
-  it.each([
-    "counterpartyId",
-    "amount",
-    "date",
-    "categoryId",
-    "methodId",
-  ])("requires %s", async (field) => {
-    const { res } = await createPayment({ [field]: undefined });
-    expect(res.status).toBe(400);
-  });
+  it.each(["counterpartyId", "amount", "date", "categoryId", "methodId"])(
+    "requires %s",
+    async (field) => {
+      const { res } = await createPayment({ [field]: undefined });
+      expect(res.status).toBe(400);
+    },
+  );
 
-  it.each([
-    "0.00",
-    "-1.00",
-    "1,5",
-    "12.345",
-  ])("rejects the amount %s", async (amount) => {
-    const { res } = await createPayment({ amount });
-    expect(res.status).toBe(400);
-  });
+  it.each(["0.00", "-1.00", "1,5", "12.345"])(
+    "rejects the amount %s",
+    async (amount) => {
+      const { res } = await createPayment({ amount });
+      expect(res.status).toBe(400);
+    },
+  );
 
   it("rejects a future date", async () => {
     const tomorrow = todayInIstanbul(new Date(Date.now() + 86_400_000));

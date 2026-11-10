@@ -143,24 +143,24 @@ describe("POST /api/representatives", () => {
     expect(body.error).toBe("Aynı üye birden fazla seçilemez");
   });
 
-  it.each([
-    "candidate",
-    "rejected",
-  ] as const)("refuses linking a %s member and saves nothing", async (status) => {
-    const memberId = await createMember(`__test__ ${status} Üye`, status);
-    const name = `__test__ Aday Bağlantı ${crypto.randomUUID()}`;
-    const { res, body } = await createRepresentative({
-      name,
-      members: [{ memberId }],
-    });
-    expect(res.status).toBe(400);
-    expect(body.error).toBe("Aday veya reddedilmiş üyeye yetkili bağlanamaz");
+  it.each(["candidate", "rejected"] as const)(
+    "refuses linking a %s member and saves nothing",
+    async (status) => {
+      const memberId = await createMember(`__test__ ${status} Üye`, status);
+      const name = `__test__ Aday Bağlantı ${crypto.randomUUID()}`;
+      const { res, body } = await createRepresentative({
+        name,
+        members: [{ memberId }],
+      });
+      expect(res.status).toBe(400);
+      expect(body.error).toBe("Aday veya reddedilmiş üyeye yetkili bağlanamaz");
 
-    const all = await (await representativesRoute.request("/")).json();
-    expect(all.some((r: { name: string }) => r.name === name)).toBe(false);
-    const member = await (await membersRoute.request(`/${memberId}`)).json();
-    expect(member.representatives).toEqual([]);
-  });
+      const all = await (await representativesRoute.request("/")).json();
+      expect(all.some((r: { name: string }) => r.name === name)).toBe(false);
+      const member = await (await membersRoute.request(`/${memberId}`)).json();
+      expect(member.representatives).toEqual([]);
+    },
+  );
 
   it("rejects a member that doesn't exist and saves nothing", async () => {
     const name = `__test__ Olmayan Üye ${crypto.randomUUID()}`;

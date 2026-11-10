@@ -34,20 +34,14 @@ describe("decodeSendResponse", () => {
     ).toEqual({ ok: true, jobId: "17377215342605050417149344" });
   });
 
-  it.each([
-    "20",
-    "30",
-    "40",
-    "50",
-    "51",
-    "70",
-    "80",
-    "85",
-  ])("turns error %s into its Turkish message", (code) => {
-    expect(
-      decodeSendResponse({ status: 406, body: { code, description: "x" } }),
-    ).toEqual({ ok: false, code, message: SEND_ERROR_MESSAGES[code] });
-  });
+  it.each(["20", "30", "40", "50", "51", "70", "80", "85"])(
+    "turns error %s into its Turkish message",
+    (code) => {
+      expect(
+        decodeSendResponse({ status: 406, body: { code, description: "x" } }),
+      ).toEqual({ ok: false, code, message: SEND_ERROR_MESSAGES[code] });
+    },
+  );
 
   it("accepts the code as a number", () => {
     expect(decodeSendResponse({ status: 200, body: { code: 30 } })).toEqual({
