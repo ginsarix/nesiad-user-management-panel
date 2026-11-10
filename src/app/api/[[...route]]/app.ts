@@ -10,6 +10,7 @@ import type { AppEnv } from "./env";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
 import { panelUsersRoute } from "./panel-users";
+import { parametersRoute } from "./parameters";
 import { representativesRoute } from "./representatives";
 import { sectorsRoute } from "./sectors";
 import { smsRoute } from "./sms";
@@ -34,6 +35,7 @@ export const app = new Hono<AppEnv>()
   .use(requireSession)
   .route("/members", membersRoute)
   .route("/sectors", sectorsRoute)
+  .route("/parameters", parametersRoute)
   .route("/representatives", representativesRoute)
   .route("/panel-users", panelUsersRoute)
   .route("/audit-logs", auditLogsRoute)

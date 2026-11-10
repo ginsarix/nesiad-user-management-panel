@@ -13,6 +13,7 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import type { MemberStatus } from "@/lib/member-status";
+import type { ParameterKind } from "@/lib/parameters";
 
 export const sectorTable = pgTable("sector", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -29,6 +30,36 @@ export const sectorTable = pgTable("sector", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+/**
+ * The Parametreler lists other than sectors (Tahsilat Türü, Ödeme Tipi…):
+ * one table, `kind` says which list an entry is in.
+ */
+export const parameterTable = pgTable(
+  "parameter",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    kind: text().$type<ParameterKind>().notNull(),
+    name: text().notNull(),
+    // Turkish lowercase name, unique within its list (like sector.name_key)
+    nameKey: text("name_key").notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique("parameter_kind_name_key_unique").on(table.kind, table.nameKey),
+    check(
+      "parameter_kind_valid",
+      sql`${table.kind} IN ('collection_category','collection_method','payment_category','payment_method')`,
+    ),
+  ],
+);
 
 export const memberTable = pgTable(
   "member",
@@ -259,7 +290,7 @@ export const auditLogTable = pgTable(
 
     // e.g. "create", "update", "login_failed"; see src/lib/audit-labels.ts
     action: text().notNull(),
-    // "member", "representative", "sector", "panel_user", "auth"
+    // "member", "representative", "sector", "parameter", "panel_user", "auth"
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id"),
     // the record's name at the time, e.g. the member's title

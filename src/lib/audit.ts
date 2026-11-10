@@ -9,6 +9,7 @@ export type AuditEntityType =
   | "member"
   | "representative"
   | "sector"
+  | "parameter"
   | "panel_user"
   | "sms"
   | "auth";
