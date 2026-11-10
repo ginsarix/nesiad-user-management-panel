@@ -85,6 +85,25 @@ export const counterpartyTable = pgTable("counterparty", {
     .notNull(),
 });
 
+/** Projeler: a project a tahsilat can belong to */
+export const projectTable = pgTable("project", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: text().notNull(),
+  // Proje Numarası, free text
+  number: text().notNull(),
+  // the number in Turkish lowercase, so "PR-7" and "pr-7" can't both exist
+  numberKey: text("number_key").notNull().unique(),
+  active: boolean().default(true).notNull(),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
 /** Ödemeler: what the association paid to a cari */
 export const paymentTable = pgTable(
   "payment",
@@ -352,7 +371,7 @@ export const auditLogTable = pgTable(
     // e.g. "create", "update", "login_failed"; see src/lib/audit-labels.ts
     action: text().notNull(),
     // "member", "representative", "sector", "parameter", "counterparty",
-    // "payment", "panel_user", "auth"
+    // "payment", "project", "collection", "panel_user", "auth"
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id"),
     // the record's name at the time, e.g. the member's title

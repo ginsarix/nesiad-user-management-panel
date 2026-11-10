@@ -12,6 +12,7 @@ export type AuditEntityType =
   | "parameter"
   | "counterparty"
   | "payment"
+  | "project"
   | "panel_user"
   | "sms"
   | "auth";

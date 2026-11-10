@@ -13,6 +13,7 @@ import { membersRoute } from "./members";
 import { panelUsersRoute } from "./panel-users";
 import { parametersRoute } from "./parameters";
 import { paymentsRoute } from "./payments";
+import { projectsRoute } from "./projects";
 import { representativesRoute } from "./representatives";
 import { sectorsRoute } from "./sectors";
 import { smsRoute } from "./sms";
@@ -40,6 +41,7 @@ export const app = new Hono<AppEnv>()
   .route("/parameters", parametersRoute)
   .route("/counterparties", counterpartiesRoute)
   .route("/payments", paymentsRoute)
+  .route("/projects", projectsRoute)
   .route("/representatives", representativesRoute)
   .route("/panel-users", panelUsersRoute)
   .route("/audit-logs", auditLogsRoute)

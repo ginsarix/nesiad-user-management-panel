@@ -9,6 +9,7 @@ export const AUDIT_ENTITY_TYPES = [
   "parameter",
   "counterparty",
   "payment",
+  "project",
   "panel_user",
   "sms",
   "auth",
