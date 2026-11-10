@@ -8,3 +8,12 @@ export function projectLabel({
 }) {
   return `${name} (${number})`;
 }
+
+/**
+ * The key that makes Proje Numarası unique: case and surrounding spaces
+ * don't count. Numbers are codes, often typed or pasted in ASCII, so the
+ * Turkish dotted/dotless I don't count either ("PRJ-I" = "prj-i" = "prj-ı").
+ */
+export function projectNumberKey(number: string) {
+  return number.trim().toLocaleLowerCase("tr").replaceAll("ı", "i");
+}

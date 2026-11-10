@@ -10,6 +10,7 @@ import {
   diffFields,
   formatAudit,
 } from "@/lib/audit-diff";
+import { projectNumberKey } from "@/lib/projects";
 import { compareTr } from "@/lib/turkish";
 import {
   type ProjectFields,
@@ -50,7 +51,7 @@ function hasCollectionsError(collectionCount: number | null) {
 }
 
 function withNumberKey(values: ProjectFields) {
-  return { ...values, numberKey: values.number.toLocaleLowerCase("tr") };
+  return { ...values, numberKey: projectNumberKey(values.number) };
 }
 
 export function isDuplicateNumber(error: unknown) {

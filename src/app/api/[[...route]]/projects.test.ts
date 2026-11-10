@@ -156,6 +156,20 @@ describe("POST /api/projects", () => {
   });
 });
 
+describe("project numbers with I", () => {
+  it("treats I, ı, İ and i as the same letter in a number", async () => {
+    await createProject({ name: "__test__ I Bir", number: `PRJ-I-${suffix}` });
+    for (const number of [
+      `prj-i-${suffix}`,
+      `PRJ-İ-${suffix}`,
+      `prj-ı-${suffix}`,
+    ]) {
+      const { res } = await createProject({ name: "__test__ I İki", number });
+      expect(res.status).toBe(409);
+    }
+  });
+});
+
 describe("GET /api/projects", () => {
   it("lists by number with tahsilat counts", async () => {
     const { body } = await createProject({
