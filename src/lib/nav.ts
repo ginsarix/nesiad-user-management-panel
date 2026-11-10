@@ -1,6 +1,8 @@
 import {
   BookUser,
   Building2,
+  Coins,
+  FolderKanban,
   HandCoins,
   Landmark,
   type LucideIcon,
@@ -55,11 +57,14 @@ export const navGroups: NavGroup[] = [
         children: [
           { title: "Ödemeler", href: "/payments", icon: HandCoins },
           { title: "Cariler", href: "/counterparties", icon: BookUser },
+          { title: "Tahsilatlar", href: "/collections", icon: Coins },
+          { title: "Projeler", href: "/projects", icon: FolderKanban },
         ],
       },
       {
+        // a separate, undecided feature; not the Tahsilatlar page
         title: "Otomatik Tahsilatlar",
-        href: "/collections",
+        href: "/automatic-collections",
         icon: Wallet,
         comingSoon: true,
       },
