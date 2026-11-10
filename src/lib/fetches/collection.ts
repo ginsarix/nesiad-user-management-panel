@@ -106,3 +106,9 @@ export async function deleteCollection(id: number) {
 export type CollectionList = Awaited<ReturnType<typeof getCollections>>;
 export type CollectionRow = CollectionList["collections"][number];
 export type Collection = NonNullable<Awaited<ReturnType<typeof getCollection>>>;
+
+/** Where the Excel download of the filtered list is; used as a plain link */
+export function collectionsExportHref(filters: CollectionFilters) {
+  const search = new URLSearchParams(collectionFiltersToParams(filters));
+  return `/api/collections/export${search.size ? `?${search}` : ""}`;
+}

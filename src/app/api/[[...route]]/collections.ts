@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
+import writeXlsxFile from "write-excel-file/node";
 import { z } from "zod";
 import { db, type Transaction } from "@/db";
 import {
@@ -27,6 +28,7 @@ import {
   selectCollections,
 } from "./collection-queries";
 import { type AppEnv, actorOf } from "./env";
+import { amountCell, dateCell, header, xlsxResponse } from "./excel";
 import {
   DUPLICATE_NUMBER_ERROR,
   insertProject,
@@ -205,13 +207,58 @@ const filtersQuerySchema = z.object({
   project: z.string().optional(),
 });
 
+const COLUMN_WIDTHS = [12, 32, 14, 20, 16, 32, 40];
+
+/** The Tahsilatlar list as an .xlsx: the rows, a blank row, the total */
+async function collectionsWorkbook({
+  collections,
+  total,
+}: Awaited<ReturnType<typeof selectCollections>>) {
+  return writeXlsxFile(
+    [
+      [
+        "Tarih",
+        "Üye",
+        "Tutar",
+        "Tahsilat Türü",
+        "Tahsilat Tipi",
+        "Proje",
+        "Not",
+      ].map(header),
+      ...collections.map((collection) => [
+        dateCell(collection.date),
+        collection.memberTitle,
+        amountCell(collection.amount),
+        collection.categoryName,
+        collection.methodName,
+        recordOf(collection).project,
+        collection.note,
+      ]),
+      [],
+      [header("Toplam"), null, { ...amountCell(total), fontWeight: "bold" }],
+    ],
+    {
+      sheet: "Tahsilatlar",
+      stickyRowsCount: 1,
+      columns: COLUMN_WIDTHS.map((width) => ({ width })),
+    },
+  ).toBuffer();
+}
+
+function filtersOf(query: z.output<typeof filtersQuerySchema>) {
+  return parseCollectionFilters({
+    get: (name) => query[name as keyof typeof query] ?? null,
+  });
+}
+
 export const collectionsRoute = new Hono<AppEnv>()
-  .get("/", zValidator("query", filtersQuerySchema), async (c) => {
-    const query = c.req.valid("query");
-    const filters = parseCollectionFilters({
-      get: (name) => query[name as keyof typeof query] ?? null,
-    });
-    return c.json(await selectCollections(filters));
+  .get("/", zValidator("query", filtersQuerySchema), async (c) =>
+    c.json(await selectCollections(filtersOf(c.req.valid("query")))),
+  )
+  // before "/:id", which would take "export" for an id
+  .get("/export", zValidator("query", filtersQuerySchema), async (c) => {
+    const result = await selectCollections(filtersOf(c.req.valid("query")));
+    return xlsxResponse(c, await collectionsWorkbook(result), "tahsilatlar");
   })
   .get(
     "/:id",

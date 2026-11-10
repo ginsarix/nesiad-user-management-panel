@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { readSheet } from "read-excel-file/node";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
@@ -491,5 +492,49 @@ describe("DELETE /api/collections/:id", () => {
       method: "DELETE",
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/collections/export", () => {
+  it("exports the filtered tahsilatlar with real cells and a total", async () => {
+    const payer = await insertMember(`__test__ Excel ${suffix}`);
+    for (const [amount, date, project] of [
+      ["0.10", "2026-10-01", { mode: "existing", id: projectA }],
+      ["0.20", "2026-10-15", { mode: "none" }],
+      ["100.00", "2026-11-01", { mode: "none" }],
+    ] as const) {
+      await create({ memberId: payer, amount, date, project });
+    }
+
+    const res = await collectionsRoute.request(
+      `/export?member=${payer}&from=2026-10-01&to=2026-10-15`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toMatch(
+      /^attachment; filename="tahsilatlar-\d{4}-\d{2}-\d{2}\.xlsx"$/,
+    );
+
+    const rows = await readSheet(Buffer.from(await res.arrayBuffer()));
+    expect(rows[0]).toEqual([
+      "Tarih",
+      "Üye",
+      "Tutar",
+      "Tahsilat Türü",
+      "Tahsilat Tipi",
+      "Proje",
+      "Not",
+    ]);
+    expect(rows[1][0]).toEqual(new Date("2026-10-15T00:00:00Z"));
+    expect(rows[1][1]).toBe(`__test__ Excel ${suffix}`);
+    expect(rows[1][2]).toBe(0.2);
+    expect(rows[1][5]).toBeNull();
+    expect(rows[2][2]).toBe(0.1);
+    expect(rows[2][5]).toBe(
+      `__test__ Proje __test__A-${suffix} (__test__A-${suffix})`,
+    );
+    const total = rows[rows.length - 1];
+    expect(total[0]).toBe("Toplam");
+    expect(total[2]).toBeCloseTo(0.3, 10);
+    expect(rows).toHaveLength(5); // header, 2 tahsilatlar, blank, total
   });
 });

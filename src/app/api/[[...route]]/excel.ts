@@ -31,7 +31,7 @@ export function dateCell(isoDate: string): CellObject {
 export function xlsxResponse(
   c: Context,
   buffer: Buffer,
-  baseName: "odemeler" | "cariler",
+  baseName: "odemeler" | "cariler" | "tahsilatlar",
 ) {
   return c.body(new Uint8Array(buffer), 200, {
     "Content-Type": XLSX_TYPE,
