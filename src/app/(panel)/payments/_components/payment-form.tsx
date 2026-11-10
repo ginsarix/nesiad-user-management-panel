@@ -33,7 +33,7 @@ import {
   paymentFormSchema,
 } from "@/lib/zod-schemas/payment";
 import { DeletePaymentButton } from "../[id]/edit/delete-payment-button";
-import { MissingParametersNotice } from "./missing-parameters-notice";
+import { MissingPrerequisitesNotice } from "./missing-prerequisites-notice";
 
 const emptyCounterparties: CounterpartyListItem[] = [];
 const emptyParameters: Parameter[] = [];
@@ -60,14 +60,16 @@ export function PaymentForm({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: counterparties = emptyCounterparties } = useQuery({
+  const { data: loadedCounterparties } = useQuery({
     queryKey: ["counterparties"],
     queryFn: () => getCounterparties(),
   });
-  const { data: parameters = emptyParameters } = useQuery({
+  const { data: loadedParameters } = useQuery({
     queryKey: ["parameters"],
     queryFn: () => getParameters(),
   });
+  const counterparties = loadedCounterparties ?? emptyCounterparties;
+  const parameters = loadedParameters ?? emptyParameters;
   const counterpartyItems = useMemo(
     () => counterparties.map((c) => ({ value: c.id, label: c.title })),
     [counterparties],
@@ -128,7 +130,10 @@ export function PaymentForm({
         {fromCounterpartyId ? "Cariye dön" : "Ödemelere dön"}
       </Link>
 
-      <MissingParametersNotice parameters={parameters} />
+      <MissingPrerequisitesNotice
+        counterparties={loadedCounterparties}
+        parameters={loadedParameters}
+      />
 
       <form
         onSubmit={form.handleSubmit((values) => mutate(values))}

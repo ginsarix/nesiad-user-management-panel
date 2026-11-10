@@ -46,7 +46,7 @@ import {
 } from "@/lib/payment-filters";
 import { compareTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
-import { MissingParametersNotice } from "./_components/missing-parameters-notice";
+import { MissingPrerequisitesNotice } from "./_components/missing-prerequisites-notice";
 
 const features = tableFeatures({
   columnVisibilityFeature,
@@ -213,14 +213,16 @@ export function Payments({
   });
   const payments = data?.payments ?? emptyPayments;
 
-  const { data: counterparties = emptyCounterparties } = useQuery({
+  const { data: loadedCounterparties } = useQuery({
     queryKey: ["counterparties"],
     queryFn: () => getCounterparties(),
   });
-  const { data: parameters = emptyParameters } = useQuery({
+  const { data: loadedParameters } = useQuery({
     queryKey: ["parameters"],
     queryFn: () => getParameters(),
   });
+  const counterparties = loadedCounterparties ?? emptyCounterparties;
+  const parameters = loadedParameters ?? emptyParameters;
   const counterpartyItems = useMemo(
     () => counterparties.map((c) => ({ value: c.id, label: c.title })),
     [counterparties],
@@ -262,7 +264,10 @@ export function Payments({
 
   return (
     <div className="flex flex-col gap-3">
-      <MissingParametersNotice parameters={parameters} />
+      <MissingPrerequisitesNotice
+        counterparties={loadedCounterparties}
+        parameters={loadedParameters}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
