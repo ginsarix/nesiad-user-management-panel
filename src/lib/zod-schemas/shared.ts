@@ -21,6 +21,15 @@ export const optionalTextSchema = z
   .transform((value) => value || null)
   .optional();
 
+/** An email address or blank */
+export const emailTextSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => !value || z.email().safeParse(value).success,
+    "Geçerli bir e-posta adresi girin",
+  );
+
 export const INVALID_DATE_MESSAGE = "Geçerli bir tarih girin (gg.aa.yyyy)";
 export const FUTURE_DATE_MESSAGE = "Tarih gelecekte olamaz";
 

@@ -7,6 +7,7 @@ export const AUDIT_ENTITY_TYPES = [
   "representative",
   "sector",
   "parameter",
+  "counterparty",
   "panel_user",
   "sms",
   "auth",

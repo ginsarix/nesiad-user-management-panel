@@ -61,6 +61,29 @@ export const parameterTable = pgTable(
   ],
 );
 
+/** Cariler: the people and businesses the association pays */
+export const counterpartyTable = pgTable("counterparty", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  // Ünvan
+  title: text().notNull(),
+  // Turkish lowercase title, so "İnci" and "İNCİ" can't both exist
+  titleKey: text("title_key").notNull().unique(),
+  // a province and one of its districts from src/lib/turkey, stored by name
+  city: text(),
+  district: text(),
+  address: text(),
+  phone: text(),
+  email: text(),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
 export const memberTable = pgTable(
   "member",
   {
@@ -290,7 +313,8 @@ export const auditLogTable = pgTable(
 
     // e.g. "create", "update", "login_failed"; see src/lib/audit-labels.ts
     action: text().notNull(),
-    // "member", "representative", "sector", "parameter", "panel_user", "auth"
+    // "member", "representative", "sector", "parameter", "counterparty",
+    // "panel_user", "auth"
     entityType: text("entity_type").notNull(),
     entityId: text("entity_id"),
     // the record's name at the time, e.g. the member's title

@@ -10,6 +10,7 @@ export type AuditEntityType =
   | "representative"
   | "sector"
   | "parameter"
+  | "counterparty"
   | "panel_user"
   | "sms"
   | "auth";

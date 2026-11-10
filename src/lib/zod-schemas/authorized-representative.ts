@@ -1,20 +1,12 @@
 import { z } from "zod";
 import {
+  emailTextSchema,
   optionalDisplayDateSchema,
   optionalIsoDateSchema,
   optionalTextSchema,
 } from "./shared";
 
 const nameSchema = z.string().trim().min(1, "Ad soyad boş olamaz");
-
-/** An email address or blank */
-const emailTextSchema = z
-  .string()
-  .trim()
-  .refine(
-    (value) => !value || z.email().safeParse(value).success,
-    "Geçerli bir e-posta adresi girin",
-  );
 
 const DUPLICATE_MEMBER_MESSAGE = "Aynı üye birden fazla seçilemez";
 
