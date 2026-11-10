@@ -24,7 +24,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
-import { displayToIso, isoToDisplay } from "@/lib/dates";
+import { isoToDisplay } from "@/lib/dates";
 import {
   type CounterpartyListItem,
   getCounterparties,
@@ -38,6 +38,7 @@ import {
 import { rememberListSearch } from "@/lib/list-href";
 import { formatAmount } from "@/lib/money";
 import {
+  dateFilterText,
   NO_PAYMENT_FILTERS,
   type PaymentFilters,
   parsePaymentFilters,
@@ -172,12 +173,16 @@ export function Payments({
   const [toText, setToText] = useState(() => isoToDisplay(filters.to));
   const applyDate = (key: "from" | "to", text: string) => {
     (key === "from" ? setFromText : setToText)(text);
-    if (!text.trim()) updateFilters({ [key]: null });
-    else {
-      const iso = displayToIso(text);
-      if (iso) updateFilters({ [key]: iso });
-    }
+    const { state, iso } = dateFilterText(text);
+    if (state === "empty" || state === "valid") updateFilters({ [key]: iso });
   };
+  const fromState = dateFilterText(fromText).state;
+  const toState = dateFilterText(toText).state;
+  // a half-typed or impossible date leaves the previous range applied, so
+  // the total and the export wouldn't match what the inputs show
+  const datesPending = [fromState, toState].some(
+    (state) => state === "incomplete" || state === "invalid",
+  );
   const clearFilters = () => {
     setFilters(NO_PAYMENT_FILTERS);
     setFromText("");
@@ -267,6 +272,7 @@ export function Payments({
               value={fromText}
               onChange={(text) => applyDate("from", text)}
               placeholder="Başlangıç"
+              aria-invalid={fromState === "invalid"}
             />
           </div>
           –
@@ -276,6 +282,7 @@ export function Payments({
               value={toText}
               onChange={(text) => applyDate("to", text)}
               placeholder="Bitiş"
+              aria-invalid={toState === "invalid"}
             />
           </div>
         </div>
@@ -321,8 +328,17 @@ export function Payments({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm">
-          {data ? (
+        <p
+          className={cn(
+            "text-sm transition-opacity",
+            (isPlaceholderData || datesPending) && "opacity-50",
+          )}
+        >
+          {datesPending ? (
+            <span className="text-muted-foreground">
+              Tarihi gg.aa.yyyy olarak tamamlayın
+            </span>
+          ) : data ? (
             <>
               <span className="text-muted-foreground">
                 {data.count} ödeme ·{" "}
@@ -340,7 +356,11 @@ export function Payments({
           <a
             href={paymentsExportHref(filters)}
             download
-            className={buttonVariants({ variant: "outline" })}
+            aria-disabled={datesPending || undefined}
+            className={buttonVariants({
+              variant: "outline",
+              className: cn(datesPending && "pointer-events-none opacity-50"),
+            })}
           >
             <FileSpreadsheet />
             Excel'e aktar

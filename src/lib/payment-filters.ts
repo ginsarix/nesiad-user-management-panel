@@ -1,4 +1,4 @@
-import { parseIsoDate } from "./dates";
+import { displayToIso, parseIsoDate } from "./dates";
 
 /** The Ödemeler list filters, as kept in the URL and sent to the API */
 export type PaymentFilters = {
@@ -53,4 +53,22 @@ export function paymentFiltersToParams(filters: PaymentFilters) {
     if (id !== null) params[key] = String(id);
   }
   return params;
+}
+
+/**
+ * A date filter as typed (gg.aa.yyyy). Only "empty" and "valid" can be
+ * applied; anything else means the list doesn't match what's typed yet.
+ */
+export function dateFilterText(text: string): {
+  state: "empty" | "valid" | "incomplete" | "invalid";
+  iso: string | null;
+} {
+  const trimmed = text.trim();
+  if (!trimmed) return { state: "empty", iso: null };
+  const iso = displayToIso(trimmed);
+  if (iso) return { state: "valid", iso };
+  return {
+    state: trimmed.length >= "gg.aa.yyyy".length ? "invalid" : "incomplete",
+    iso: null,
+  };
 }
