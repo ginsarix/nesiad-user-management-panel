@@ -83,8 +83,9 @@ function ParameterForm({
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
         // payments show the tür and tip names
         queryClient.invalidateQueries({ queryKey: ["payments"] }),
-        // Organizasyon pages show the Dernek Görevi names
+        // Organizasyon and yetkili pages show the Dernek Görevi names
         queryClient.invalidateQueries({ queryKey: ["organizations"] }),
+        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
       ]);
       onSaved();
     },

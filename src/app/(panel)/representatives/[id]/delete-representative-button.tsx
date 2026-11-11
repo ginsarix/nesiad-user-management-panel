@@ -43,8 +43,9 @@ export function DeleteRepresentativeButton({
           exact: true,
         }),
         queryClient.invalidateQueries({ queryKey: ["members"] }),
-        // it's taken out of its Organizasyon groups
+        // it's taken out of its Organizasyon groups, freeing their görevler
         queryClient.invalidateQueries({ queryKey: ["organizations"] }),
+        queryClient.invalidateQueries({ queryKey: ["parameters"] }),
         invalidateSmsQueries(queryClient),
       ]);
       router.push(listHref("/representatives"));
