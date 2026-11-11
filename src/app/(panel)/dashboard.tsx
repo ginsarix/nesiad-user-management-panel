@@ -118,10 +118,18 @@ export function Dashboard() {
           ))}
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
-          <Panel title="Sektörlere göre" note="Aktif üyeler">
+          <Panel
+            title="Sektörlere göre"
+            note="Aktif üyeler"
+            action={
+              <span className="shrink-0 text-xs text-muted-foreground">
+                İlk 5
+              </span>
+            }
+          >
             <BarList
               empty="Aktif üye yok"
-              items={data.membership.bySector.map((s) => ({
+              items={data.membership.bySector.slice(0, 5).map((s) => ({
                 key: s.id ?? "none",
                 label: s.name ?? (
                   <span className="text-muted-foreground">Sektörsüz</span>
