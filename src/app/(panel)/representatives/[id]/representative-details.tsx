@@ -12,6 +12,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { getRepresentative } from "@/lib/fetches/representative";
 import { listHref } from "@/lib/list-href";
+import { ORGANIZATION_INFO, organizationHref } from "@/lib/organizations";
 import { MemberAvatar } from "../../members/_components/member-info";
 import { DeleteRepresentativeButton } from "./delete-representative-button";
 import { ToggleActiveButton } from "./toggle-active-button";
@@ -108,6 +109,45 @@ export function RepresentativeDetails({ id }: { id: number }) {
                         <StatusTag status={member.status} />
                         <span className="ml-auto text-muted-foreground">
                           {member.role}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-lg border bg-card">
+              <h3 className="border-b px-4 py-2.5 text-sm font-medium">
+                Organizasyonlar ({representative.organizations.length})
+              </h3>
+              <div className="p-4">
+                {representative.organizations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Bu yetkili henüz bir organizasyonda yer almıyor.
+                  </p>
+                ) : (
+                  <ul className="divide-y text-sm">
+                    {representative.organizations.map((row) => (
+                      <li
+                        // row ids repeat across the four pages' tables
+                        key={`${row.organization}-${row.rowId}`}
+                        className="flex flex-wrap items-center gap-2 py-1.5 first:pt-0 last:pb-0"
+                      >
+                        <span className="text-muted-foreground">
+                          {ORGANIZATION_INFO[row.organization].title}
+                        </span>
+                        <Link
+                          href={organizationHref(
+                            row.organization,
+                            String(row.groupId),
+                          )}
+                          className="text-primary hover:underline"
+                        >
+                          {row.groupName}
+                        </Link>
+                        <span className="ml-auto text-muted-foreground">
+                          {row.role}
                         </span>
                       </li>
                     ))}

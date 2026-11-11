@@ -1,7 +1,10 @@
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
 import { organizationFromSlug } from "@/lib/organizations";
-import { requireSession } from "@/lib/session";
+import { getQueryClient } from "@/lib/query-client";
+import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import { GroupForm } from "../../_components/group-form";
+import { prefetchGroupFormOptions } from "../../_components/prefetch-group-form";
 
 export default async function NewOrganizationGroupPage({
   params,
@@ -10,5 +13,13 @@ export default async function NewOrganizationGroupPage({
   const organization = organizationFromSlug((await params).organization);
   if (!organization) notFound();
 
-  return <GroupForm organization={organization} />;
+  const queryClient = getQueryClient();
+  // prefetch (the yetkililer and görevler to pick)
+  await prefetchGroupFormOptions(queryClient, await forwardedRequestOptions());
+
+  return (
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <GroupForm organization={organization} />
+    </HydrationBoundary>
+  );
 }

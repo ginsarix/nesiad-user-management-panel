@@ -43,6 +43,8 @@ export const ORGANIZATION_TABLES: Record<Organization, OrganizationTables> = {
 
 export type RepresentativeOrganization = {
   organization: Organization;
+  /** The group row's id; unique only within its organization */
+  rowId: number;
   groupId: number;
   groupName: string;
   role: string;
@@ -62,6 +64,7 @@ export async function selectRepresentativeOrganizations(
       const { group, person } = ORGANIZATION_TABLES[organization];
       const rows = await executor
         .select({
+          rowId: person.id,
           groupId: group.id,
           groupName: group.name,
           role: parameterTable.name,

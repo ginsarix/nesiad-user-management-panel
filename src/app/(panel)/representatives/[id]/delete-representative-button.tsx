@@ -43,6 +43,8 @@ export function DeleteRepresentativeButton({
           exact: true,
         }),
         queryClient.invalidateQueries({ queryKey: ["members"] }),
+        // it's taken out of its Organizasyon groups
+        queryClient.invalidateQueries({ queryKey: ["organizations"] }),
         invalidateSmsQueries(queryClient),
       ]);
       router.push(listHref("/representatives"));
@@ -71,8 +73,9 @@ export function DeleteRepresentativeButton({
             {representative.name} silinsin mi?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Yetkili kalıcı olarak silinir ve üyelerle bağlantısı kaldırılır.
-            Üyeler silinmez. Bu işlem geri alınamaz.
+            Yetkili kalıcı olarak silinir, üyelerle bağlantısı kaldırılır ve
+            organizasyonlardan çıkarılır. Üyeler silinmez. Bu işlem geri
+            alınamaz.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && <FieldError>{error.message}</FieldError>}

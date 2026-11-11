@@ -25,6 +25,8 @@ export function ToggleActiveButton({
         queryClient.invalidateQueries({ queryKey: ["representatives"] }),
         // member pages tag pasif yetkililer
         queryClient.invalidateQueries({ queryKey: ["members"] }),
+        // Organizasyon pages tag pasif yetkililer too
+        queryClient.invalidateQueries({ queryKey: ["organizations"] }),
         invalidateSmsQueries(queryClient),
       ]),
     onError: (error) => window.alert(error.message),

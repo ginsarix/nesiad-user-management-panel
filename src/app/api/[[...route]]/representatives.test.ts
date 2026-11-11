@@ -349,18 +349,21 @@ describe("yetkili and Organizasyon", () => {
     expect(body.organizations).toEqual([
       {
         organization: "committee",
+        rowId: expect.any(Number),
         groupId: committeeId,
         groupName: committeeName,
         role: baskan.name,
       },
       {
         organization: "committee",
+        rowId: expect.any(Number),
         groupId: committeeId,
         groupName: committeeName,
         role: uye.name,
       },
       {
         organization: "supervisory_board",
+        rowId: expect.any(Number),
         groupId: boardId,
         groupName: boardName,
         role: uye.name,

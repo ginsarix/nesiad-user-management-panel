@@ -17,14 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import { deleteParameter, type Parameter } from "@/lib/fetches/parameter";
-import { PARAMETER_KIND_LABELS } from "@/lib/parameters";
+import { PARAMETER_KIND_LABELS, parameterUsageNouns } from "@/lib/parameters";
 
 export function DeleteParameterButton({ parameter }: { parameter: Parameter }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const label = PARAMETER_KIND_LABELS[parameter.kind];
-  // each list is used by one feature only
-  const usedBy = parameter.kind.startsWith("payment_") ? "ödeme" : "tahsilat";
+  const usedBy = parameterUsageNouns(parameter.kind);
 
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: () => deleteParameter(parameter.id),
@@ -60,11 +59,9 @@ export function DeleteParameterButton({ parameter }: { parameter: Parameter }) {
             <AlertDialogHeader>
               <AlertDialogTitle>“{parameter.name}” silinemez</AlertDialogTitle>
               <AlertDialogDescription>
-                Bu kayıt {parameter.usageCount}{" "}
-                {usedBy === "ödeme" ? "ödemede" : "tahsilatta"} kullanılıyor.
-                Silmek için önce bu{" "}
-                {usedBy === "ödeme" ? "ödemelerin" : "tahsilatların"} {label}{" "}
-                alanını değiştirin.
+                Bu kayıt {parameter.usageCount} {usedBy.locative} kullanılıyor.
+                Silmek için önce bu {usedBy.genitivePlural} {label} alanını
+                değiştirin.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

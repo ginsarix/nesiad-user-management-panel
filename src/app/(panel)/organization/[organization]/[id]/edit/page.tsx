@@ -4,6 +4,7 @@ import { getOrganizationGroup } from "@/lib/fetches/organization";
 import { organizationFromSlug } from "@/lib/organizations";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
+import { prefetchGroupFormOptions } from "../../../_components/prefetch-group-form";
 import { EditGroup } from "./edit-group";
 
 export default async function EditOrganizationGroupPage({
@@ -18,13 +19,16 @@ export default async function EditOrganizationGroupPage({
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // prefetch
-  const group = await queryClient
-    .query({
-      queryKey: ["organizations", organization, id],
-      queryFn: () => getOrganizationGroup(organization, id, options),
-    })
-    .catch(console.error);
+  // prefetch the group and what its pickers list
+  const [group] = await Promise.all([
+    queryClient
+      .query({
+        queryKey: ["organizations", organization, id],
+        queryFn: () => getOrganizationGroup(organization, id, options),
+      })
+      .catch(console.error),
+    prefetchGroupFormOptions(queryClient, options),
+  ]);
 
   if (group === null) notFound();
 
