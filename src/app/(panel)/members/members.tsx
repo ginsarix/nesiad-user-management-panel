@@ -69,11 +69,13 @@ const columns = helper.columns([
     enableHiding: false,
     sortFn: sortTr,
     cell: ({ row }) => (
-      <span className="flex items-center gap-2">
+      // long company names are cut off; the full name shows on hover
+      <span className="flex max-w-80 items-center gap-2">
         <MemberAvatar title={row.original.title} logo={row.original.logo} />
         <Link
           href={`/members/${row.original.id}`}
-          className="font-medium text-primary hover:underline"
+          title={row.original.title}
+          className="truncate font-medium text-primary hover:underline"
         >
           {row.original.title}
         </Link>
