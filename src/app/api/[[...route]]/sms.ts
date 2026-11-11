@@ -202,7 +202,7 @@ export const smsRoute = new Hono<AppEnv>()
       return c.json({ date, celebrations, sends });
     },
   )
-  /** The Ayarlar tab: send time, on/off, message templates */
+  /** Ayarlar → Bildirimler: send time, on/off, message templates */
   .get("/settings", async (c) => {
     return c.json(settingsResponse(await getSmsSettings()));
   })
@@ -235,7 +235,7 @@ export const smsRoute = new Hono<AppEnv>()
       return c.json(settingsResponse(updated));
     },
   )
-  /** The Ayarlar tab: templates for the application accepted/rejected notices */
+  /** Ayarlar → Bildirimler: templates for the application accepted/rejected notices */
   .get("/notice-settings", async (c) => {
     return c.json(noticeSettingsResponse(await getApplicationNoticeSettings()));
   })
@@ -268,7 +268,7 @@ export const smsRoute = new Hono<AppEnv>()
       return c.json(noticeSettingsResponse(updated));
     },
   )
-  /** The Ayarlar tab: templates for the new-tahsilat notices */
+  /** Ayarlar → Bildirimler: templates for the new-tahsilat notices */
   .get("/collection-notice-settings", async (c) => {
     return c.json(
       collectionNoticeSettingsResponse(await getCollectionNoticeSettings()),

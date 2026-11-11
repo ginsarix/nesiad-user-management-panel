@@ -3,19 +3,39 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NotificationsTab } from "./notifications-tab";
 import { ParameterList } from "./parameter-list";
 import { Sectors } from "./sectors";
+import { parseSettingsTab, type SettingsTab } from "./tabs";
 
 export function Settings({
+  initialTab,
   savedSectorColumnVisibility,
 }: {
+  initialTab: SettingsTab;
   savedSectorColumnVisibility: ColumnVisibilityState;
 }) {
   return (
-    <Tabs defaultValue="parameters" className="flex flex-col gap-3">
+    <Tabs
+      defaultValue={initialTab}
+      onValueChange={(value) => {
+        // so a reload or a shared link opens the same tab
+        const url = new URL(window.location.href);
+        const tab = parseSettingsTab(value);
+        if (tab === "parameters") url.searchParams.delete("tab");
+        else url.searchParams.set("tab", tab);
+        history.replaceState(history.state, "", url);
+      }}
+      className="flex flex-col gap-3"
+    >
       <TabsList>
         <TabsTrigger value="parameters">Parametreler</TabsTrigger>
+        <TabsTrigger value="notifications">Bildirimler</TabsTrigger>
       </TabsList>
+      {/* kept mounted so unsaved template edits survive a tab switch */}
+      <TabsContent value="notifications" keepMounted className="max-w-6xl pt-3">
+        <NotificationsTab />
+      </TabsContent>
       <TabsContent
         value="parameters"
         className="flex max-w-6xl flex-col divide-y"

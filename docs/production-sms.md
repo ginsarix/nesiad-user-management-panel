@@ -4,9 +4,9 @@ What the production server needs before the SMS page (`/sms`) sends real SMS, an
 
 ## 1. Database
 
-The SMS feature adds two tables: `sms_send` (one row per automatic SMS) and `sms_settings` (the Ayarlar tab). The deploy creates them with the other migrations ([deploy.md](deploy.md), section 4).
+The SMS feature adds two tables: `sms_send` (one row per automatic SMS) and `sms_settings` (Ayarlar → Bildirimler). The deploy creates them with the other migrations ([deploy.md](deploy.md), section 4).
 
-Automatic SMS starts **off**: nothing is sent until someone ticks the switch on SMS → Ayarlar.
+Automatic SMS starts **off**: nothing is sent until someone ticks the switch on Ayarlar → Bildirimler (Kutlama Bildirimleri).
 
 ## 2. Environment variables
 
@@ -22,7 +22,7 @@ Set these in the Plesk Node.js app's environment, next to the existing ones:
 
 Restart the app after changing them.
 
-> **Dry run looks like success.** With `SMS_DRY_RUN` on, sends get a `FAKE-…` job id, the Otomatik tab says "Gönderildi" and Denetim Kayıtları says "Mod: Deneme". The Ayarlar tab shows a red warning while dry run is on. Automatic SMS recorded in dry run are **not** sent again that day after dry run is turned off.
+> **Dry run looks like success.** With `SMS_DRY_RUN` on, sends get a `FAKE-…` job id, the Otomatik tab says "Gönderildi" and Denetim Kayıtları says "Mod: Deneme". Ayarlar → Bildirimler shows a red warning while dry run is on. Automatic SMS recorded in dry run are **not** sent again that day after dry run is turned off.
 
 ## 3. NetGSM IP restriction
 
@@ -48,7 +48,7 @@ Each call prints what happened, so the task log stays readable:
 
 | Response | Meaning |
 | --- | --- |
-| `{"status":"disabled"}` | Automatic SMS is switched off in Ayarlar |
+| `{"status":"disabled"}` | Automatic SMS is switched off in Ayarlar → Bildirimler |
 | `{"status":"not_due",…}` | Before today's send time |
 | `{"status":"nothing_to_send",…}` | Nobody celebrating today, or they all got theirs already |
 | `{"status":"sent","count":N,"jobId":"…"}` | Sent N SMS |
@@ -68,7 +68,7 @@ Each call prints what happened, so the task log stays readable:
 
 1. Run the task once by hand (Plesk → the task → **Run Now**) and look for a JSON answer such as `{"status":"disabled"}`, not an error.
 2. Send one manual SMS from SMS → Manuel to your own phone. It should arrive, and Denetim Kayıtları should show the NetGSM job number without a "Deneme" line.
-3. Turn on automatic SMS in Ayarlar and set the send time. On a day someone celebrates, the Otomatik tab shows "Gönderildi HH:MM · NetGSM iş no …" next to each person, and Denetim Kayıtları shows "Kutlama SMS'i gönderildi".
+3. Turn on automatic SMS in Ayarlar → Bildirimler and set the send time. On a day someone celebrates, the Otomatik tab shows "Gönderildi HH:MM · NetGSM iş no …" next to each person, and Denetim Kayıtları shows "Kutlama SMS'i gönderildi".
 
 ## Development
 

@@ -482,12 +482,12 @@ export const smsSendTable = pgTable(
   ],
 );
 
-/** The one row of automatic SMS settings (Ayarlar tab) */
+/** The one row of automatic SMS settings (Ayarlar page, Bildirimler tab) */
 export const smsSettingsTable = pgTable(
   "sms_settings",
   {
     id: integer().primaryKey().default(1),
-    // on by default; staff can turn it off from the Ayarlar tab
+    // on by default; staff can turn it off from Ayarlar → Bildirimler
     autoEnabled: boolean("auto_enabled").default(true).notNull(),
     // "HH:mm", Istanbul time
     sendTime: text("send_time").default("09:00").notNull(),
@@ -503,8 +503,8 @@ export const smsSettingsTable = pgTable(
   (table) => [check("sms_settings_single_row", sql`${table.id} = 1`)],
 );
 
-/** The one row of application notice templates (Ayarlar tab), {ad} and {firma} */
-/** Tahsilat notice templates (SMS page, Ayarlar tab); a single row */
+/** The one row of application notice templates (Ayarlar page, Bildirimler tab), {ad} and {firma} */
+/** Tahsilat notice templates (Ayarlar page, Bildirimler tab); a single row */
 export const collectionNoticeSettingsTable = pgTable(
   "collection_notice_settings",
   {

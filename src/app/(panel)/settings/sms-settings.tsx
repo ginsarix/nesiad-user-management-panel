@@ -1,9 +1,7 @@
-"use client";
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,7 +25,11 @@ import {
   smsSettingsSchema,
 } from "@/lib/zod-schemas/sms";
 
-export function SmsSettings() {
+export function SmsSettings({
+  onDirtyChange,
+}: {
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const { data, isError } = useQuery({
     queryKey: ["sms-settings"],
     queryFn: () => getSmsSettings(),
@@ -36,7 +38,9 @@ export function SmsSettings() {
   if (isError) {
     return <p className="text-sm text-destructive">Ayarlar yüklenemedi.</p>;
   }
-  return data ? <SettingsForm settings={data} /> : null;
+  return data ? (
+    <SettingsForm settings={data} onDirtyChange={onDirtyChange} />
+  ) : null;
 }
 
 const SAMPLES = {
@@ -44,7 +48,13 @@ const SAMPLES = {
   birthdayMessage: { ad: "Ayşe Yılmaz", yil: "45" },
 } as const;
 
-function SettingsForm({ settings }: { settings: SmsSettingsValues }) {
+function SettingsForm({
+  settings,
+  onDirtyChange,
+}: {
+  settings: SmsSettingsValues;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
   const { data: contacts } = useQuery({
@@ -57,6 +67,7 @@ function SettingsForm({ settings }: { settings: SmsSettingsValues }) {
     defaultValues: settings,
   });
   const { errors, isDirty } = form.formState;
+  useEffect(() => onDirtyChange?.(isDirty), [isDirty, onDirtyChange]);
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: updateSmsSettings,
@@ -117,11 +128,6 @@ function SettingsForm({ settings }: { settings: SmsSettingsValues }) {
             ama NetGSM'e gitmez. O gün için tekrar gönderilmezler.
           </p>
         )}
-        <p className="basis-full text-xs text-muted-foreground">
-          Her gün bu saatten sonra (Türkiye saati) o gün kutlaması olanlara
-          birer SMS gider. Sunucu o saatte kapalıysa aynı gün içinde telafi
-          edilir; ertesi güne kalmaz. Kimseye aynı gün ikinci kez gönderilmez.
-        </p>
       </div>
 
       <TemplateField

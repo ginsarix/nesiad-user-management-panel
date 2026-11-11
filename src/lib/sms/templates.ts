@@ -19,7 +19,7 @@ export const NOTICE_PLACEHOLDERS = {
   firma: "firma adı",
 } as const;
 
-/** The notice texts shipped before staff edit them (Ayarlar tab) */
+/** The notice texts shipped before staff edit them (Ayarlar page, Bildirimler tab) */
 export const DEFAULT_NOTICE_TEMPLATES = {
   receivedSms:
     "Sayın {ad}, {firma} adına yaptığınız NESİAD üyelik başvurunuz alınmıştır. Değerlendirme sonucu size ayrıca bildirilecektir. NESİAD",
@@ -48,7 +48,7 @@ export const COLLECTION_NOTICE_PLACEHOLDERS = {
   proje: "proje (yoksa —)",
 } as const;
 
-/** The tahsilat notice texts shipped before staff edit them (Ayarlar tab) */
+/** The tahsilat notice texts shipped before staff edit them (Ayarlar page, Bildirimler tab) */
 export const DEFAULT_COLLECTION_NOTICE_TEMPLATES = {
   memberSms:
     "Sayın {uye}, {tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz. NESİAD",

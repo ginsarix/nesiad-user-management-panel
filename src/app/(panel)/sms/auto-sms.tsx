@@ -65,7 +65,12 @@ export function AutoSms() {
           {settings &&
             (settings.autoEnabled
               ? `Otomatik gönderim açık: her gün ${settings.sendTime}'dan sonra.`
-              : "Otomatik gönderim kapalı (Ayarlar).")}
+              : "Otomatik gönderim kapalı.")}{" "}
+          {settings && (
+            <Link href="/settings?tab=notifications" className="underline">
+              Ayarlar → Bildirimler
+            </Link>
+          )}
         </p>
         {date === "" && <FieldError>{INVALID_DATE_MESSAGE}</FieldError>}
         {isError && (
