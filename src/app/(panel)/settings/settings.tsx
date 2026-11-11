@@ -67,6 +67,15 @@ export function Settings({
             <ParameterList kind="payment_method" title="Tip" />
           </div>
         </SettingsGroup>
+
+        <SettingsGroup
+          title="Dernek Görevleri"
+          description="Derneğin görev listesi."
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ParameterList kind="association_role" title="Görev" />
+          </div>
+        </SettingsGroup>
       </TabsContent>
     </Tabs>
   );

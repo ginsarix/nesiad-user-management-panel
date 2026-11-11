@@ -57,7 +57,7 @@ export const parameterTable = pgTable(
     unique("parameter_kind_name_key_unique").on(table.kind, table.nameKey),
     check(
       "parameter_kind_valid",
-      sql`${table.kind} IN ('collection_category','collection_method','payment_category','payment_method')`,
+      sql`${table.kind} IN ('collection_category','collection_method','payment_category','payment_method','association_role')`,
     ),
   ],
 );

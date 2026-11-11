@@ -1,0 +1,1 @@
+ALTER TABLE "parameter" DROP CONSTRAINT "parameter_kind_valid", ADD CONSTRAINT "parameter_kind_valid" CHECK ("kind" IN ('collection_category','collection_method','payment_category','payment_method','association_role'));

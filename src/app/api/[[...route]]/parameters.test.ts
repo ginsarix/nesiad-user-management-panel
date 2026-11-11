@@ -122,6 +122,17 @@ describe("POST /api/parameters", () => {
     ]);
   });
 
+  it("adds to the Dernek Görevleri list", async () => {
+    const { res, body } = await createParameter(
+      "association_role",
+      `__test__ Sayman ${suffix}`,
+    );
+    expect(res.status).toBe(201);
+
+    const entry = await lastEntry("create", body.id);
+    expect(entry.entityLabel).toBe(`Dernek Görevi: __test__ Sayman ${suffix}`);
+  });
+
   it("requires a name", async () => {
     const { res, body } = await createParameter("payment_method", "   ");
     expect(res.status).toBe(400);
