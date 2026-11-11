@@ -21,7 +21,12 @@ import { smsRoute } from "./sms";
 
 /** Every panel API route needs a logged-in user (/api/auth is not routed here) */
 const requireSession = createMiddleware<AppEnv>(async (c, next) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  // disableRefresh: the renewed cookie wouldn't reach the browser, so only
+  // its activity reports extend the session (see SessionTimeout)
+  const session = await auth.api.getSession({
+    headers: c.req.raw.headers,
+    query: { disableRefresh: true },
+  });
   if (!session) return c.json({ error: "Oturum açmanız gerekiyor" }, 401);
   // for the audit log's "who"
   c.set("session", session);

@@ -21,7 +21,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           ? "reset"
           : params.error === "verification"
             ? "verification"
-            : undefined
+            : params.idle === "1"
+              ? "idle"
+              : undefined
       }
     />
   );

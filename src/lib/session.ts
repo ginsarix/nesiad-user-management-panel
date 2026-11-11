@@ -6,9 +6,16 @@ import { auth } from "./auth";
 
 // Server-only: reads the incoming request's headers.
 
-/** The current session, or null; cached for the duration of a request */
+/**
+ * The current session, or null; cached for the duration of a request.
+ * Never extends it: a server component can't renew the cookie, so only the
+ * browser's activity reports do (see SessionTimeout).
+ */
 export const getSession = cache(async () =>
-  auth.api.getSession({ headers: await headers() }),
+  auth.api.getSession({
+    headers: await headers(),
+    query: { disableRefresh: true },
+  }),
 );
 
 /** The current session; sends the user to the login page without one */

@@ -1,6 +1,15 @@
 import { useEffect, useRef } from "react";
 
 let onBlockedAttempt: (() => void) | null = null;
+let leavingAnyway = false;
+
+/**
+ * For leaving that must happen whatever is unsaved (the session has ended,
+ * so nothing could be saved): the browser no longer asks first.
+ */
+export function leaveWithoutAsking() {
+  leavingAnyway = true;
+}
 
 /**
  * For navigation that isn't a link (e.g. logging out): true when a page has
@@ -66,6 +75,7 @@ export function useNavigationGuard(active: boolean, onBlocked: () => void) {
     }
 
     function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (leavingAnyway) return;
       event.preventDefault();
     }
 

@@ -20,6 +20,7 @@ const notices = {
   reset: "Şifreniz yenilendi. Yeni şifrenizle giriş yapabilirsiniz.",
   verification:
     "Doğrulama bağlantısının süresi dolmuş ya da daha önce kullanılmış. Giriş yapmayı deneyin, size yeni bir bağlantı gönderilir.",
+  idle: "30 dakika işlem yapılmadığı için oturumunuz kapatıldı. Devam etmek için tekrar giriş yapın.",
 };
 
 export function LoginForm({

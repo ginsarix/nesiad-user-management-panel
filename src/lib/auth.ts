@@ -17,6 +17,7 @@ import { twoFactorGuard } from "./auth-plugins/two-factor-guard";
 import { env } from "./env";
 import { deliverLoginCode } from "./login-code";
 import { sendEmail } from "./mail";
+import { SESSION_IDLE_SECONDS, SESSION_REFRESH_SECONDS } from "./session-idle";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -55,9 +56,13 @@ export const auth = betterAuth({
     },
   },
   session: {
-    // trusted staff on office computers; renewed while in use
-    expiresIn: 60 * 60 * 24 * 30, // 30 days
-    updateAge: 60 * 60 * 24, // 1 day
+    // Ends after 30 minutes without use. Only the browser's own
+    // /api/auth/get-session calls (SessionTimeout, on typing/clicking/
+    // scrolling) extend it: they can renew the cookie, which also lasts
+    // expiresIn. Server-side getSession calls pass disableRefresh, since
+    // their renewed cookie would never reach the browser.
+    expiresIn: SESSION_IDLE_SECONDS,
+    updateAge: SESSION_REFRESH_SECONDS,
   },
   emailAndPassword: {
     enabled: true,
