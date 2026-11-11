@@ -1,8 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck } from "lucide-react";
-import { useEffect, useState } from "react";
-import { type UseFormReturn, useForm, useWatch } from "react-hook-form";
+import { type ReactNode, useEffect, useState } from "react";
+import {
+  type FieldError as FormFieldError,
+  type UseFormRegisterReturn,
+  type UseFormReturn,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { fillTemplate } from "@/lib/sms/templates";
+import { cn } from "@/lib/utils";
 import { SMS_MAX_LENGTH } from "@/lib/zod-schemas/sms";
 
 /** Every notice template is a plain string, keyed by its API field name */
@@ -96,7 +103,7 @@ function LoadedForm(props: TemplateChannelFormProps & { saved: Templates }) {
     <form
       onSubmit={form.handleSubmit((values) => mutate(values))}
       onChange={() => setJustSaved(false)}
-      className="flex max-w-3xl flex-col gap-6 rounded-lg border bg-card p-4"
+      className="flex flex-col divide-y rounded-lg border bg-card px-4"
       noValidate
     >
       {props.channel === "sms"
@@ -119,12 +126,14 @@ function LoadedForm(props: TemplateChannelFormProps & { saved: Templates }) {
             />
           ))}
 
-      <SaveRow
-        isDirty={isDirty}
-        isPending={isPending}
-        saved={justSaved}
-        error={error}
-      />
+      <div className="py-4">
+        <SaveRow
+          isDirty={isDirty}
+          isPending={isPending}
+          saved={justSaved}
+          error={error}
+        />
+      </div>
     </form>
   );
 }
@@ -141,28 +150,62 @@ function SmsTemplateField({
   sample: Record<string, string>;
 }) {
   const value = useWatch({ control: form.control, name: template.name });
-  const error = form.formState.errors[template.name];
-  const preview = fillTemplate((value ?? "").trim(), sample);
-  const id = `template-${template.name}`;
+  return (
+    <SmsTemplateRow
+      id={`template-${template.name}`}
+      label={template.label}
+      registration={form.register(template.name)}
+      value={value ?? ""}
+      error={form.formState.errors[template.name]}
+      placeholders={placeholders}
+      sample={sample}
+    />
+  );
+}
+
+/** An SMS template: the text on the left, how it reads on the right */
+export function SmsTemplateRow({
+  id,
+  label,
+  registration,
+  value,
+  error,
+  placeholders,
+  sample,
+}: {
+  id: string;
+  label: string;
+  registration: UseFormRegisterReturn;
+  value: string;
+  error: FormFieldError | undefined;
+  placeholders: Record<string, string>;
+  sample: Record<string, string>;
+}) {
+  const preview = fillTemplate(value.trim(), sample);
+  const tooLong = preview.length > SMS_MAX_LENGTH;
 
   return (
-    <Field data-invalid={!!error}>
-      <FieldLabel htmlFor={id}>{template.label}</FieldLabel>
-      <Textarea
-        id={id}
-        rows={3}
-        aria-invalid={!!error}
-        {...form.register(template.name)}
-      />
-      <PlaceholderList placeholders={placeholders} />
-      <FieldError errors={[error]} />
-      <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-        <div className="text-xs text-muted-foreground">
-          Örnek · {preview.length} / {SMS_MAX_LENGTH} karakter
+    <div className={ROW}>
+      <Field data-invalid={!!error}>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <Textarea id={id} rows={3} aria-invalid={!!error} {...registration} />
+        <PlaceholderList placeholders={placeholders} />
+        <FieldError errors={[error]} />
+      </Field>
+      <PreviewColumn>
+        <div className="max-w-md rounded-2xl rounded-tl-sm bg-muted px-3.5 py-2.5 text-sm whitespace-pre-wrap">
+          {preview || <Empty />}
         </div>
-        {preview}
-      </div>
-    </Field>
+        <div
+          className={cn(
+            "text-xs text-muted-foreground",
+            tooLong && "text-destructive",
+          )}
+        >
+          {preview.length} / {SMS_MAX_LENGTH} karakter
+        </div>
+      </PreviewColumn>
+    </div>
   );
 }
 
@@ -184,43 +227,68 @@ function EmailTemplateFields({
   });
   const subjectId = `template-${template.subject}`;
   const bodyId = `template-${template.body}`;
+  const filledSubject = fillTemplate((subject ?? "").trim(), sample);
+  const filledBody = fillTemplate((body ?? "").trim(), sample);
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-3 py-5">
       <h3 className="font-medium">{template.label}</h3>
-
-      <Field data-invalid={!!errors[template.subject]}>
-        <FieldLabel htmlFor={subjectId}>Konu</FieldLabel>
-        <Input
-          id={subjectId}
-          aria-invalid={!!errors[template.subject]}
-          {...form.register(template.subject)}
-        />
-        <FieldError errors={[errors[template.subject]]} />
-      </Field>
-
-      <Field data-invalid={!!errors[template.body]}>
-        <FieldLabel htmlFor={bodyId}>Metin</FieldLabel>
-        <Textarea
-          id={bodyId}
-          rows={7}
-          aria-invalid={!!errors[template.body]}
-          {...form.register(template.body)}
-        />
-        <PlaceholderList placeholders={placeholders} />
-        <FieldError errors={[errors[template.body]]} />
-        <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-          <div className="text-xs text-muted-foreground">Örnek · e-posta</div>
-          <div className="font-medium">
-            {fillTemplate((subject ?? "").trim(), sample)}
-          </div>
-          <div className="mt-2 whitespace-pre-wrap">
-            {fillTemplate((body ?? "").trim(), sample)}
-          </div>
+      <div className={cn(ROW, "py-0")}>
+        <div className="flex flex-col gap-4">
+          <Field data-invalid={!!errors[template.subject]}>
+            <FieldLabel htmlFor={subjectId}>Konu</FieldLabel>
+            <Input
+              id={subjectId}
+              aria-invalid={!!errors[template.subject]}
+              {...form.register(template.subject)}
+            />
+            <FieldError errors={[errors[template.subject]]} />
+          </Field>
+          <Field data-invalid={!!errors[template.body]}>
+            <FieldLabel htmlFor={bodyId}>Metin</FieldLabel>
+            <Textarea
+              id={bodyId}
+              rows={7}
+              aria-invalid={!!errors[template.body]}
+              {...form.register(template.body)}
+            />
+            <PlaceholderList placeholders={placeholders} />
+            <FieldError errors={[errors[template.body]]} />
+          </Field>
         </div>
-      </Field>
+        <PreviewColumn>
+          <div className="rounded-md border bg-background text-sm shadow-xs">
+            <div className="border-b px-3 py-2">
+              <span className="text-muted-foreground">Konu: </span>
+              <span className="font-medium">{filledSubject || <Empty />}</span>
+            </div>
+            <div className="px-3 py-3 whitespace-pre-wrap">
+              {filledBody || <Empty />}
+            </div>
+          </div>
+        </PreviewColumn>
+      </div>
     </section>
   );
+}
+
+/** Editor and preview side by side on wide screens, stacked otherwise */
+const ROW = "grid gap-x-6 gap-y-3 py-5 xl:grid-cols-2";
+
+function PreviewColumn({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      {/* lines up with the editor's label */}
+      <div className="text-sm leading-snug font-medium text-muted-foreground">
+        Örnek
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Empty() {
+  return <span className="text-muted-foreground italic">(boş)</span>;
 }
 
 function PlaceholderList({

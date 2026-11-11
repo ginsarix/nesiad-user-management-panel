@@ -1,29 +1,21 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   getSmsContacts,
   getSmsSettings,
   updateSmsSettings,
 } from "@/lib/fetches/sms";
-import { fillTemplate, TEMPLATE_PLACEHOLDERS } from "@/lib/sms/templates";
+import { TEMPLATE_PLACEHOLDERS } from "@/lib/sms/templates";
 import {
-  SMS_MAX_LENGTH,
   type SmsSettingsValues,
   smsSettingsSchema,
 } from "@/lib/zod-schemas/sms";
+import { SaveRow, SmsTemplateRow } from "./template-forms";
 
 export function SmsSettings({
   onDirtyChange,
@@ -87,10 +79,10 @@ function SettingsForm({
     <form
       onSubmit={form.handleSubmit((values) => mutate(values))}
       onChange={() => setSaved(false)}
-      className="flex max-w-3xl flex-col gap-5 rounded-lg border bg-card p-4"
+      className="flex flex-col divide-y rounded-lg border bg-card px-4"
       noValidate
     >
-      <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+      <div className="flex flex-wrap items-start gap-x-8 gap-y-4 py-5">
         <Controller
           control={form.control}
           name="autoEnabled"
@@ -130,34 +122,30 @@ function SettingsForm({
         )}
       </div>
 
-      <TemplateField
+      <CelebrationTemplate
         form={form}
         name="foundingMessage"
         label="Kuruluş yıl dönümü mesajı (üyeye)"
       />
-      <TemplateField
+      <CelebrationTemplate
         form={form}
         name="birthdayMessage"
         label="Doğum günü mesajı (yetkiliye)"
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={!isDirty || isPending}>
-          {isPending ? "Kaydediliyor…" : "Kaydet"}
-        </Button>
-        {saved && !isDirty && (
-          <span className="flex items-center gap-1.5 text-sm text-primary">
-            <CircleCheck className="size-4" />
-            Kaydedildi
-          </span>
-        )}
-        {error && <FieldError>{error.message}</FieldError>}
+      <div className="py-4">
+        <SaveRow
+          isDirty={isDirty}
+          isPending={isPending}
+          saved={saved}
+          error={error}
+        />
       </div>
     </form>
   );
 }
 
-function TemplateField({
+function CelebrationTemplate({
   form,
   name,
   label,
@@ -166,35 +154,16 @@ function TemplateField({
   name: "foundingMessage" | "birthdayMessage";
   label: string;
 }) {
-  const template = useWatch({ control: form.control, name });
-  const error = form.formState.errors[name];
-  const preview = fillTemplate(template.trim(), SAMPLES[name]);
-  const id = `sms-${name}`;
-
+  const value = useWatch({ control: form.control, name });
   return (
-    <Field data-invalid={!!error}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Textarea
-        id={id}
-        rows={3}
-        aria-invalid={!!error}
-        {...form.register(name)}
-      />
-      <FieldDescription>
-        {Object.entries(TEMPLATE_PLACEHOLDERS).map(([key, text], i) => (
-          <span key={key}>
-            {i > 0 && " · "}
-            <code>{`{${key}}`}</code> {text}
-          </span>
-        ))}
-      </FieldDescription>
-      <FieldError errors={[error]} />
-      <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-        <div className="text-xs text-muted-foreground">
-          Örnek · {preview.length} / {SMS_MAX_LENGTH} karakter
-        </div>
-        {preview}
-      </div>
-    </Field>
+    <SmsTemplateRow
+      id={`sms-${name}`}
+      label={label}
+      registration={form.register(name)}
+      value={value}
+      error={form.formState.errors[name]}
+      placeholders={TEMPLATE_PLACEHOLDERS}
+      sample={SAMPLES[name]}
+    />
   );
 }
