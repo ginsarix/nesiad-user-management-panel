@@ -294,6 +294,79 @@ export const membersRepresentativesTable = pgTable(
   ],
 );
 
+/**
+ * One Organizasyon page's tables (src/lib/organizations.ts): its groups
+ * (İsim) and the people in each (yetkili + Dernek Görevi). Each page gets
+ * its own pair on purpose, since staff may want one handled differently
+ * later; to special-case one, replace its call below with explicit tables.
+ */
+function organizationTables(name: string) {
+  const group = pgTable(
+    name,
+    {
+      id: integer().primaryKey().generatedAlwaysAsIdentity(),
+      name: text().notNull(),
+      // Turkish lowercase name, unique within this page (like sector.name_key)
+      nameKey: text("name_key").notNull(),
+
+      createdAt: timestamp("created_at", { withTimezone: true })
+        .defaultNow()
+        .notNull(),
+      updatedAt: timestamp("updated_at", { withTimezone: true })
+        .defaultNow()
+        .$onUpdate(() => new Date())
+        .notNull(),
+    },
+    (table) => [unique(`${name}_name_key_unique`).on(table.nameKey)],
+  );
+
+  // no unique (group, yetkili): the same yetkili may hold two görevler
+  const person = pgTable(
+    `${name}_member`,
+    {
+      id: integer().primaryKey().generatedAlwaysAsIdentity(),
+      groupId: integer("group_id")
+        .notNull()
+        .references(() => group.id, { onDelete: "cascade" }),
+      // deleting a yetkili takes them out of their groups
+      representativeId: integer("representative_id")
+        .notNull()
+        .references(() => authorizedRepresentativeTable.id, {
+          onDelete: "cascade",
+        }),
+      // a Dernek Görevi (association_role parameter); one in use can't be deleted
+      roleId: integer("role_id")
+        .notNull()
+        .references(() => parameterTable.id, { onDelete: "restrict" }),
+      // the order staff entered the rows in
+      position: integer().notNull(),
+    },
+    (table) => [
+      index(`${name}_member_group_idx`).on(table.groupId),
+      index(`${name}_member_representative_idx`).on(table.representativeId),
+      index(`${name}_member_role_idx`).on(table.roleId),
+    ],
+  );
+
+  return { group, person };
+}
+
+const managementBoard = organizationTables("management_board");
+export const managementBoardTable = managementBoard.group;
+export const managementBoardMemberTable = managementBoard.person;
+
+const committee = organizationTables("committee");
+export const committeeTable = committee.group;
+export const committeeMemberTable = committee.person;
+
+const disciplinaryBoard = organizationTables("disciplinary_board");
+export const disciplinaryBoardTable = disciplinaryBoard.group;
+export const disciplinaryBoardMemberTable = disciplinaryBoard.person;
+
+const supervisoryBoard = organizationTables("supervisory_board");
+export const supervisoryBoardTable = supervisoryBoard.group;
+export const supervisoryBoardMemberTable = supervisoryBoard.person;
+
 export const userTable = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

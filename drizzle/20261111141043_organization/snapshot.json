@@ -1,0 +1,2157 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e0b00b06-32b4-4abe-baee-04b4ea1c2ecf",
+  "prevIds": [
+    "a93400b5-2135-404c-9248-fa02e8d28952"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "committee_member"
+      ],
+      "writes": [
+        "s|tbl|public.committee_member",
+        "n|tbl|public.committee_member",
+        "e|tbl|public.committee_member",
+        "n|rel|public.committee_member",
+        "n|type|public.committee_member",
+        "n|rel|public.committee_member_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "committee"
+      ],
+      "writes": [
+        "s|tbl|public.committee",
+        "n|tbl|public.committee",
+        "e|tbl|public.committee",
+        "n|rel|public.committee",
+        "n|type|public.committee",
+        "n|rel|public.committee_pkey",
+        "n|rel|public.committee_name_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "disciplinary_board_member"
+      ],
+      "writes": [
+        "s|tbl|public.disciplinary_board_member",
+        "n|tbl|public.disciplinary_board_member",
+        "e|tbl|public.disciplinary_board_member",
+        "n|rel|public.disciplinary_board_member",
+        "n|type|public.disciplinary_board_member",
+        "n|rel|public.disciplinary_board_member_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "disciplinary_board"
+      ],
+      "writes": [
+        "s|tbl|public.disciplinary_board",
+        "n|tbl|public.disciplinary_board",
+        "e|tbl|public.disciplinary_board",
+        "n|rel|public.disciplinary_board",
+        "n|type|public.disciplinary_board",
+        "n|rel|public.disciplinary_board_pkey",
+        "n|rel|public.disciplinary_board_name_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "management_board_member"
+      ],
+      "writes": [
+        "s|tbl|public.management_board_member",
+        "n|tbl|public.management_board_member",
+        "e|tbl|public.management_board_member",
+        "n|rel|public.management_board_member",
+        "n|type|public.management_board_member",
+        "n|rel|public.management_board_member_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "management_board"
+      ],
+      "writes": [
+        "s|tbl|public.management_board",
+        "n|tbl|public.management_board",
+        "e|tbl|public.management_board",
+        "n|rel|public.management_board",
+        "n|type|public.management_board",
+        "n|rel|public.management_board_pkey",
+        "n|rel|public.management_board_name_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "supervisory_board_member"
+      ],
+      "writes": [
+        "s|tbl|public.supervisory_board_member",
+        "n|tbl|public.supervisory_board_member",
+        "e|tbl|public.supervisory_board_member",
+        "n|rel|public.supervisory_board_member",
+        "n|type|public.supervisory_board_member",
+        "n|rel|public.supervisory_board_member_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "supervisory_board"
+      ],
+      "writes": [
+        "s|tbl|public.supervisory_board",
+        "n|tbl|public.supervisory_board",
+        "e|tbl|public.supervisory_board",
+        "n|rel|public.supervisory_board",
+        "n|type|public.supervisory_board",
+        "n|rel|public.supervisory_board_pkey",
+        "n|rel|public.supervisory_board_name_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "committee_member",
+        "committee_member_group_idx"
+      ],
+      "writes": [
+        "s|idx|public.committee_member_group_idx",
+        "n|idx|public.committee_member_group_idx",
+        "e|idx|public.committee_member_group_idx",
+        "n|rel|public.committee_member_group_idx"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|col|public.committee_member.group_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "committee_member",
+        "committee_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.committee_member_representative_idx",
+        "n|idx|public.committee_member_representative_idx",
+        "e|idx|public.committee_member_representative_idx",
+        "n|rel|public.committee_member_representative_idx"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|col|public.committee_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "committee_member",
+        "committee_member_role_idx"
+      ],
+      "writes": [
+        "s|idx|public.committee_member_role_idx",
+        "n|idx|public.committee_member_role_idx",
+        "e|idx|public.committee_member_role_idx",
+        "n|rel|public.committee_member_role_idx"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|col|public.committee_member.role_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "disciplinary_board_member",
+        "disciplinary_board_member_group_idx"
+      ],
+      "writes": [
+        "s|idx|public.disciplinary_board_member_group_idx",
+        "n|idx|public.disciplinary_board_member_group_idx",
+        "e|idx|public.disciplinary_board_member_group_idx",
+        "n|rel|public.disciplinary_board_member_group_idx"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.group_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "disciplinary_board_member",
+        "disciplinary_board_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.disciplinary_board_member_representative_idx",
+        "n|idx|public.disciplinary_board_member_representative_idx",
+        "e|idx|public.disciplinary_board_member_representative_idx",
+        "n|rel|public.disciplinary_board_member_representative_idx"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "disciplinary_board_member",
+        "disciplinary_board_member_role_idx"
+      ],
+      "writes": [
+        "s|idx|public.disciplinary_board_member_role_idx",
+        "n|idx|public.disciplinary_board_member_role_idx",
+        "e|idx|public.disciplinary_board_member_role_idx",
+        "n|rel|public.disciplinary_board_member_role_idx"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.role_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "management_board_member",
+        "management_board_member_group_idx"
+      ],
+      "writes": [
+        "s|idx|public.management_board_member_group_idx",
+        "n|idx|public.management_board_member_group_idx",
+        "e|idx|public.management_board_member_group_idx",
+        "n|rel|public.management_board_member_group_idx"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|col|public.management_board_member.group_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "management_board_member",
+        "management_board_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.management_board_member_representative_idx",
+        "n|idx|public.management_board_member_representative_idx",
+        "e|idx|public.management_board_member_representative_idx",
+        "n|rel|public.management_board_member_representative_idx"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|col|public.management_board_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "management_board_member",
+        "management_board_member_role_idx"
+      ],
+      "writes": [
+        "s|idx|public.management_board_member_role_idx",
+        "n|idx|public.management_board_member_role_idx",
+        "e|idx|public.management_board_member_role_idx",
+        "n|rel|public.management_board_member_role_idx"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|col|public.management_board_member.role_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "supervisory_board_member",
+        "supervisory_board_member_group_idx"
+      ],
+      "writes": [
+        "s|idx|public.supervisory_board_member_group_idx",
+        "n|idx|public.supervisory_board_member_group_idx",
+        "e|idx|public.supervisory_board_member_group_idx",
+        "n|rel|public.supervisory_board_member_group_idx"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.group_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "supervisory_board_member",
+        "supervisory_board_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.supervisory_board_member_representative_idx",
+        "n|idx|public.supervisory_board_member_representative_idx",
+        "e|idx|public.supervisory_board_member_representative_idx",
+        "n|rel|public.supervisory_board_member_representative_idx"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "supervisory_board_member",
+        "supervisory_board_member_role_idx"
+      ],
+      "writes": [
+        "s|idx|public.supervisory_board_member_role_idx",
+        "n|idx|public.supervisory_board_member_role_idx",
+        "e|idx|public.supervisory_board_member_role_idx",
+        "n|rel|public.supervisory_board_member_role_idx"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.role_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "committee_member"
+      ],
+      "writes": [
+        "s|fk|public.committee_member.committee_member_group_id_committee_id_fkey",
+        "n|fk|public.committee_member.committee_member_group_id_committee_id_fkey",
+        "e|fk|public.committee_member.committee_member_group_id_committee_id_fkey",
+        "n|con|public.committee_member.committee_member_group_id_committee_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|tbl|public.committee",
+        "n|sch|public",
+        "n|col|public.committee_member.group_id",
+        "n|col|public.committee.id",
+        "e|uniqueness|public.committee.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "committee_member"
+      ],
+      "writes": [
+        "s|fk|public.committee_member.committee_member_p5rmqB3xW1Vo_fkey",
+        "n|fk|public.committee_member.committee_member_p5rmqB3xW1Vo_fkey",
+        "e|fk|public.committee_member.committee_member_p5rmqB3xW1Vo_fkey",
+        "n|con|public.committee_member.committee_member_p5rmqB3xW1Vo_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|tbl|public.authorized_representative",
+        "n|sch|public",
+        "n|col|public.committee_member.representative_id",
+        "n|col|public.authorized_representative.id",
+        "e|uniqueness|public.authorized_representative.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "committee_member"
+      ],
+      "writes": [
+        "s|fk|public.committee_member.committee_member_role_id_parameter_id_fkey",
+        "n|fk|public.committee_member.committee_member_role_id_parameter_id_fkey",
+        "e|fk|public.committee_member.committee_member_role_id_parameter_id_fkey",
+        "n|con|public.committee_member.committee_member_role_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.committee_member.role_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "disciplinary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.disciplinary_board_member.disciplinary_board_member_group_id_disciplinary_board_id_fkey",
+        "n|fk|public.disciplinary_board_member.disciplinary_board_member_group_id_disciplinary_board_id_fkey",
+        "e|fk|public.disciplinary_board_member.disciplinary_board_member_group_id_disciplinary_board_id_fkey",
+        "n|con|public.disciplinary_board_member.disciplinary_board_member_group_id_disciplinary_board_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|tbl|public.disciplinary_board",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.group_id",
+        "n|col|public.disciplinary_board.id",
+        "e|uniqueness|public.disciplinary_board.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "disciplinary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.disciplinary_board_member.disciplinary_board_member_smDewAypnqY5_fkey",
+        "n|fk|public.disciplinary_board_member.disciplinary_board_member_smDewAypnqY5_fkey",
+        "e|fk|public.disciplinary_board_member.disciplinary_board_member_smDewAypnqY5_fkey",
+        "n|con|public.disciplinary_board_member.disciplinary_board_member_smDewAypnqY5_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|tbl|public.authorized_representative",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.representative_id",
+        "n|col|public.authorized_representative.id",
+        "e|uniqueness|public.authorized_representative.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "disciplinary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.disciplinary_board_member.disciplinary_board_member_role_id_parameter_id_fkey",
+        "n|fk|public.disciplinary_board_member.disciplinary_board_member_role_id_parameter_id_fkey",
+        "e|fk|public.disciplinary_board_member.disciplinary_board_member_role_id_parameter_id_fkey",
+        "n|con|public.disciplinary_board_member.disciplinary_board_member_role_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.role_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "management_board_member"
+      ],
+      "writes": [
+        "s|fk|public.management_board_member.management_board_member_group_id_management_board_id_fkey",
+        "n|fk|public.management_board_member.management_board_member_group_id_management_board_id_fkey",
+        "e|fk|public.management_board_member.management_board_member_group_id_management_board_id_fkey",
+        "n|con|public.management_board_member.management_board_member_group_id_management_board_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|tbl|public.management_board",
+        "n|sch|public",
+        "n|col|public.management_board_member.group_id",
+        "n|col|public.management_board.id",
+        "e|uniqueness|public.management_board.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "management_board_member"
+      ],
+      "writes": [
+        "s|fk|public.management_board_member.management_board_member_U4uqycajnB47_fkey",
+        "n|fk|public.management_board_member.management_board_member_U4uqycajnB47_fkey",
+        "e|fk|public.management_board_member.management_board_member_U4uqycajnB47_fkey",
+        "n|con|public.management_board_member.management_board_member_U4uqycajnB47_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|tbl|public.authorized_representative",
+        "n|sch|public",
+        "n|col|public.management_board_member.representative_id",
+        "n|col|public.authorized_representative.id",
+        "e|uniqueness|public.authorized_representative.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "management_board_member"
+      ],
+      "writes": [
+        "s|fk|public.management_board_member.management_board_member_role_id_parameter_id_fkey",
+        "n|fk|public.management_board_member.management_board_member_role_id_parameter_id_fkey",
+        "e|fk|public.management_board_member.management_board_member_role_id_parameter_id_fkey",
+        "n|con|public.management_board_member.management_board_member_role_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.management_board_member.role_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "supervisory_board_member"
+      ],
+      "writes": [
+        "s|fk|public.supervisory_board_member.supervisory_board_member_group_id_supervisory_board_id_fkey",
+        "n|fk|public.supervisory_board_member.supervisory_board_member_group_id_supervisory_board_id_fkey",
+        "e|fk|public.supervisory_board_member.supervisory_board_member_group_id_supervisory_board_id_fkey",
+        "n|con|public.supervisory_board_member.supervisory_board_member_group_id_supervisory_board_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|tbl|public.supervisory_board",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.group_id",
+        "n|col|public.supervisory_board.id",
+        "e|uniqueness|public.supervisory_board.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "supervisory_board_member"
+      ],
+      "writes": [
+        "s|fk|public.supervisory_board_member.supervisory_board_member_VR4jv2rItHHf_fkey",
+        "n|fk|public.supervisory_board_member.supervisory_board_member_VR4jv2rItHHf_fkey",
+        "e|fk|public.supervisory_board_member.supervisory_board_member_VR4jv2rItHHf_fkey",
+        "n|con|public.supervisory_board_member.supervisory_board_member_VR4jv2rItHHf_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|tbl|public.authorized_representative",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.representative_id",
+        "n|col|public.authorized_representative.id",
+        "e|uniqueness|public.authorized_representative.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "supervisory_board_member"
+      ],
+      "writes": [
+        "s|fk|public.supervisory_board_member.supervisory_board_member_role_id_parameter_id_fkey",
+        "n|fk|public.supervisory_board_member.supervisory_board_member_role_id_parameter_id_fkey",
+        "e|fk|public.supervisory_board_member.supervisory_board_member_role_id_parameter_id_fkey",
+        "n|con|public.supervisory_board_member.supervisory_board_member_role_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.role_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "committee_member",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "committee",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "disciplinary_board_member",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "disciplinary_board",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "management_board_member",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "management_board",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "supervisory_board_member",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "supervisory_board",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "committee_member_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "group_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "representative_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "role_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "committee_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee",
+        "name": "name_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "disciplinary_board_member_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "group_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "representative_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "role_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "disciplinary_board_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board",
+        "name": "name_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "management_board_member_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "group_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "representative_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "role_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "management_board_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board",
+        "name": "name_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "supervisory_board_member_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "group_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "representative_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "role_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "supervisory_board_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board",
+        "name": "name_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_group_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "group_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_representative_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "representative_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_role_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "role_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_group_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "group_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_representative_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "representative_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_role_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "role_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_group_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "group_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_representative_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "representative_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_role_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "role_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_group_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "group_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_representative_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "representative_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_role_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "role_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_group_id_committee_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "group_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "committee",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_p5rmqB3xW1Vo_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "representative_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "authorized_representative",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_role_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "role_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_group_id_disciplinary_board_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "group_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "disciplinary_board",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_smDewAypnqY5_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "representative_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "authorized_representative",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_role_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "role_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_group_id_management_board_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "group_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "management_board",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_U4uqycajnB47_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "representative_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "authorized_representative",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_role_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "role_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_group_id_supervisory_board_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "group_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "supervisory_board",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_VR4jv2rItHHf_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "representative_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "authorized_representative",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_role_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "role_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee",
+        "name": "committee_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board",
+        "name": "disciplinary_board_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board",
+        "name": "management_board_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board",
+        "name": "supervisory_board_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee",
+        "name": "committee_name_key_unique",
+        "nameExplicit": true,
+        "columns": [
+          "name_key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board",
+        "name": "disciplinary_board_name_key_unique",
+        "nameExplicit": true,
+        "columns": [
+          "name_key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board",
+        "name": "management_board_name_key_unique",
+        "nameExplicit": true,
+        "columns": [
+          "name_key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board",
+        "name": "supervisory_board_name_key_unique",
+        "nameExplicit": true,
+        "columns": [
+          "name_key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    }
+  ]
+}
