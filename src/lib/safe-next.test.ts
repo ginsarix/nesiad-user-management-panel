@@ -24,6 +24,6 @@ describe("safeNextPath", () => {
     "/%2e//evil.com",
     "/a/..//evil.com",
   ])("falls back for %j", (next) => {
-    expect(safeNextPath(next)).toBe("/members");
+    expect(safeNextPath(next)).toBe("/");
   });
 });

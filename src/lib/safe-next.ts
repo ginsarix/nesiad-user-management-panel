@@ -7,10 +7,7 @@ const PLACEHOLDER_ORIGIN = "http://local.invalid";
  * Parsed the way a browser would, so tricks like "/\t/evil.com" (browsers
  * drop tabs and newlines) can't turn it into another site.
  */
-export function safeNextPath(
-  next: string | null | undefined,
-  fallback = "/members",
-) {
+export function safeNextPath(next: string | null | undefined, fallback = "/") {
   if (!next?.startsWith("/")) return fallback;
 
   try {

@@ -28,7 +28,7 @@ export function WelcomeForm({ name }: { name: string }) {
       form.setError("root", { message: authErrorMessage(error) });
       return;
     }
-    router.replace("/members");
+    router.replace("/");
   }
 
   return (

@@ -18,7 +18,7 @@ export default async function WelcomePage({
   const { available } = await auth.api.initialPasswordStatus({
     headers: await headers(),
   });
-  if (!available) redirect("/members");
+  if (!available) redirect("/");
 
   return <WelcomeForm name={session.user.name} />;
 }

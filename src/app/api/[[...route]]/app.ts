@@ -7,6 +7,7 @@ import { auditLogsRoute } from "./audit-logs";
 import { collectionsRoute } from "./collections";
 import { counterpartiesRoute } from "./counterparties";
 import { cronRoute } from "./cron";
+import { dashboardRoute } from "./dashboard";
 import { pgErrorCode } from "./db-errors";
 import type { AppEnv } from "./env";
 import { filesRoute } from "./files";
@@ -42,6 +43,7 @@ export const app = new Hono<AppEnv>()
   // the public membership application: unauthenticated, creates candidates only
   .route("/applications", applicationsRoute)
   .use(requireSession)
+  .route("/dashboard", dashboardRoute)
   .route("/members", membersRoute)
   .route("/sectors", sectorsRoute)
   .route("/parameters", parametersRoute)

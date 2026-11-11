@@ -33,4 +33,10 @@ describe("navigation", () => {
     expect(findActiveNavItem("/projects/4")?.title).toBe("Projeler");
     expect(findActiveNavItem("/members/1")?.title).toBe("Üyeler");
   });
+
+  it("shows Genel Bakış first, active only on the dashboard itself", () => {
+    expect(navGroups[0].items[0].title).toBe("Genel Bakış");
+    expect(findActiveNavItem("/")?.title).toBe("Genel Bakış");
+    expect(findActiveNavItem("/settings")?.title).toBe("Ayarlar");
+  });
 });

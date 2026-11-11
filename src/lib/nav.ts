@@ -5,6 +5,7 @@ import {
   FolderKanban,
   HandCoins,
   Landmark,
+  LayoutDashboard,
   type LucideIcon,
   MessageSquareText,
   ScrollText,
@@ -44,6 +45,7 @@ export function isNavParent(item: NavItem): item is NavParent {
 export const navGroups: NavGroup[] = [
   {
     items: [
+      { title: "Genel Bakış", href: "/", icon: LayoutDashboard },
       { title: "Üyeler", href: "/members", icon: Building2 },
       {
         title: "Yetkililer",
@@ -81,6 +83,8 @@ export const navGroups: NavGroup[] = [
 ];
 
 export function isNavItemActive(item: NavLink, pathname: string) {
+  // "/" is only the dashboard, not every page under it
+  if (item.href === "/") return pathname === "/";
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
