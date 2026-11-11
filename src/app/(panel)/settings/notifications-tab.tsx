@@ -24,6 +24,7 @@ import {
   updateNoticeSettings,
   updateSmsSettings,
 } from "@/lib/fetches/sms";
+import { useNavigationGuard } from "@/lib/navigation-guard";
 import { cn } from "@/lib/utils";
 import { noticeSettingsSchema } from "@/lib/zod-schemas/application-notices";
 import { collectionNoticeSettingsSchema } from "@/lib/zod-schemas/collection-notices";
@@ -125,7 +126,12 @@ const QUERY_KEYS: Record<GroupKey, string[]> = {
 };
 
 /** The Ayarlar page's Bildirimler tab: a side nav of groups and their channels */
-export function NotificationsTab() {
+export function NotificationsTab({
+  onReveal,
+}: {
+  /** Switches the Ayarlar page to this tab, e.g. to show the unsaved bar */
+  onReveal: () => void;
+}) {
   const celebrations = useQuery({
     queryKey: QUERY_KEYS.celebrations,
     queryFn: () => getSmsSettings(),
@@ -159,6 +165,7 @@ export function NotificationsTab() {
         collections: collections.data,
       }}
       dryRun={contacts?.dryRun ?? false}
+      onReveal={onReveal}
     />
   );
 }
@@ -172,6 +179,7 @@ type SaveState =
 function NotificationsEditor({
   saved,
   dryRun,
+  onReveal,
 }: {
   saved: {
     celebrations: SmsSettingsValues;
@@ -179,12 +187,16 @@ function NotificationsEditor({
     collections: Templates;
   };
   dryRun: boolean;
+  onReveal: () => void;
 }) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Section>("celebrations-sms");
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const bar = useRef<HTMLElement>(null);
+  // someone tried to leave the page; stays until saved or cancelled
+  const [leaveAttempted, setLeaveAttempted] = useState(false);
 
   const forms = {
     celebrations: useForm<SmsSettingsValues>({
@@ -222,13 +234,18 @@ function NotificationsEditor({
     };
   }
 
-  // the browser asks before a reload or closing the tab drops unsaved edits
-  useEffect(() => {
-    if (!hasChanges) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [hasChanges]);
+  useNavigationGuard(hasChanges, () => {
+    setLeaveAttempted(true);
+    onReveal();
+    // after the tab and bar are shown, or there is nothing to shake
+    requestAnimationFrame(() => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        return;
+      }
+      bar.current?.animate(SHAKE, { duration: 400, easing: "ease-in-out" });
+    });
+  });
+  const pointOutBar = leaveAttempted && hasChanges;
 
   useEffect(() => () => clearTimeout(savedTimer.current), []);
 
@@ -272,6 +289,7 @@ function NotificationsEditor({
       return;
     }
     setSaveState({ kind: "saved" });
+    setLeaveAttempted(false);
     savedTimer.current = setTimeout(() => setSaveState({ kind: "idle" }), 2500);
   }
 
@@ -326,6 +344,7 @@ function NotificationsEditor({
       (forms[key] as AnyForm).reset();
     }
     setSaveState({ kind: "idle" });
+    setLeaveAttempted(false);
     setConfirmDiscard(false);
   }
 
@@ -444,8 +463,12 @@ function NotificationsEditor({
 
       {barVisible && (
         <section
+          ref={bar}
           aria-label="Kaydedilmemiş değişiklikler"
-          className="fixed inset-x-4 bottom-4 z-40 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-3 shadow-lg animate-in fade-in-0 slide-in-from-bottom-4 sm:inset-x-auto sm:right-6 sm:bottom-6"
+          className={cn(
+            "fixed inset-x-4 bottom-4 z-40 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-3 shadow-lg transition-[border-color,box-shadow] animate-in fade-in-0 slide-in-from-bottom-4 sm:inset-x-auto sm:right-6 sm:bottom-6",
+            pointOutBar && "border-destructive ring-3 ring-destructive/20",
+          )}
         >
           <div aria-live="polite" className="mr-auto text-sm">
             {saveState.kind === "saved" && !hasChanges ? (
@@ -456,6 +479,11 @@ function NotificationsEditor({
             ) : saveState.kind === "failed" ? (
               <span className="text-destructive">
                 Kaydedilemedi. {saveState.message}
+              </span>
+            ) : pointOutBar ? (
+              <span className="text-destructive">
+                Sayfadan ayrılmadan önce değişiklikleri kaydedin ya da iptal
+                edin.
               </span>
             ) : (
               "Kaydedilmemiş değişiklikler var"
@@ -501,6 +529,16 @@ function NotificationsEditor({
     </form>
   );
 }
+
+/** A light side-to-side shake for the bar when leaving is stopped */
+const SHAKE: Keyframe[] = [
+  { transform: "translateX(0)" },
+  { transform: "translateX(-6px)" },
+  { transform: "translateX(6px)" },
+  { transform: "translateX(-4px)" },
+  { transform: "translateX(4px)" },
+  { transform: "translateX(0)" },
+];
 
 /** The three forms differ only in field types; this is what saving needs */
 type AnyForm = UseFormReturn<FieldValues>;

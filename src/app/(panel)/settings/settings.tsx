@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnVisibilityState } from "@tanstack/react-table";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NotificationsTab } from "./notifications-tab";
 import { ParameterList } from "./parameter-list";
@@ -15,26 +15,27 @@ export function Settings({
   initialTab: SettingsTab;
   savedSectorColumnVisibility: ColumnVisibilityState;
 }) {
+  const [tab, setTab] = useState(initialTab);
+
+  function showTab(value: unknown) {
+    const next = parseSettingsTab(value);
+    setTab(next);
+    // so a reload or a shared link opens the same tab
+    const url = new URL(window.location.href);
+    if (next === "parameters") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    history.replaceState(history.state, "", url);
+  }
+
   return (
-    <Tabs
-      defaultValue={initialTab}
-      onValueChange={(value) => {
-        // so a reload or a shared link opens the same tab
-        const url = new URL(window.location.href);
-        const tab = parseSettingsTab(value);
-        if (tab === "parameters") url.searchParams.delete("tab");
-        else url.searchParams.set("tab", tab);
-        history.replaceState(history.state, "", url);
-      }}
-      className="flex flex-col gap-3"
-    >
+    <Tabs value={tab} onValueChange={showTab} className="flex flex-col gap-3">
       <TabsList>
         <TabsTrigger value="parameters">Parametreler</TabsTrigger>
         <TabsTrigger value="notifications">Bildirimler</TabsTrigger>
       </TabsList>
       {/* kept mounted so unsaved template edits survive a tab switch */}
       <TabsContent value="notifications" keepMounted className="max-w-6xl pt-3">
-        <NotificationsTab />
+        <NotificationsTab onReveal={() => showTab("notifications")} />
       </TabsContent>
       <TabsContent
         value="parameters"

@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { authClient } from "@/lib/auth-client";
 import { findActiveNavItem } from "@/lib/nav";
+import { navigationBlocked } from "@/lib/navigation-guard";
 
 export function AppHeader({ user }: { user: { name: string; email: string } }) {
   const pathname = usePathname();
@@ -43,6 +44,8 @@ function UserMenu({ user }: { user: { name: string; email: string } }) {
   const [changingPassword, setChangingPassword] = useState(false);
 
   async function signOut() {
+    // a page with unsaved changes asks for them to be saved first
+    if (navigationBlocked()) return;
     await authClient.signOut();
     queryClient.clear();
     router.replace("/login");
