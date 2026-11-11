@@ -3,7 +3,10 @@ import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
+  authorizedRepresentativeTable,
   collectionTable,
+  committeeMemberTable,
+  committeeTable,
   counterpartyTable,
   memberTable,
   parameterTable,
@@ -15,7 +18,20 @@ const createdIds: number[] = [];
 const counterpartyIds: number[] = [];
 const memberIds: number[] = [];
 
+const committeeIds: number[] = [];
+const representativeIds: number[] = [];
+
 afterAll(async () => {
+  if (committeeIds.length) {
+    await db
+      .delete(committeeTable)
+      .where(inArray(committeeTable.id, committeeIds));
+  }
+  if (representativeIds.length) {
+    await db
+      .delete(authorizedRepresentativeTable)
+      .where(inArray(authorizedRepresentativeTable.id, representativeIds));
+  }
   if (memberIds.length) {
     await db
       .delete(collectionTable)
@@ -324,6 +340,41 @@ describe("DELETE /api/parameters/:id", () => {
       { label: "Liste", value: "Tahsilat Türü" },
       { label: "Ad", value: `__test__ Giriş Ücreti ${suffix}` },
     ]);
+  });
+
+  it("refuses to delete a Dernek Görevi a group uses", async () => {
+    const { body } = await createParameter(
+      "association_role",
+      `__test__ Sayman Görevi ${suffix}`,
+    );
+    const [representative] = await db
+      .insert(authorizedRepresentativeTable)
+      .values({ name: `__test__ Görevli ${suffix}` })
+      .returning({ id: authorizedRepresentativeTable.id });
+    representativeIds.push(representative.id);
+    const groupName = `__test__ Görevli Komite ${suffix}`;
+    const [group] = await db
+      .insert(committeeTable)
+      .values({ name: groupName, nameKey: groupName.toLocaleLowerCase("tr") })
+      .returning({ id: committeeTable.id });
+    committeeIds.push(group.id);
+    await db.insert(committeeMemberTable).values({
+      groupId: group.id,
+      representativeId: representative.id,
+      roleId: body.id,
+      position: 0,
+    });
+
+    const listed = (await listParameters()).find((p) => p.id === body.id);
+    expect(listed?.usageCount).toBe(1);
+
+    const res = await parametersRoute.request(`/${body.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "Bu kayıt 1 organizasyon kaydında kullanılıyor, silinemez.",
+    });
   });
 
   it("returns 404 for an unknown entry", async () => {

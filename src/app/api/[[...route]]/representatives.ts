@@ -23,6 +23,10 @@ import {
 } from "@/lib/zod-schemas/authorized-representative";
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import {
+  representativeOrganizationsText,
+  selectRepresentativeOrganizations,
+} from "./organization-queries";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 const MISSING_MEMBER_ERROR = "Seçilen üye bulunamadı";
@@ -174,11 +178,15 @@ export const representativesRoute = new Hono<AppEnv>()
 
       if (!representative) return c.json({ error: "Yetkili bulunamadı" }, 404);
 
-      const members = (await selectLinkedMembers(id))
+      const [links, organizations] = await Promise.all([
+        selectLinkedMembers(id),
+        selectRepresentativeOrganizations(id),
+      ]);
+      const members = links
         .map(({ representativeId: _, ...member }) => member)
         .sort(byTitle);
 
-      return c.json({ ...representative, members }, 200);
+      return c.json({ ...representative, members, organizations }, 200);
     },
   )
   .post(
@@ -305,8 +313,10 @@ export const representativesRoute = new Hono<AppEnv>()
           .where(eq(authorizedRepresentativeTable.id, id));
         if (!representative) return null;
 
-        // the foreign keys remove its member links, so name them now
+        // the foreign keys remove its member links and group rows, so
+        // name them now
         const members = await linkedMembersText(tx, id);
+        const organizations = await representativeOrganizationsText(tx, id);
 
         await tx
           .delete(authorizedRepresentativeTable)
@@ -320,6 +330,7 @@ export const representativesRoute = new Hono<AppEnv>()
           details: [
             ...describeFields(representativeAuditSpec, representative),
             { label: "Bağlı Üyeler", value: members },
+            { label: "Organizasyonlar", value: organizations },
           ],
         });
         return representative;

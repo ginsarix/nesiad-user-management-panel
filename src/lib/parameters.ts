@@ -22,3 +22,19 @@ export const PARAMETER_KIND_LABELS: Record<ParameterKind, string> = {
   payment_method: "Ödeme Tipi",
   association_role: "Dernek Görevi",
 };
+
+/**
+ * What a list's entries are used by, for "Bu kayıt 3 ödemede kullanılıyor"
+ * and "bu ödemelerin … alanını değiştirin". Each kind is used by one feature.
+ */
+export function parameterUsageNouns(kind: ParameterKind) {
+  if (kind === "association_role") {
+    return {
+      locative: "organizasyon kaydında",
+      genitivePlural: "organizasyon kayıtlarının",
+    };
+  }
+  return kind.startsWith("payment_")
+    ? { locative: "ödemede", genitivePlural: "ödemelerin" }
+    : { locative: "tahsilatta", genitivePlural: "tahsilatların" };
+}

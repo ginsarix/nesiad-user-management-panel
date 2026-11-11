@@ -1,15 +1,40 @@
-import { inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { authorizedRepresentativeTable, memberTable } from "@/db/schema";
+import {
+  auditLogTable,
+  authorizedRepresentativeTable,
+  committeeMemberTable,
+  committeeTable,
+  memberTable,
+  parameterTable,
+  supervisoryBoardTable,
+} from "@/db/schema";
 import type { MemberStatus } from "@/lib/member-status";
 import { membersRoute } from "./members";
+import { organizationsRoute } from "./organizations";
 import { representativesRoute } from "./representatives";
 
 const createdRepresentativeIds: number[] = [];
 const createdMemberIds: number[] = [];
+const committeeIds: number[] = [];
+const supervisoryBoardIds: number[] = [];
+const parameterIds: number[] = [];
+
+// group and parameter names are unique; keep them apart from parallel runs
+const suffix = crypto.randomUUID().slice(0, 8);
 
 afterAll(async () => {
+  if (committeeIds.length) {
+    await db
+      .delete(committeeTable)
+      .where(inArray(committeeTable.id, committeeIds));
+  }
+  if (supervisoryBoardIds.length) {
+    await db
+      .delete(supervisoryBoardTable)
+      .where(inArray(supervisoryBoardTable.id, supervisoryBoardIds));
+  }
   if (createdRepresentativeIds.length) {
     await db
       .delete(authorizedRepresentativeTable)
@@ -22,7 +47,40 @@ afterAll(async () => {
       .delete(memberTable)
       .where(inArray(memberTable.id, createdMemberIds));
   }
+  if (parameterIds.length) {
+    await db
+      .delete(parameterTable)
+      .where(inArray(parameterTable.id, parameterIds));
+  }
 });
+
+async function createRole(name: string) {
+  const [role] = await db
+    .insert(parameterTable)
+    .values({
+      kind: "association_role",
+      name,
+      nameKey: name.toLocaleLowerCase("tr"),
+    })
+    .returning({ id: parameterTable.id, name: parameterTable.name });
+  parameterIds.push(role.id);
+  return role;
+}
+
+async function createGroup(
+  slug: "committees" | "supervisory-boards",
+  name: string,
+  people: { representativeId: number; roleId: number }[],
+) {
+  const res = await organizationsRoute.request(
+    `/${slug}`,
+    json("POST", { name, people }),
+  );
+  expect(res.status).toBe(201);
+  const { id } = (await res.json()) as { id: number };
+  (slug === "committees" ? committeeIds : supervisoryBoardIds).push(id);
+  return id;
+}
 
 function json(method: string, body: unknown) {
   return {
@@ -266,5 +324,85 @@ describe("DELETE /api/representatives/:id", () => {
       method: "DELETE",
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("yetkili and Organizasyon", () => {
+  it("lists each group row on the yetkili", async () => {
+    const { body: created } = await createRepresentative({
+      name: `__test__ Kurullu ${suffix}`,
+    });
+    const baskan = await createRole(`__test__ Başkan ${suffix}`);
+    const uye = await createRole(`__test__ Üye ${suffix}`);
+
+    const boardName = `__test__ Denetim ${suffix}`;
+    const committeeName = `__test__ Komite ${suffix}`;
+    const boardId = await createGroup("supervisory-boards", boardName, [
+      { representativeId: created.id, roleId: uye.id },
+    ]);
+    const committeeId = await createGroup("committees", committeeName, [
+      { representativeId: created.id, roleId: baskan.id },
+      { representativeId: created.id, roleId: uye.id },
+    ]);
+
+    const { body } = await getRepresentative(created.id);
+    expect(body.organizations).toEqual([
+      {
+        organization: "committee",
+        groupId: committeeId,
+        groupName: committeeName,
+        role: baskan.name,
+      },
+      {
+        organization: "committee",
+        groupId: committeeId,
+        groupName: committeeName,
+        role: uye.name,
+      },
+      {
+        organization: "supervisory_board",
+        groupId: boardId,
+        groupName: boardName,
+        role: uye.name,
+      },
+    ]);
+  });
+
+  it("removes a deleted yetkili from groups and names them", async () => {
+    const { body: created } = await createRepresentative({
+      name: `__test__ Silinecek ${suffix}`,
+    });
+    const role = await createRole(`__test__ Sekreter ${suffix}`);
+    const groupName = `__test__ Silinenli ${suffix}`;
+    const groupId = await createGroup("committees", groupName, [
+      { representativeId: created.id, roleId: role.id },
+    ]);
+
+    const res = await representativesRoute.request(`/${created.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(200);
+
+    const rows = await db
+      .select()
+      .from(committeeMemberTable)
+      .where(eq(committeeMemberTable.groupId, groupId));
+    expect(rows).toEqual([]);
+
+    const [entry] = await db
+      .select()
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "representative"),
+          eq(auditLogTable.action, "delete"),
+          eq(auditLogTable.entityId, String(created.id)),
+        ),
+      )
+      .orderBy(desc(auditLogTable.id));
+    expect(entry.details).toContainEqual({
+      label: "Organizasyonlar",
+      value: `Komiteler › ${groupName}: ${role.name}`,
+    });
   });
 });

@@ -5,7 +5,11 @@ import { db, type Executor } from "@/db";
 import { collectionTable, parameterTable, paymentTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
-import { PARAMETER_KIND_LABELS, type ParameterKind } from "@/lib/parameters";
+import {
+  PARAMETER_KIND_LABELS,
+  type ParameterKind,
+  parameterUsageNouns,
+} from "@/lib/parameters";
 import { compareTr } from "@/lib/turkish";
 import {
   createParameterSchema,
@@ -17,6 +21,10 @@ import {
   UNIQUE_VIOLATION,
 } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import {
+  countOrganizationRoleUsage,
+  organizationRoleUsageSql,
+} from "./organization-queries";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 const DUPLICATE_NAME_ERROR = "Bu listede aynı isimde bir kayıt zaten var";
@@ -39,19 +47,19 @@ function collectionsUsing(id: typeof parameterTable.id | number) {
   );
 }
 
-/** How many payments and tahsilatlar use the entry */
+/** How many payments, tahsilatlar and Organizasyon rows use the entry */
 async function usageOf(executor: Executor, id: number) {
-  const [payments, collections] = await Promise.all([
+  const [payments, collections, organizationRows] = await Promise.all([
     executor.$count(paymentTable, paymentsUsing(id)),
     executor.$count(collectionTable, collectionsUsing(id)),
+    countOrganizationRoleUsage(executor, id),
   ]);
-  return payments + collections;
+  return payments + collections + organizationRows;
 }
 
 /** null when a concurrent record made the count unknown */
 function inUseError(kind: ParameterKind, usageCount: number | null) {
-  // each kind is used by one feature only
-  const noun = kind.startsWith("payment_") ? "ödemede" : "tahsilatta";
+  const noun = parameterUsageNouns(kind).locative;
   return usageCount
     ? `Bu kayıt ${usageCount} ${noun} kullanılıyor, silinemez.`
     : `Bu kayıt ${noun} kullanılıyor, silinemez.`;
@@ -73,6 +81,7 @@ export const parametersRoute = new Hono<AppEnv>()
         usageCount: sql<number>`(
           (select count(*) from ${paymentTable} where ${paymentsUsing(parameterTable.id)})
           + (select count(*) from ${collectionTable} where ${collectionsUsing(parameterTable.id)})
+          + ${organizationRoleUsageSql(parameterTable.id)}
         )::int`,
       })
       .from(parameterTable);
@@ -176,8 +185,8 @@ export const parametersRoute = new Hono<AppEnv>()
 
       const result = await db
         .transaction(async (tx) => {
-          // payments and tahsilatlar keep their tür and tip: refuse while
-          // any uses it
+          // payments, tahsilatlar and Organizasyon rows keep their entry:
+          // refuse while any uses it
           const usageCount = await usageOf(tx, id);
           if (usageCount > 0) return { usageCount };
 
