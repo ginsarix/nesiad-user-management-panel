@@ -6,24 +6,18 @@ import {
   columnVisibilityFeature,
   createColumnHelper,
   createSortedRowModel,
-  rowExpandingFeature,
   rowSortingFeature,
   type SortFn,
   type SortingState,
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { ArrowRight, ChevronRight, Plus, SearchIcon } from "lucide-react";
+import { Plus, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ColumnToggle } from "@/components/column-toggle";
-import {
-  formatDate,
-  InfoFields,
-  orDash,
-  StatusTag,
-} from "@/components/info-fields";
+import { formatDate, orDash, StatusTag } from "@/components/info-fields";
 import { SortableTableHeader } from "@/components/sortable-table-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,18 +36,12 @@ import { getSectors, type Sector } from "@/lib/fetches/sector";
 import { rememberListSearch } from "@/lib/list-href";
 import type { MemberStatus } from "@/lib/member-status";
 import { compareTr, foldTr } from "@/lib/turkish";
-import { cn } from "@/lib/utils";
-import {
-  MemberAvatar,
-  RepresentativeList,
-  SeniorityBadge,
-} from "./_components/member-info";
+import { MemberAvatar, SeniorityBadge } from "./_components/member-info";
 
 const features = tableFeatures({
   columnVisibilityFeature,
   rowSortingFeature,
   sortedRowModel: createSortedRowModel(),
-  rowExpandingFeature,
 });
 
 const sortTr: SortFn<typeof features, MemberListItem> = (a, b, columnId) =>
@@ -81,26 +69,16 @@ const columns = helper.columns([
     enableHiding: false,
     sortFn: sortTr,
     cell: ({ row }) => (
-      <button
-        type="button"
-        aria-expanded={row.getIsExpanded()}
-        onClick={(event) => {
-          // the row itself also toggles on click
-          event.stopPropagation();
-          row.toggleExpanded();
-        }}
-        className="flex items-center gap-2 text-left font-medium outline-none focus-visible:underline"
-      >
-        <ChevronRight
-          className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform",
-            row.getIsExpanded() && "rotate-90",
-          )}
-        />
+      <span className="flex items-center gap-2">
         <MemberAvatar title={row.original.title} logo={row.original.logo} />
-        {row.original.title}
+        <Link
+          href={`/members/${row.original.id}`}
+          className="font-medium text-primary hover:underline"
+        >
+          {row.original.title}
+        </Link>
         <StatusTag status={row.original.status} />
-      </button>
+      </span>
     ),
   }),
   helper.accessor(
@@ -392,7 +370,6 @@ export function Members({
     columns,
     data: filteredMembers,
     getRowId: (member) => String(member.id),
-    getRowCanExpand: () => true,
     state: {
       sorting,
       columnVisibility: applicationView
@@ -470,29 +447,13 @@ export function Members({
           <SortableTableHeader headerGroups={table.getHeaderGroups()} />
           <TableBody>
             {rows.map((row) => (
-              <Fragment key={row.id}>
-                <TableRow
-                  onClick={() => row.toggleExpanded()}
-                  data-state={row.getIsExpanded() ? "selected" : undefined}
-                  className="cursor-pointer"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      <table.FlexRender cell={cell} />
-                    </TableCell>
-                  ))}
-                </TableRow>
-                {row.getIsExpanded() && (
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableCell
-                      colSpan={columnCount}
-                      className="whitespace-normal"
-                    >
-                      <MemberSummary member={row.original} />
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    <table.FlexRender cell={cell} />
+                  </TableCell>
+                ))}
+              </TableRow>
             ))}
 
             {rows.length === 0 && (
@@ -512,33 +473,6 @@ export function Members({
           </TableBody>
         </Table>
       </div>
-    </div>
-  );
-}
-
-function MemberSummary({ member }: { member: MemberListItem }) {
-  return (
-    <div className="flex flex-wrap items-start gap-x-12 gap-y-4 py-2 pl-8">
-      <InfoFields
-        fields={[
-          { label: "Adres", value: member.address },
-          { label: "Kuruluş Tarihi", value: formatDate(member.foundingDate) },
-        ]}
-      />
-      <div className="min-w-64">
-        <div className="mb-2 text-sm text-muted-foreground">Yetkililer</div>
-        <RepresentativeList representatives={member.representatives} />
-      </div>
-      <Link
-        href={`/members/${member.id}`}
-        className={cn(
-          buttonVariants({ variant: "outline", size: "sm" }),
-          "ml-auto self-end",
-        )}
-      >
-        Tüm detaylar
-        <ArrowRight />
-      </Link>
     </div>
   );
 }
