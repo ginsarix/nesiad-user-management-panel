@@ -1,6 +1,8 @@
 import {
   BookUser,
+  Briefcase,
   Building2,
+  ClipboardCheck,
   Coins,
   FolderKanban,
   HandCoins,
@@ -8,12 +10,21 @@ import {
   LayoutDashboard,
   type LucideIcon,
   MessageSquareText,
+  Network,
+  Scale,
   ScrollText,
   Settings,
   UserCheck,
   UserCog,
+  UsersRound,
   Wallet,
 } from "lucide-react";
+import {
+  ORGANIZATION_INFO,
+  ORGANIZATIONS,
+  type Organization,
+  organizationHref,
+} from "./organizations";
 
 /** A page in the sidebar */
 export type NavLink = {
@@ -42,6 +53,13 @@ export function isNavParent(item: NavItem): item is NavParent {
   return "children" in item;
 }
 
+const ORGANIZATION_ICONS: Record<Organization, LucideIcon> = {
+  management_board: Briefcase,
+  committee: UsersRound,
+  disciplinary_board: Scale,
+  supervisory_board: ClipboardCheck,
+};
+
 export const navGroups: NavGroup[] = [
   {
     items: [
@@ -51,6 +69,15 @@ export const navGroups: NavGroup[] = [
         title: "Yetkililer",
         href: "/representatives",
         icon: UserCheck,
+      },
+      {
+        title: "Organizasyon",
+        icon: Network,
+        children: ORGANIZATIONS.map((organization) => ({
+          title: ORGANIZATION_INFO[organization].title,
+          href: organizationHref(organization),
+          icon: ORGANIZATION_ICONS[organization],
+        })),
       },
       { title: "SMS", href: "/sms", icon: MessageSquareText },
       {

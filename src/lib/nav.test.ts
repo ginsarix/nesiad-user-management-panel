@@ -1,7 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { findActiveNavItem, isNavParent, navGroups } from "./nav";
+import {
+  findActiveNavItem,
+  isNavParent,
+  isNavParentActive,
+  navGroups,
+} from "./nav";
 
 describe("navigation", () => {
+  it("finds Organizasyon pages under their parent, right after Yetkililer", () => {
+    const items = navGroups[0].items;
+    const index = items.findIndex((item) => item.title === "Organizasyon");
+    expect(items[index - 1]?.title).toBe("Yetkililer");
+
+    const organization = items[index];
+    if (!organization || !isNavParent(organization)) {
+      throw new Error("Organizasyon is not a parent item");
+    }
+    expect(organization.children.map((child) => child.title)).toEqual([
+      "Yönetimler",
+      "Komiteler",
+      "Disiplin Kurulu",
+      "Denetim Kurulu",
+    ]);
+
+    const path = "/organization/committees/12/edit";
+    expect(findActiveNavItem(path)?.title).toBe("Komiteler");
+    expect(isNavParentActive(organization, path)).toBe(true);
+  });
+
   it("puts Ödemeler, Cariler, Tahsilatlar and Projeler under Finans", () => {
     const finans = navGroups
       .flatMap((group) => group.items)
