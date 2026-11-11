@@ -3,6 +3,10 @@ import type { AuditEntityTypeFilter } from "./audit-filters";
 export const ENTITY_TYPE_LABELS: Record<AuditEntityTypeFilter, string> = {
   member: "Üyeler",
   representative: "Yetkililer",
+  management_board: "Yönetimler",
+  committee: "Komiteler",
+  disciplinary_board: "Disiplin Kurulu",
+  supervisory_board: "Denetim Kurulu",
   sector: "Sektörler",
   parameter: "Parametreler",
   counterparty: "Cariler",
@@ -29,6 +33,26 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     create: "Yetkili eklendi",
     update: "Yetkili güncellendi",
     delete: "Yetkili silindi",
+  },
+  management_board: {
+    create: "Yönetim eklendi",
+    update: "Yönetim güncellendi",
+    delete: "Yönetim silindi",
+  },
+  committee: {
+    create: "Komite eklendi",
+    update: "Komite güncellendi",
+    delete: "Komite silindi",
+  },
+  disciplinary_board: {
+    create: "Disiplin Kurulu eklendi",
+    update: "Disiplin Kurulu güncellendi",
+    delete: "Disiplin Kurulu silindi",
+  },
+  supervisory_board: {
+    create: "Denetim Kurulu eklendi",
+    update: "Denetim Kurulu güncellendi",
+    delete: "Denetim Kurulu silindi",
   },
   sector: {
     create: "Sektör eklendi",

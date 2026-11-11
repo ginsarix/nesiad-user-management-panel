@@ -1,6 +1,7 @@
 import type { db } from "@/db";
 import type { AuditChange, AuditField } from "@/db/schema";
 import { auditLogTable } from "@/db/schema";
+import type { Organization } from "./organizations";
 
 /** Who did it; null is the system (seed, scripts) or an unknown visitor */
 export type AuditActor = { id: string; name: string; email: string } | null;
@@ -8,6 +9,7 @@ export type AuditActor = { id: string; name: string; email: string } | null;
 export type AuditEntityType =
   | "member"
   | "representative"
+  | Organization
   | "sector"
   | "parameter"
   | "counterparty"

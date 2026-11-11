@@ -12,6 +12,7 @@ import { pgErrorCode } from "./db-errors";
 import type { AppEnv } from "./env";
 import { filesRoute } from "./files";
 import { membersRoute } from "./members";
+import { organizationsRoute } from "./organizations";
 import { panelUsersRoute } from "./panel-users";
 import { parametersRoute } from "./parameters";
 import { paymentsRoute } from "./payments";
@@ -52,6 +53,7 @@ export const app = new Hono<AppEnv>()
   .route("/projects", projectsRoute)
   .route("/collections", collectionsRoute)
   .route("/representatives", representativesRoute)
+  .route("/organizations", organizationsRoute)
   .route("/panel-users", panelUsersRoute)
   .route("/audit-logs", auditLogsRoute)
   .route("/sms", smsRoute)
