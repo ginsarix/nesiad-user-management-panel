@@ -41,11 +41,11 @@ export const DEFAULT_NOTICE_TEMPLATES = {
 /** What a tahsilat notice can contain */
 export const COLLECTION_NOTICE_PLACEHOLDERS = {
   uye: "üyenin unvanı",
-  tutar: "tutar, ör. ₺1.250,00",
+  tutar: "tutar, ör. 1.250,00 TL",
   tarih: "tahsilat tarihi",
   tur: "tahsilat türü",
   tip: "tahsilat tipi",
-  proje: "proje (yoksa —)",
+  proje: "proje (yoksa -)",
 } as const;
 
 /** The tahsilat notice texts shipped before staff edit them (Ayarlar page, Bildirimler tab) */

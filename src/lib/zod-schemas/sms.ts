@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseIsoDate } from "../dates";
+import { unsupportedSmsCharactersError } from "../sms/gsm";
 import { TEMPLATE_PLACEHOLDERS, unknownPlaceholders } from "../sms/templates";
 
 /** NetGSM's limit for a message with Turkish characters (encoding "TR") */
@@ -9,7 +10,14 @@ export const smsMessageSchema = z
   .string()
   .trim()
   .min(1, "Mesaj yazın")
-  .max(SMS_MAX_LENGTH, `Mesaj en fazla ${SMS_MAX_LENGTH} karakter olabilir`);
+  .max(SMS_MAX_LENGTH, `Mesaj en fazla ${SMS_MAX_LENGTH} karakter olabilir`)
+  .superRefine(refuseUnsupportedSmsCharacters);
+
+/** Refuses characters NetGSM would deliver as "?" */
+function refuseUnsupportedSmsCharacters(value: string, ctx: z.RefinementCtx) {
+  const message = unsupportedSmsCharactersError(value);
+  if (message) ctx.addIssue({ code: "custom", message });
+}
 
 const idsSchema = z.array(z.number().int().positive());
 
@@ -42,10 +50,11 @@ export const TEMPLATE_MAX_LENGTH = 700;
 
 /**
  * Text that may contain placeholders; refuses any not in `known`.
- * `allowed` is how the error lists them, e.g. "{ad}, {yil}".
+ * `allowed` is how the error lists them, e.g. "{ad}, {yil}". An `sms`
+ * template also refuses characters an SMS can't carry.
  */
 export function templateText(
-  { name, max }: { name: string; max: number },
+  { name, max, sms = false }: { name: string; max: number; sms?: boolean },
   known: Record<string, unknown>,
   allowed: string,
 ) {
@@ -62,11 +71,12 @@ export function templateText(
           message: `Tanınmayan alan: ${unknown.join(", ")}. Kullanılabilenler: ${allowed}`,
         });
       }
+      if (sms) refuseUnsupportedSmsCharacters(value, ctx);
     });
 }
 
 const templateSchema = templateText(
-  { name: "Mesaj", max: TEMPLATE_MAX_LENGTH },
+  { name: "Mesaj", max: TEMPLATE_MAX_LENGTH, sms: true },
   TEMPLATE_PLACEHOLDERS,
   "{ad}, {yil}",
 );

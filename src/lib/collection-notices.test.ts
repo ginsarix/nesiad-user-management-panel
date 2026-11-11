@@ -104,11 +104,11 @@ describe("sendCollectionNotices", () => {
     const settings = await getCollectionNoticeSettings();
     const values = {
       uye: `__test__ Üye ${suffix}`,
-      tutar: "₺1.250,50",
+      tutar: "1.250,50 TL",
       tarih: "01.11.2026",
       tur: "Aidat",
       tip: "Kart",
-      proje: "—",
+      proje: "-",
     };
 
     const result = await sendCollectionNotices(collection(), actor);
@@ -139,7 +139,7 @@ describe("sendCollectionNotices", () => {
 
     const staffValues = {
       uye: `__test__ Üye ${suffix}`,
-      tutar: "₺1.250,50",
+      tutar: "1.250,50 TL",
       tarih: "01.11.2026",
       tur: "Aidat",
       tip: "Kart",

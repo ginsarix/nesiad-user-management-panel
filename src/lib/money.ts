@@ -37,6 +37,14 @@ export function formatAmount(amount: string | number) {
   return currencyFormat.format(Number(amount));
 }
 
+/**
+ * "1250.5" → "1.250,50 TL", for notices. SMS go out in the GSM Turkish
+ * character set, which has no "₺" (it arrives as "?").
+ */
+export function formatAmountText(amount: string | number) {
+  return `${inputFormat.format(Number(amount))} TL`;
+}
+
 /** "1250.50" → "1.250,50", how the amount input shows a saved amount */
 export function amountToInput(amount: string) {
   return inputFormat.format(Number(amount));

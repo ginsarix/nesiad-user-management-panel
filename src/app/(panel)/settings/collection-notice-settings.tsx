@@ -6,7 +6,7 @@ export const COLLECTION_NOTICES: NoticeGroup = {
   placeholders: COLLECTION_NOTICE_PLACEHOLDERS,
   sample: {
     uye: "Kapadokya Gıda A.Ş.",
-    tutar: "₺1.250,00",
+    tutar: "1.250,00 TL",
     tarih: "10.11.2026",
     tur: "Aidat",
     tip: "Kart",

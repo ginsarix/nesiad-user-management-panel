@@ -5,7 +5,7 @@ import { TEMPLATE_MAX_LENGTH, templateText } from "./sms";
 const ALLOWED = "{ad}, {firma}";
 const sms = () =>
   templateText(
-    { name: "Mesaj", max: TEMPLATE_MAX_LENGTH },
+    { name: "Mesaj", max: TEMPLATE_MAX_LENGTH, sms: true },
     NOTICE_PLACEHOLDERS,
     ALLOWED,
   );

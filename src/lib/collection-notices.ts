@@ -9,7 +9,7 @@ import {
 } from "./application-notices";
 import { getCollectionNoticeSettings } from "./collection-notice-settings";
 import { isoToDisplay } from "./dates";
-import { formatAmount } from "./money";
+import { formatAmountText } from "./money";
 import { projectLabel } from "./projects";
 import { fillTemplate } from "./sms/templates";
 
@@ -69,7 +69,7 @@ export async function sendCollectionNotices(
 
   const values = {
     uye: collection.memberTitle,
-    tutar: formatAmount(collection.amount),
+    tutar: formatAmountText(collection.amount),
     tarih: isoToDisplay(collection.date),
     tur: collection.categoryName,
     tip: collection.methodName,
@@ -79,7 +79,8 @@ export async function sendCollectionNotices(
             name: collection.projectName,
             number: collection.projectNumber,
           })
-        : "—",
+        : // "—" would reach phones as "?"
+          "-",
   };
   const fill = (template: string) => fillTemplate(template, values);
 

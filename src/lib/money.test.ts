@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { amountToInput, formatAmount, parseAmountInput } from "./money";
+import {
+  amountToInput,
+  formatAmount,
+  formatAmountText,
+  parseAmountInput,
+} from "./money";
 
 describe("parseAmountInput", () => {
   it.each([
@@ -34,6 +39,14 @@ describe("formatAmount", () => {
     expect(formatAmount("1250.5")).toBe("₺1.250,50");
     expect(formatAmount("0.3")).toBe("₺0,30");
     expect(formatAmount(1234567.891)).toBe("₺1.234.567,89");
+  });
+});
+
+describe("formatAmountText", () => {
+  it("writes TL instead of the ₺ sign, which SMS can't carry", () => {
+    expect(formatAmountText("1250.5")).toBe("1.250,50 TL");
+    expect(formatAmountText("0.3")).toBe("0,30 TL");
+    expect(formatAmountText(1234567.891)).toBe("1.234.567,89 TL");
   });
 });
 
