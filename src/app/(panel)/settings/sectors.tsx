@@ -43,6 +43,13 @@ const helper = createColumnHelper<typeof features, Sector>();
 const DEFAULT_COLUMN_VISIBILITY = {};
 const DEFAULT_SORTING: SortingState = [{ id: "name", desc: false }];
 
+// names get a fixed width (longer ones still widen it) so the member count
+// sits next to them; the actions column shrinks to its buttons
+const COLUMN_WIDTHS: Record<string, string> = {
+  name: "w-72",
+  actions: "w-px",
+};
+
 const emptySectors: Sector[] = [];
 
 export function Sectors({
@@ -165,6 +172,11 @@ export function Sectors({
 
       <div className="overflow-hidden rounded-lg border bg-card [&_[data-slot=table-container]]:max-h-[min(calc(100svh-14.5rem),28rem)]">
         <Table>
+          <colgroup>
+            {table.getVisibleLeafColumns().map((column) => (
+              <col key={column.id} className={COLUMN_WIDTHS[column.id]} />
+            ))}
+          </colgroup>
           <SortableTableHeader headerGroups={table.getHeaderGroups()} />
           <TableBody>
             {rows.map((row) => (
