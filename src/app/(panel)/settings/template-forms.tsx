@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   type FieldError as FormFieldError,
   type UseFormRegisterReturn,
@@ -11,14 +11,14 @@ import {
 } from "react-hook-form";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { fillTemplate } from "@/lib/sms/templates";
 import { cn } from "@/lib/utils";
 import { SMS_MAX_LENGTH } from "@/lib/zod-schemas/sms";
@@ -155,6 +155,7 @@ function SmsTemplateField({
       id={`template-${template.name}`}
       label={template.label}
       registration={form.register(template.name)}
+      setValue={(next) => setTemplate(form, template.name, next)}
       value={value ?? ""}
       error={form.formState.errors[template.name]}
       placeholders={placeholders}
@@ -168,6 +169,7 @@ export function SmsTemplateRow({
   id,
   label,
   registration,
+  setValue,
   value,
   error,
   placeholders,
@@ -176,11 +178,15 @@ export function SmsTemplateRow({
   id: string;
   label: string;
   registration: UseFormRegisterReturn;
+  /** Sets the field's value as if typed, for the placeholder buttons */
+  setValue: (value: string) => void;
   value: string;
   error: FormFieldError | undefined;
   placeholders: Record<string, string>;
   sample: Record<string, string>;
 }) {
+  const field = useRef<HTMLTextAreaElement | null>(null);
+  const focused = useRef(false);
   const preview = fillTemplate(value.trim(), sample);
   const tooLong = preview.length > SMS_MAX_LENGTH;
 
@@ -188,8 +194,27 @@ export function SmsTemplateRow({
     <div className={ROW}>
       <Field data-invalid={!!error}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
-        <Textarea id={id} rows={3} aria-invalid={!!error} {...registration} />
-        <PlaceholderList placeholders={placeholders} />
+        <Textarea
+          id={id}
+          rows={3}
+          aria-invalid={!!error}
+          {...registration}
+          ref={(element) => {
+            registration.ref(element);
+            field.current = element;
+          }}
+          onFocus={() => {
+            focused.current = true;
+          }}
+        />
+        <PlaceholderChips
+          placeholders={placeholders}
+          onPick={(token) => {
+            if (field.current) {
+              insertToken(field.current, token, focused.current, setValue);
+            }
+          }}
+        />
         <FieldError errors={[error]} />
       </Field>
       <PreviewColumn>
@@ -225,10 +250,25 @@ function EmailTemplateFields({
     control: form.control,
     name: [template.subject, template.body],
   });
+  const subjectField = useRef<HTMLInputElement | null>(null);
+  const bodyField = useRef<HTMLTextAreaElement | null>(null);
+  // the placeholder buttons insert into whichever was used last, Metin at first
+  const lastFocused = useRef<"subject" | "body" | null>(null);
+  const subjectRegistration = form.register(template.subject);
+  const bodyRegistration = form.register(template.body);
   const subjectId = `template-${template.subject}`;
   const bodyId = `template-${template.body}`;
   const filledSubject = fillTemplate((subject ?? "").trim(), sample);
   const filledBody = fillTemplate((body ?? "").trim(), sample);
+
+  function insert(token: string) {
+    const intoSubject = lastFocused.current === "subject";
+    const element = intoSubject ? subjectField.current : bodyField.current;
+    if (!element) return;
+    insertToken(element, token, lastFocused.current !== null, (next) =>
+      setTemplate(form, intoSubject ? template.subject : template.body, next),
+    );
+  }
 
   return (
     <section className="flex flex-col gap-3 py-5">
@@ -240,7 +280,14 @@ function EmailTemplateFields({
             <Input
               id={subjectId}
               aria-invalid={!!errors[template.subject]}
-              {...form.register(template.subject)}
+              {...subjectRegistration}
+              ref={(element) => {
+                subjectRegistration.ref(element);
+                subjectField.current = element;
+              }}
+              onFocus={() => {
+                lastFocused.current = "subject";
+              }}
             />
             <FieldError errors={[errors[template.subject]]} />
           </Field>
@@ -250,9 +297,16 @@ function EmailTemplateFields({
               id={bodyId}
               rows={7}
               aria-invalid={!!errors[template.body]}
-              {...form.register(template.body)}
+              {...bodyRegistration}
+              ref={(element) => {
+                bodyRegistration.ref(element);
+                bodyField.current = element;
+              }}
+              onFocus={() => {
+                lastFocused.current = "body";
+              }}
             />
-            <PlaceholderList placeholders={placeholders} />
+            <PlaceholderChips placeholders={placeholders} onPick={insert} />
             <FieldError errors={[errors[template.body]]} />
           </Field>
         </div>
@@ -269,6 +323,74 @@ function EmailTemplateFields({
         </PreviewColumn>
       </div>
     </section>
+  );
+}
+
+function setTemplate(
+  form: UseFormReturn<Templates>,
+  name: string,
+  value: string,
+) {
+  form.setValue(name, value, {
+    shouldDirty: true,
+    // like typing: errors update live only once Kaydet has been pressed
+    shouldValidate: form.formState.isSubmitted,
+  });
+}
+
+/**
+ * Puts `token` where the cursor is (replacing a selection), or at the end
+ * when the field hasn't been used yet, and leaves the cursor after it.
+ */
+function insertToken(
+  element: HTMLInputElement | HTMLTextAreaElement,
+  token: string,
+  atCursor: boolean,
+  setValue: (value: string) => void,
+) {
+  const { value } = element;
+  const start = atCursor
+    ? (element.selectionStart ?? value.length)
+    : value.length;
+  const end = atCursor ? (element.selectionEnd ?? start) : value.length;
+  element.focus();
+  element.setSelectionRange(start, end);
+
+  // Typed in through the browser's own editing, so Cmd/Ctrl+Z undoes it and
+  // the form sees an ordinary input event. execCommand is deprecated but is
+  // still the only way into a text field's undo history.
+  if (document.execCommand("insertText", false, token)) return;
+
+  setValue(value.slice(0, start) + token + value.slice(end));
+  const caret = start + token.length;
+  element.setSelectionRange(caret, caret);
+}
+
+/** One button per placeholder; hovering shows what it stands for */
+function PlaceholderChips({
+  placeholders,
+  onPick,
+}: {
+  placeholders: Record<string, string>;
+  onPick: (token: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-muted-foreground">Ekle:</span>
+      {Object.entries(placeholders).map(([key, text]) => (
+        <Tooltip key={key}>
+          <TooltipTrigger
+            type="button"
+            aria-label={`{${key}} ekle: ${text}`}
+            onClick={() => onPick(`{${key}}`)}
+            className="rounded-md border bg-background px-1.5 py-0.5 font-mono text-xs text-foreground hover:border-primary/50 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            {`{${key}}`}
+          </TooltipTrigger>
+          <TooltipContent>{text}</TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
   );
 }
 
@@ -289,23 +411,6 @@ function PreviewColumn({ children }: { children: ReactNode }) {
 
 function Empty() {
   return <span className="text-muted-foreground italic">(boş)</span>;
-}
-
-function PlaceholderList({
-  placeholders,
-}: {
-  placeholders: Record<string, string>;
-}) {
-  return (
-    <FieldDescription>
-      {Object.entries(placeholders).map(([key, text], i) => (
-        <span key={key}>
-          {i > 0 && " · "}
-          <code>{`{${key}}`}</code> {text}
-        </span>
-      ))}
-    </FieldDescription>
-  );
 }
 
 export function SaveRow({

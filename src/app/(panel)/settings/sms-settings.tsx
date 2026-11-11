@@ -160,6 +160,12 @@ function CelebrationTemplate({
       id={`sms-${name}`}
       label={label}
       registration={form.register(name)}
+      setValue={(next) =>
+        form.setValue(name, next, {
+          shouldDirty: true,
+          shouldValidate: form.formState.isSubmitted,
+        })
+      }
       value={value}
       error={form.formState.errors[name]}
       placeholders={TEMPLATE_PLACEHOLDERS}
