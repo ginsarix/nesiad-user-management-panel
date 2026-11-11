@@ -1,16 +1,10 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleCheck } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useRef } from "react";
 import {
   type FieldError as FormFieldError,
   type UseFormRegisterReturn,
   type UseFormReturn,
-  useForm,
   useWatch,
 } from "react-hook-form";
-import type { z } from "zod";
-import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,117 +18,59 @@ import { cn } from "@/lib/utils";
 import { SMS_MAX_LENGTH } from "@/lib/zod-schemas/sms";
 
 /** Every notice template is a plain string, keyed by its API field name */
-type Templates = Record<string, string>;
+export type Templates = Record<string, string>;
 
 export type SmsTemplate = { label: string; name: string };
 export type EmailTemplate = { label: string; subject: string; body: string };
 
-type Channel =
-  | { channel: "sms"; templates: SmsTemplate[] }
-  | { channel: "email"; templates: EmailTemplate[] };
-
-type TemplateChannelFormProps = Channel & {
-  queryKey: readonly string[];
-  load: () => Promise<Templates>;
-  /** Saves every template of the group: the saved ones with this channel's edits */
-  save: (values: Templates) => Promise<Templates>;
-  /** Validates only this channel's fields */
-  schema: z.ZodType<Templates, Templates>;
+/** A group of notice templates (e.g. Başvuru) and how to show them */
+export type NoticeGroup = {
   placeholders: Record<string, string>;
   sample: Record<string, string>;
-  loadError: string;
-  onDirtyChange?: (dirty: boolean) => void;
+  sms: SmsTemplate[];
+  email: EmailTemplate[];
 };
 
-/**
- * One channel (SMS or e-posta) of a group of notice templates. The other
- * channel has its own form, so each Kaydet saves only what is on screen.
- */
-export function TemplateChannelForm(props: TemplateChannelFormProps) {
-  const { data, isError } = useQuery<Templates>({
-    queryKey: props.queryKey,
-    queryFn: () => props.load(),
-  });
-
-  if (isError) {
-    return <p className="text-sm text-destructive">{props.loadError}</p>;
-  }
-  return data ? <LoadedForm {...props} saved={data} /> : null;
+export function smsFields(group: NoticeGroup): string[] {
+  return group.sms.map((t) => t.name);
 }
 
-function fieldNames(props: Channel): string[] {
-  return props.channel === "sms"
-    ? props.templates.map((t) => t.name)
-    : props.templates.flatMap((t) => [t.subject, t.body]);
+export function emailFields(group: NoticeGroup): string[] {
+  return group.email.flatMap((t) => [t.subject, t.body]);
 }
 
-function pick(values: Templates, names: string[]): Templates {
-  return Object.fromEntries(names.map((name) => [name, values[name] ?? ""]));
-}
-
-function LoadedForm(props: TemplateChannelFormProps & { saved: Templates }) {
-  const { queryKey, save, schema, saved, onDirtyChange } = props;
-  const queryClient = useQueryClient();
-  const [justSaved, setJustSaved] = useState(false);
-  const names = fieldNames(props);
-
-  const form = useForm<Templates>({
-    resolver: zodResolver(schema),
-    defaultValues: pick(saved, names),
-  });
-  const { isDirty } = form.formState;
-  useEffect(() => onDirtyChange?.(isDirty), [isDirty, onDirtyChange]);
-
-  const { mutate, isPending, error } = useMutation({
-    mutationFn: (values: Templates) => {
-      // the latest saved group, so the other channel's saved texts are kept
-      const current = queryClient.getQueryData<Templates>(queryKey) ?? saved;
-      return save({ ...current, ...values });
-    },
-    onSuccess: async (result) => {
-      form.reset(pick(result, names));
-      setJustSaved(true);
-      queryClient.setQueryData(queryKey, result);
-      await queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
-    },
-  });
-
+/** One channel (SMS or e-posta) of a group's templates */
+export function TemplateChannelFields({
+  form,
+  group,
+  channel,
+}: {
+  form: UseFormReturn<Templates>;
+  group: NoticeGroup;
+  channel: "sms" | "email";
+}) {
   return (
-    <form
-      onSubmit={form.handleSubmit((values) => mutate(values))}
-      onChange={() => setJustSaved(false)}
-      className="flex flex-col divide-y rounded-lg border bg-card px-4"
-      noValidate
-    >
-      {props.channel === "sms"
-        ? props.templates.map((template) => (
+    <div className="flex flex-col divide-y rounded-lg border bg-card px-4">
+      {channel === "sms"
+        ? group.sms.map((template) => (
             <SmsTemplateField
               key={template.name}
               form={form}
               template={template}
-              placeholders={props.placeholders}
-              sample={props.sample}
+              placeholders={group.placeholders}
+              sample={group.sample}
             />
           ))
-        : props.templates.map((template) => (
+        : group.email.map((template) => (
             <EmailTemplateFields
               key={template.subject}
               form={form}
               template={template}
-              placeholders={props.placeholders}
-              sample={props.sample}
+              placeholders={group.placeholders}
+              sample={group.sample}
             />
           ))}
-
-      <div className="py-4">
-        <SaveRow
-          isDirty={isDirty}
-          isPending={isPending}
-          saved={justSaved}
-          error={error}
-        />
-      </div>
-    </form>
+    </div>
   );
 }
 
@@ -333,7 +269,7 @@ function setTemplate(
 ) {
   form.setValue(name, value, {
     shouldDirty: true,
-    // like typing: errors update live only once Kaydet has been pressed
+    // like typing: errors update live only once saving has been tried
     shouldValidate: form.formState.isSubmitted,
   });
 }
@@ -411,31 +347,4 @@ function PreviewColumn({ children }: { children: ReactNode }) {
 
 function Empty() {
   return <span className="text-muted-foreground italic">(boş)</span>;
-}
-
-export function SaveRow({
-  isDirty,
-  isPending,
-  saved,
-  error,
-}: {
-  isDirty: boolean;
-  isPending: boolean;
-  saved: boolean;
-  error: Error | null;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button type="submit" disabled={!isDirty || isPending}>
-        {isPending ? "Kaydediliyor…" : "Kaydet"}
-      </Button>
-      {saved && !isDirty && (
-        <span className="flex items-center gap-1.5 text-sm text-primary">
-          <CircleCheck className="size-4" />
-          Kaydedildi
-        </span>
-      )}
-      {error && <FieldError>{error.message}</FieldError>}
-    </div>
-  );
 }

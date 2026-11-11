@@ -1,87 +1,28 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, type UseFormReturn, useWatch } from "react-hook-form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  getSmsContacts,
-  getSmsSettings,
-  updateSmsSettings,
-} from "@/lib/fetches/sms";
 import { TEMPLATE_PLACEHOLDERS } from "@/lib/sms/templates";
-import {
-  type SmsSettingsValues,
-  smsSettingsSchema,
-} from "@/lib/zod-schemas/sms";
-import { SaveRow, SmsTemplateRow } from "./template-forms";
-
-export function SmsSettings({
-  onDirtyChange,
-}: {
-  onDirtyChange?: (dirty: boolean) => void;
-}) {
-  const { data, isError } = useQuery({
-    queryKey: ["sms-settings"],
-    queryFn: () => getSmsSettings(),
-  });
-
-  if (isError) {
-    return <p className="text-sm text-destructive">Ayarlar yüklenemedi.</p>;
-  }
-  return data ? (
-    <SettingsForm settings={data} onDirtyChange={onDirtyChange} />
-  ) : null;
-}
+import type { SmsSettingsValues } from "@/lib/zod-schemas/sms";
+import { SmsTemplateRow } from "./template-forms";
 
 const SAMPLES = {
   foundingMessage: { ad: "Kapadokya Gıda A.Ş.", yil: "12" },
   birthdayMessage: { ad: "Ayşe Yılmaz", yil: "45" },
 } as const;
 
-function SettingsForm({
-  settings,
-  onDirtyChange,
+/** Automatic celebration SMS: on/off, send time and the two messages */
+export function CelebrationFields({
+  form,
+  dryRun,
 }: {
-  settings: SmsSettingsValues;
-  onDirtyChange?: (dirty: boolean) => void;
+  form: UseFormReturn<SmsSettingsValues>;
+  dryRun: boolean;
 }) {
-  const queryClient = useQueryClient();
-  const [saved, setSaved] = useState(false);
-  const { data: contacts } = useQuery({
-    queryKey: ["sms-contacts"],
-    queryFn: () => getSmsContacts(),
-  });
-
-  const form = useForm<SmsSettingsValues>({
-    resolver: zodResolver(smsSettingsSchema),
-    defaultValues: settings,
-  });
-  const { errors, isDirty } = form.formState;
-  useEffect(() => onDirtyChange?.(isDirty), [isDirty, onDirtyChange]);
-
-  const { mutate, isPending, error } = useMutation({
-    mutationFn: updateSmsSettings,
-    onSuccess: async (values) => {
-      form.reset(values);
-      setSaved(true);
-      queryClient.setQueryData(["sms-settings"], values);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["audit-logs"] }),
-        // the Otomatik tab shows the messages
-        queryClient.invalidateQueries({ queryKey: ["sms-celebrations"] }),
-      ]);
-    },
-  });
+  const { errors } = form.formState;
 
   return (
-    <form
-      onSubmit={form.handleSubmit((values) => mutate(values))}
-      onChange={() => setSaved(false)}
-      className="flex flex-col divide-y rounded-lg border bg-card px-4"
-      noValidate
-    >
+    <div className="flex flex-col divide-y rounded-lg border bg-card px-4">
       <div className="flex flex-wrap items-start gap-x-8 gap-y-4 py-5">
         <Controller
           control={form.control}
@@ -91,10 +32,7 @@ function SettingsForm({
               <Checkbox
                 id="sms-auto-enabled"
                 checked={field.value}
-                onCheckedChange={(on) => {
-                  field.onChange(on);
-                  setSaved(false);
-                }}
+                onCheckedChange={field.onChange}
               />
               <FieldLabel htmlFor="sms-auto-enabled" className="font-normal">
                 Otomatik kutlama SMS'leri açık
@@ -114,7 +52,7 @@ function SettingsForm({
           <FieldError errors={[errors.sendTime]} />
         </Field>
 
-        {contacts?.dryRun && (
+        {dryRun && (
           <p className="basis-full rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             Deneme modu açık (SMS_DRY_RUN): otomatik SMS'ler gönderilmiş sayılır
             ama NetGSM'e gitmez. O gün için tekrar gönderilmezler.
@@ -132,16 +70,7 @@ function SettingsForm({
         name="birthdayMessage"
         label="Doğum günü mesajı (yetkiliye)"
       />
-
-      <div className="py-4">
-        <SaveRow
-          isDirty={isDirty}
-          isPending={isPending}
-          saved={saved}
-          error={error}
-        />
-      </div>
-    </form>
+    </div>
   );
 }
 
@@ -150,7 +79,7 @@ function CelebrationTemplate({
   name,
   label,
 }: {
-  form: ReturnType<typeof useForm<SmsSettingsValues>>;
+  form: UseFormReturn<SmsSettingsValues>;
   name: "foundingMessage" | "birthdayMessage";
   label: string;
 }) {
