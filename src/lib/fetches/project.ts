@@ -1,6 +1,7 @@
 import type { ClientRequestOptions } from "hono/client";
 import { rpcClient } from "../rpc-client";
 import type {
+  PledgeInput,
   ProjectApiValues,
   ProjectUpdateValues,
 } from "../zod-schemas/project";
@@ -44,6 +45,16 @@ export async function updateProject(id: number, values: ProjectUpdateValues) {
   });
 
   if (!res.ok) await throwResponseError(res, "Proje güncellenemedi");
+}
+
+/** The details page's Kaydet: replaces the proje's taahhütler */
+export async function savePledges(id: number, pledges: PledgeInput[]) {
+  const res = await rpcClient.api.projects[":id"].pledges.$put({
+    param: { id: String(id) },
+    json: { pledges },
+  });
+
+  if (!res.ok) await throwResponseError(res, "Taahhütler kaydedilemedi");
 }
 
 export async function deleteProject(id: number) {

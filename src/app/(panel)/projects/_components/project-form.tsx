@@ -5,7 +5,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { type Path, useForm } from "react-hook-form";
+import { PledgesEditor } from "@/components/pledges-editor";
 import { ProjectFields } from "@/components/project-fields";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
@@ -17,12 +18,23 @@ import {
 } from "@/lib/fetches/project";
 import { listHref } from "@/lib/list-href";
 import {
+  type ProjectFormInput,
   type ProjectFormValues,
   pledgesToApi,
+  pledgesToForm,
   projectFormSchema,
 } from "@/lib/zod-schemas/project";
 
 const FIELDS = ["name", "number", "active"];
+const PLEDGE_FIELD = /^pledges\.\d+\.(representativeId|quantity|amount)$/;
+
+/** The input an API error is about, when the form shows that input */
+function formField(error: unknown) {
+  if (!(error instanceof ApiError) || !error.field) return null;
+  return FIELDS.includes(error.field) || PLEDGE_FIELD.test(error.field)
+    ? (error.field as Path<ProjectFormInput>)
+    : null;
+}
 
 /** Create form without a proje, edit form with one */
 export function ProjectForm({ project }: { project?: Project }) {
@@ -35,20 +47,15 @@ export function ProjectForm({ project }: { project?: Project }) {
       name: project?.name ?? "",
       number: project?.number ?? "",
       active: project?.active ?? true,
-      pledges: [],
+      pledges: pledgesToForm(project?.pledges ?? []),
     },
   });
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
-      const { pledges, ...fields } = values;
-      if (!project) {
-        return await createProject({
-          ...fields,
-          pledges: pledgesToApi(pledges),
-        });
-      }
-      await updateProject(project.id, fields);
+      const api = { ...values, pledges: pledgesToApi(values.pledges) };
+      if (!project) return await createProject(api);
+      await updateProject(project.id, api);
       return project.id;
     },
     onSuccess: async (id) => {
@@ -56,24 +63,19 @@ export function ProjectForm({ project }: { project?: Project }) {
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
         // tahsilatlar show the proje's name and number
         queryClient.invalidateQueries({ queryKey: ["collections"] }),
+        // yetkili pages count taahhütler (the delete check)
+        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
       ]);
       router.push(`/projects/${id}`);
     },
-    // e.g. "Bu proje numarası zaten var" under Proje Numarası
+    // e.g. "Bu proje numarası zaten var" under Proje Numarası, "Pasif
+    // yetkili eklenemez" under a taahhüt's Yetkili
     onError: (error) => {
-      if (
-        error instanceof ApiError &&
-        error.field &&
-        FIELDS.includes(error.field)
-      ) {
-        form.setError(error.field as keyof ProjectFormValues, {
-          message: error.message,
-        });
-      }
+      const field = formField(error);
+      if (field) form.setError(field, { message: error.message });
     },
   });
-  const formError =
-    error && !(error instanceof ApiError && error.field) ? error : null;
+  const formError = error && !formField(error) ? error : null;
 
   const backHref = project ? `/projects/${project.id}` : listHref("/projects");
 
@@ -98,6 +100,18 @@ export function ProjectForm({ project }: { project?: Project }) {
           </h2>
           <div className="grid gap-x-5 gap-y-4 p-4 sm:grid-cols-2">
             <ProjectFields control={form.control} prefix="" />
+          </div>
+        </section>
+
+        <section className="rounded-lg border bg-card">
+          <h2 className="border-b px-4 py-2.5 text-sm font-medium">
+            Taahhütler
+          </h2>
+          <div className="p-4">
+            <PledgesEditor
+              control={form.control}
+              current={project?.pledges ?? []}
+            />
           </div>
         </section>
 
