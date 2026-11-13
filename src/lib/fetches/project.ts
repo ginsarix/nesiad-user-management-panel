@@ -1,6 +1,9 @@
 import type { ClientRequestOptions } from "hono/client";
 import { rpcClient } from "../rpc-client";
-import type { ProjectFormValues } from "../zod-schemas/project";
+import type {
+  ProjectApiValues,
+  ProjectUpdateValues,
+} from "../zod-schemas/project";
 import { throwResponseError } from "./errors";
 
 /** Sorted by Proje Numarası, each with its tahsilat count and total */
@@ -26,7 +29,7 @@ export async function getProject(id: number, options?: ClientRequestOptions) {
 }
 
 /** Throws an ApiError whose `field` names the input it is about */
-export async function createProject(values: ProjectFormValues) {
+export async function createProject(values: ProjectApiValues) {
   const res = await rpcClient.api.projects.$post({ json: values });
 
   if (!res.ok) await throwResponseError(res, "Proje kaydedilemedi");
@@ -34,7 +37,7 @@ export async function createProject(values: ProjectFormValues) {
   return ((await res.json()) as { id: number }).id;
 }
 
-export async function updateProject(id: number, values: ProjectFormValues) {
+export async function updateProject(id: number, values: ProjectUpdateValues) {
   const res = await rpcClient.api.projects[":id"].$patch({
     param: { id: String(id) },
     json: values,

@@ -18,6 +18,7 @@ import {
 import { listHref } from "@/lib/list-href";
 import {
   type ProjectFormValues,
+  pledgesToApi,
   projectFormSchema,
 } from "@/lib/zod-schemas/project";
 
@@ -34,13 +35,20 @@ export function ProjectForm({ project }: { project?: Project }) {
       name: project?.name ?? "",
       number: project?.number ?? "",
       active: project?.active ?? true,
+      pledges: [],
     },
   });
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
-      if (!project) return await createProject(values);
-      await updateProject(project.id, values);
+      const { pledges, ...fields } = values;
+      if (!project) {
+        return await createProject({
+          ...fields,
+          pledges: pledgesToApi(pledges),
+        });
+      }
+      await updateProject(project.id, fields);
       return project.id;
     },
     onSuccess: async (id) => {

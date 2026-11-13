@@ -1,0 +1,80 @@
+/**
+ * Taahhüt totals: Adet × Tutar per row and the Genel Toplam. They are
+ * never stored; this computes them wherever they are shown, in whole kuruş
+ * (BigInt), so no float ever rounds them. Client-safe.
+ */
+import { formatAmountText, parseAmountInput } from "./money";
+import type { PledgeFormRow } from "./zod-schemas/project";
+
+/** "1250.50" → 125050n */
+function toKurus(amount: string): bigint {
+  const [integer, decimals = ""] = amount.split(".");
+  return BigInt(integer + decimals.padEnd(2, "0").slice(0, 2));
+}
+
+/** 125050n → "1250.50" */
+function fromKurus(kurus: bigint): string {
+  const text = kurus.toString().padStart(3, "0");
+  return `${text.slice(0, -2)}.${text.slice(-2)}`;
+}
+
+/** 2 × "1250.50" → "2501.00" */
+export function pledgeRowTotal(quantity: number, amount: string): string {
+  return fromKurus(BigInt(quantity) * toKurus(amount));
+}
+
+/** The Genel Toplam of saved rows; "0.00" without rows */
+export function pledgeGrandTotal(
+  rows: readonly { quantity: number; amount: string }[],
+): string {
+  return fromKurus(
+    rows.reduce(
+      (sum, row) => sum + BigInt(row.quantity) * toKurus(row.amount),
+      BigInt(0),
+    ),
+  );
+}
+
+const WHOLE_NUMBER = /^\d+$/;
+
+/** A form row's typed Adet and Tutar, or null while either doesn't parse */
+function typedValues(row: PledgeFormRow) {
+  const quantity = row.quantity.trim();
+  const amount = parseAmountInput(row.amount);
+  if (!WHOLE_NUMBER.test(quantity) || amount === null) return null;
+  return { quantity: Number(quantity), amount };
+}
+
+/** A form row's Toplam as typed; null while Adet or Tutar doesn't parse */
+export function typedPledgeTotal(row: PledgeFormRow): string | null {
+  const values = typedValues(row);
+  return values && pledgeRowTotal(values.quantity, values.amount);
+}
+
+/** The form's Genel Toplam, leaving out rows that don't parse yet */
+export function typedPledgeGrandTotal(rows: readonly PledgeFormRow[]): string {
+  return pledgeGrandTotal(
+    rows.flatMap((row) => {
+      const values = typedValues(row);
+      return values ? [values] : [];
+    }),
+  );
+}
+
+/** "Ali Veli: 2 × 1.000,00 TL, Ayşe: 1 × 50,25 TL"; "—" without rows */
+export function pledgesAuditText(
+  rows: readonly {
+    representativeName: string;
+    quantity: number;
+    amount: string;
+  }[],
+): string {
+  return (
+    rows
+      .map(
+        (row) =>
+          `${row.representativeName}: ${row.quantity} × ${formatAmountText(row.amount)}`,
+      )
+      .join(", ") || "—"
+  );
+}

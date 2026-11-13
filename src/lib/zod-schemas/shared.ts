@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isFutureDate, parseDisplayDate, parseIsoDate } from "../dates";
+import { AMOUNT_PATTERN, parseAmountInput } from "../money";
 
 export const safeNumSchema = <T extends z.ZodType = z.ZodNumber>(
   someType: T = z.number() as unknown as T,
@@ -72,3 +73,31 @@ export const requiredDisplayDateSchema = z
   .trim()
   .min(1, REQUIRED_DATE_MESSAGE)
   .pipe(optionalPastDate(parseDisplayDate));
+
+/** An id the API needs: a positive whole number */
+export const idSchema = (message: string) =>
+  z.number({ error: message }).int(message).positive(message);
+
+/** A form picker's id: null until something is picked */
+export const pickedSchema = (message: string) =>
+  z
+    .number()
+    .nullable()
+    .refine((id) => id !== null, message);
+
+const INVALID_AMOUNT = "Geçerli bir tutar girin";
+const NOT_POSITIVE = "Tutar sıfırdan büyük olmalı";
+
+/** An API amount: "1250.50", above zero */
+export const amountSchema = z
+  .string({ error: INVALID_AMOUNT })
+  .regex(AMOUNT_PATTERN, INVALID_AMOUNT)
+  .refine((amount) => Number(amount) > 0, NOT_POSITIVE);
+
+/** An amount as typed in a form, the Turkish way ("1.250,50"), above zero */
+export const typedAmountSchema = z
+  .string()
+  .trim()
+  .min(1, "Tutar boş olamaz")
+  .refine((text) => parseAmountInput(text) !== null, INVALID_AMOUNT)
+  .refine((text) => Number(parseAmountInput(text)) > 0, NOT_POSITIVE);
