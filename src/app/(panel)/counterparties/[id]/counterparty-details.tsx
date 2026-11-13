@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { formatDate, InfoFields, orDash } from "@/components/info-fields";
+import { TableTotalFooter } from "@/components/table-total-footer";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -16,7 +17,7 @@ import {
 import { getCounterparty } from "@/lib/fetches/counterparty";
 import { getPayments } from "@/lib/fetches/payment";
 import { listHref } from "@/lib/list-href";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, sumAmounts } from "@/lib/money";
 import { NO_PAYMENT_FILTERS } from "@/lib/payment-filters";
 import { DeleteCounterpartyButton } from "./delete-counterparty-button";
 
@@ -98,7 +99,8 @@ function CounterpartyPayments({ id }: { id: number }) {
         <h3 className="text-sm font-medium">Ödemeler</h3>
         {data && (
           <span className="text-sm text-muted-foreground">
-            {data.count} ödeme · Toplam {formatAmount(data.total)}
+            {data.count} ödeme · Toplam{" "}
+            {formatAmount(sumAmounts(data.payments.map((p) => p.amount)))}
           </span>
         )}
         <Link
@@ -125,7 +127,7 @@ function CounterpartyPayments({ id }: { id: number }) {
       ) : (
         data && (
           <>
-            <div className="max-h-[28rem] overflow-y-auto">
+            <div className="[&_[data-slot=table-container]]:max-h-[28rem]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -160,6 +162,12 @@ function CounterpartyPayments({ id }: { id: number }) {
                     </TableRow>
                   ))}
                 </TableBody>
+                <TableTotalFooter
+                  columnIds={["date", "amount", "category", "method", "note"]}
+                  amountColumnId="amount"
+                  amounts={data.payments.map((payment) => payment.amount)}
+                  alignRight
+                />
               </Table>
             </div>
             <div className="border-t px-4 py-2 text-sm">

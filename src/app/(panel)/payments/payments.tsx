@@ -20,6 +20,7 @@ import { ColumnToggle } from "@/components/column-toggle";
 import { formatDate, orDash } from "@/components/info-fields";
 import { SearchCombobox } from "@/components/search-combobox";
 import { SortableTableHeader } from "@/components/sortable-table-header";
+import { TableTotalFooter } from "@/components/table-total-footer";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -36,7 +37,7 @@ import {
   paymentsExportHref,
 } from "@/lib/fetches/payment";
 import { rememberListSearch } from "@/lib/list-href";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, sumAmounts } from "@/lib/money";
 import {
   NO_PAYMENT_FILTERS,
   type PaymentFilters,
@@ -259,7 +260,8 @@ export function Payments({
   });
 
   const rows = table.getRowModel().rows;
-  const columnCount = table.getVisibleLeafColumns().length;
+  const visibleColumns = table.getVisibleLeafColumns();
+  const columnCount = visibleColumns.length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -348,7 +350,7 @@ export function Payments({
                 {data.count} ödeme ·{" "}
               </span>
               <span className="font-medium">
-                Toplam {formatAmount(data.total)}
+                Toplam {formatAmount(sumAmounts(payments.map((p) => p.amount)))}
               </span>
             </>
           ) : (
@@ -411,6 +413,12 @@ export function Payments({
               </TableRow>
             )}
           </TableBody>
+          <TableTotalFooter
+            columnIds={visibleColumns.map((column) => column.id)}
+            amountColumnId="amount"
+            amounts={rows.map((row) => row.original.amount)}
+            alignRight
+          />
         </Table>
       </div>
     </div>

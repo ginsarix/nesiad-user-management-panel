@@ -13,7 +13,7 @@ import {
   formatAudit,
 } from "@/lib/audit-diff";
 import { isoToDisplay } from "@/lib/dates";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, sumAmounts } from "@/lib/money";
 import { parsePaymentFilters } from "@/lib/payment-filters";
 import { paymentSchema } from "@/lib/zod-schemas/payment";
 import { type AppEnv, actorOf } from "./env";
@@ -122,8 +122,8 @@ const COLUMN_WIDTHS = [12, 32, 14, 20, 16, 40];
 /** The Ödemeler list as an .xlsx: the payments, a blank row, the total */
 async function paymentsWorkbook({
   payments,
-  total,
 }: Awaited<ReturnType<typeof selectPayments>>) {
+  const total = sumAmounts(payments.map((payment) => payment.amount));
   return writeXlsxFile(
     [
       ["Tarih", "Cari", "Tutar", "Ödeme Türü", "Ödeme Tipi", "Not"].map(header),

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, lte, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db, type Executor } from "@/db";
 import { counterpartyTable, parameterTable, paymentTable } from "@/db/schema";
@@ -52,19 +52,15 @@ function whereOf(filters: PaymentFilters) {
   return and(...conditions);
 }
 
-/** The filtered payments, newest first, with their count and total */
+/**
+ * The filtered payments, newest first, with their count. No total: the
+ * browser sums the rows it shows (`sumAmounts`, in kuruş).
+ */
 export async function selectPayments(filters: PaymentFilters) {
-  const where = whereOf(filters);
-  const [payments, [summary]] = await Promise.all([
-    selectPaymentRows()
-      .where(where)
-      .orderBy(desc(paymentTable.date), desc(paymentTable.id)),
-    db
-      .select({ count: count(), total: sumOfAmounts() })
-      .from(paymentTable)
-      .where(where),
-  ]);
-  return { payments, count: summary.count, total: summary.total };
+  const payments = await selectPaymentRows()
+    .where(whereOf(filters))
+    .orderBy(desc(paymentTable.date), desc(paymentTable.id));
+  return { payments, count: payments.length };
 }
 
 export async function selectPayment(id: number, executor: Executor = db) {

@@ -9,7 +9,7 @@ import { rpcClient } from "../rpc-client";
 import type { PaymentFormValues } from "../zod-schemas/payment";
 import { throwResponseError } from "./errors";
 
-/** The filtered payments, newest first, with their count and total */
+/** The filtered payments, newest first, with their count (the page sums the amounts) */
 export async function getPayments(
   filters: PaymentFilters,
   options?: ClientRequestOptions,

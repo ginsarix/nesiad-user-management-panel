@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ColumnToggle } from "@/components/column-toggle";
 import { orDash } from "@/components/info-fields";
 import { SortableTableHeader } from "@/components/sortable-table-header";
+import { TableTotalFooter } from "@/components/table-total-footer";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -189,7 +190,8 @@ export function Counterparties({
   });
 
   const rows = table.getRowModel().rows;
-  const columnCount = table.getVisibleLeafColumns().length;
+  const visibleColumns = table.getVisibleLeafColumns();
+  const columnCount = visibleColumns.length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -255,6 +257,11 @@ export function Counterparties({
               </TableRow>
             )}
           </TableBody>
+          <TableTotalFooter
+            columnIds={visibleColumns.map((column) => column.id)}
+            amountColumnId="totalPaid"
+            amounts={rows.map((row) => row.original.totalPaid)}
+          />
         </Table>
       </div>
     </div>

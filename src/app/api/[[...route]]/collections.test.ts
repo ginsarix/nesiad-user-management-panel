@@ -10,6 +10,7 @@ import {
   projectTable,
 } from "@/db/schema";
 import { todayInIstanbul } from "@/lib/dates";
+import { sumAmounts } from "@/lib/money";
 import { collectionsRoute } from "./collections";
 
 // new tahsilatlar email every panel user; never for real in tests
@@ -158,10 +159,14 @@ async function getOne(id: number) {
 
 async function list(query: string) {
   return (await (await collectionsRoute.request(`/?${query}`)).json()) as {
-    collections: { id: number }[];
+    collections: { id: number; amount: string }[];
     count: number;
-    total: string;
   };
+}
+
+/** What the page shows as Toplam: the rows' amounts, summed in kuruş */
+function totalOf({ collections }: Awaited<ReturnType<typeof list>>) {
+  return sumAmounts(collections.map((collection) => collection.amount));
 }
 
 async function lastEntry(entityType: string, action: string, id: number) {
@@ -462,7 +467,8 @@ describe("GET /api/collections", () => {
     });
 
     const all = await list(`representative=${payer}`);
-    expect(all.total).toBe("100.30");
+    expect(all).not.toHaveProperty("total");
+    expect(totalOf(all)).toBe("100.30");
     expect(all.collections.map((c) => c.id)).toEqual([
       third.body.id,
       second.body.id,
@@ -470,10 +476,11 @@ describe("GET /api/collections", () => {
     ]);
 
     const none = await list(`representative=${payer}&project=none`);
-    expect(none).toMatchObject({ count: 1, total: "0.20" });
+    expect(none.count).toBe(1);
+    expect(totalOf(none)).toBe("0.20");
 
     const withA = await list(`representative=${payer}&project=${projectA}`);
-    expect(withA.total).toBe("100.10");
+    expect(totalOf(withA)).toBe("100.10");
     expect(withA.collections.map((c) => c.id)).toEqual([
       third.body.id,
       first.body.id,

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { formatDate, orDash } from "@/components/info-fields";
+import { TableTotalFooter } from "@/components/table-total-footer";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -18,7 +19,7 @@ import {
   collectionFiltersToParams,
 } from "@/lib/collection-filters";
 import { getCollections } from "@/lib/fetches/collection";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, sumAmounts } from "@/lib/money";
 import { projectLabel } from "@/lib/projects";
 
 /**
@@ -56,7 +57,8 @@ export function CollectionsSection({
         <h3 className="text-sm font-medium">Tahsilatlar</h3>
         {data && (
           <span className="text-sm text-muted-foreground">
-            {data.count} tahsilat · Toplam {formatAmount(data.total)}
+            {data.count} tahsilat · Toplam{" "}
+            {formatAmount(sumAmounts(data.collections.map((c) => c.amount)))}
           </span>
         )}
         {canAdd && (
@@ -83,7 +85,7 @@ export function CollectionsSection({
       ) : (
         data && (
           <>
-            <div className="max-h-[28rem] overflow-y-auto">
+            <div className="[&_[data-slot=table-container]]:max-h-[28rem]">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -149,6 +151,22 @@ export function CollectionsSection({
                     </TableRow>
                   ))}
                 </TableBody>
+                <TableTotalFooter
+                  columnIds={[
+                    "date",
+                    ...(of === "project" ? ["representative"] : []),
+                    "amount",
+                    "category",
+                    "method",
+                    ...(of === "representative" ? ["project"] : []),
+                    "note",
+                  ]}
+                  amountColumnId="amount"
+                  amounts={data.collections.map(
+                    (collection) => collection.amount,
+                  )}
+                  alignRight
+                />
               </Table>
             </div>
             <div className="border-t px-4 py-2 text-sm">

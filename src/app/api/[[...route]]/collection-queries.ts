@@ -1,14 +1,4 @@
-import {
-  and,
-  count,
-  desc,
-  eq,
-  gte,
-  isNull,
-  lte,
-  type SQL,
-  sql,
-} from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db, type Executor } from "@/db";
 import {
@@ -78,19 +68,15 @@ function whereOf(filters: CollectionFilters) {
   return and(...conditions);
 }
 
-/** The filtered tahsilatlar, newest first, with their count and total */
+/**
+ * The filtered tahsilatlar, newest first, with their count. No total: the
+ * browser sums the rows it shows (`sumAmounts`, in kuruş).
+ */
 export async function selectCollections(filters: CollectionFilters) {
-  const where = whereOf(filters);
-  const [collections, [summary]] = await Promise.all([
-    selectCollectionRows()
-      .where(where)
-      .orderBy(desc(collectionTable.date), desc(collectionTable.id)),
-    db
-      .select({ count: count(), total: sumOfCollected() })
-      .from(collectionTable)
-      .where(where),
-  ]);
-  return { collections, count: summary.count, total: summary.total };
+  const collections = await selectCollectionRows()
+    .where(whereOf(filters))
+    .orderBy(desc(collectionTable.date), desc(collectionTable.id));
+  return { collections, count: collections.length };
 }
 
 export async function selectCollection(id: number, executor: Executor = db) {

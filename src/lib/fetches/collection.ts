@@ -9,7 +9,7 @@ import { rpcClient } from "../rpc-client";
 import type { CollectionFormValues } from "../zod-schemas/collection";
 import { throwResponseError } from "./errors";
 
-/** The filtered tahsilatlar, newest first, with their count and total */
+/** The filtered tahsilatlar, newest first, with their count (the page sums the amounts) */
 export async function getCollections(
   filters: CollectionFilters,
   options?: ClientRequestOptions,

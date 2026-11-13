@@ -9,6 +9,7 @@ import {
   paymentTable,
 } from "@/db/schema";
 import { todayInIstanbul } from "@/lib/dates";
+import { sumAmounts } from "@/lib/money";
 import { counterpartiesRoute } from "./counterparties";
 import { paymentsRoute } from "./payments";
 
@@ -109,10 +110,19 @@ async function createPayment(overrides: Record<string, unknown> = {}) {
 async function list(query: string) {
   const res = await paymentsRoute.request(`/?${query}`);
   return (await res.json()) as {
-    payments: { id: number; date: string; counterpartyTitle: string }[];
+    payments: {
+      id: number;
+      date: string;
+      amount: string;
+      counterpartyTitle: string;
+    }[];
     count: number;
-    total: string;
   };
+}
+
+/** What the page shows as Toplam: the rows' amounts, summed in kuruş */
+function totalOf({ payments }: Awaited<ReturnType<typeof list>>) {
+  return sumAmounts(payments.map((payment) => payment.amount));
 }
 
 async function lastEntry(action: string, id: number) {
@@ -225,7 +235,8 @@ describe("GET /api/payments", () => {
 
     const all = await list(`counterparty=${otherCari}`);
     expect(all.count).toBe(3);
-    expect(all.total).toBe("100.30");
+    expect(all).not.toHaveProperty("total");
+    expect(totalOf(all)).toBe("100.30");
     expect(all.payments.map((p) => p.id)).toEqual([
       third.body.id,
       second.body.id,
@@ -236,7 +247,7 @@ describe("GET /api/payments", () => {
       `counterparty=${otherCari}&from=2026-10-01&to=2026-10-15`,
     );
     expect(october.count).toBe(2);
-    expect(october.total).toBe("0.30");
+    expect(totalOf(october)).toBe("0.30");
 
     const byCategory = await list(
       `counterparty=${otherCari}&category=${yemek}`,
@@ -244,7 +255,7 @@ describe("GET /api/payments", () => {
     expect(byCategory.payments.map((p) => p.id)).toEqual([second.body.id]);
 
     const byMethod = await list(`counterparty=${otherCari}&method=${nakit}`);
-    expect(byMethod).toEqual({ payments: [], count: 0, total: "0.00" });
+    expect(byMethod).toEqual({ payments: [], count: 0 });
   });
 
   it("shows the current cari title", async () => {

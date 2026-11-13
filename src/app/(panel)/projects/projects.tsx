@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ColumnToggle } from "@/components/column-toggle";
 import { PassiveTag } from "@/components/info-fields";
 import { SortableTableHeader } from "@/components/sortable-table-header";
+import { TableTotalFooter } from "@/components/table-total-footer";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -206,7 +207,8 @@ export function Projects({
   });
 
   const rows = table.getRowModel().rows;
-  const columnCount = table.getVisibleLeafColumns().length;
+  const visibleColumns = table.getVisibleLeafColumns();
+  const columnCount = visibleColumns.length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -280,6 +282,11 @@ export function Projects({
               </TableRow>
             )}
           </TableBody>
+          <TableTotalFooter
+            columnIds={visibleColumns.map((column) => column.id)}
+            amountColumnId="totalCollected"
+            amounts={rows.map((row) => row.original.totalCollected)}
+          />
         </Table>
       </div>
     </div>

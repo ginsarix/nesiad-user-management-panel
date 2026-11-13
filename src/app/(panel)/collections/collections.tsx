@@ -20,6 +20,7 @@ import { ColumnToggle } from "@/components/column-toggle";
 import { formatDate, orDash } from "@/components/info-fields";
 import { SearchCombobox } from "@/components/search-combobox";
 import { SortableTableHeader } from "@/components/sortable-table-header";
+import { TableTotalFooter } from "@/components/table-total-footer";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
@@ -43,7 +44,7 @@ import {
   type RepresentativeListItem,
 } from "@/lib/fetches/representative";
 import { rememberListSearch } from "@/lib/list-href";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, sumAmounts } from "@/lib/money";
 import { projectLabel } from "@/lib/projects";
 import { compareTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
@@ -312,7 +313,8 @@ export function Collections({
   });
 
   const rows = table.getRowModel().rows;
-  const columnCount = table.getVisibleLeafColumns().length;
+  const visibleColumns = table.getVisibleLeafColumns();
+  const columnCount = visibleColumns.length;
 
   return (
     <div className="flex flex-col gap-3">
@@ -418,7 +420,8 @@ export function Collections({
                 {data.count} tahsilat ·{" "}
               </span>
               <span className="font-medium">
-                Toplam {formatAmount(data.total)}
+                Toplam{" "}
+                {formatAmount(sumAmounts(collections.map((c) => c.amount)))}
               </span>
             </>
           ) : (
@@ -481,6 +484,12 @@ export function Collections({
               </TableRow>
             )}
           </TableBody>
+          <TableTotalFooter
+            columnIds={visibleColumns.map((column) => column.id)}
+            amountColumnId="amount"
+            amounts={rows.map((row) => row.original.amount)}
+            alignRight
+          />
         </Table>
       </div>
     </div>

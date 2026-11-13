@@ -23,7 +23,7 @@ import {
   sendCollectionNotices,
 } from "@/lib/collection-notices";
 import { isoToDisplay } from "@/lib/dates";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, sumAmounts } from "@/lib/money";
 import { NOTICE_OUTCOME_LABELS } from "@/lib/notice-outcome";
 import { projectLabel } from "@/lib/projects";
 import { netgsmClient } from "@/lib/sms/netgsm";
@@ -287,8 +287,8 @@ const COLUMN_WIDTHS = [12, 32, 14, 20, 16, 32, 40];
 /** The Tahsilatlar list as an .xlsx: the rows, a blank row, the total */
 async function collectionsWorkbook({
   collections,
-  total,
 }: Awaited<ReturnType<typeof selectCollections>>) {
+  const total = sumAmounts(collections.map((collection) => collection.amount));
   return writeXlsxFile(
     [
       [
