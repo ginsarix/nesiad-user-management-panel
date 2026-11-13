@@ -104,6 +104,47 @@ export const projectTable = pgTable("project", {
     .notNull(),
 });
 
+/**
+ * Taahhütler: what a yetkili pledged to a proje, Adet × Tutar. A record
+ * only; totals are computed where shown (src/lib/pledges.ts), never stored.
+ */
+export const projectPledgeTable = pgTable(
+  "project_pledge",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // the rows go with the proje
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projectTable.id, { onDelete: "cascade" }),
+    // a yetkili with taahhütler can't be deleted
+    representativeId: integer("representative_id")
+      .notNull()
+      .references(() => authorizedRepresentativeTable.id, {
+        onDelete: "restrict",
+      }),
+    // Adet
+    quantity: integer().notNull(),
+    // Tutar, per unit; TL as a string ("1250.50") like every amount
+    amount: numeric({ precision: 12, scale: 2, mode: "string" }).notNull(),
+    // the order staff entered the rows in
+    position: integer().notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("project_pledge_quantity_positive", sql`${table.quantity} >= 1`),
+    check("project_pledge_amount_positive", sql`${table.amount} > 0`),
+    index("project_pledge_project_idx").on(table.projectId, table.position),
+    index("project_pledge_representative_idx").on(table.representativeId),
+  ],
+);
+
 /** Tahsilatlar: what the association collected from a yetkili */
 export const collectionTable = pgTable(
   "collection",
