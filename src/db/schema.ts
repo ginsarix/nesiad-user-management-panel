@@ -257,6 +257,8 @@ export const authorizedRepresentativeTable = pgTable(
     phone: text(),
     email: text(),
     notes: text(),
+    // a JPEG the uploader's browser shrank to 800px; stored like member logos
+    photo: text(),
 
     active: boolean().default(true).notNull(),
 

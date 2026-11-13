@@ -135,13 +135,13 @@ describe("audit log of panel data", () => {
 
   it("keeps a deleted member's details, including its yetkililer", async () => {
     const id = await createMember({ title: "__test__ Silinecek Üye" });
-    const res = await representativesRoute.request(
-      "/",
-      json("POST", {
+    const res = await representativesRoute.request("/", {
+      method: "POST",
+      body: form({
         name: "__test__ Ali Veli",
-        members: [{ memberId: id, role: "Ortak" }],
+        members: JSON.stringify([{ memberId: id, role: "Ortak" }]),
       }),
-    );
+    });
     const representative = await res.json();
 
     await membersRoute.request(`/${id}`, { method: "DELETE" });

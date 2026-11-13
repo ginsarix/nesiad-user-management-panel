@@ -29,21 +29,28 @@ export async function getRepresentative(
   return await res.json();
 }
 
-/** Every field is sent so clearing one in the form clears it in the DB */
-function toRepresentativeJson({
+/**
+ * Every field is sent so clearing one in the form clears it in the DB. The
+ * API takes multipart form data: member links as JSON text.
+ */
+function toRepresentativeForm({
   dateOfBirth,
+  active,
+  members,
   ...fields
 }: RepresentativeFormValues) {
   return {
     ...fields,
     // the form holds gg.aa.yyyy, the API takes yyyy-aa-gg
     dateOfBirth: displayToIso(dateOfBirth),
+    active: String(active),
+    members: JSON.stringify(members),
   };
 }
 
 export async function createRepresentative(values: RepresentativeFormValues) {
   const res = await rpcClient.api.representatives.$post({
-    json: toRepresentativeJson(values),
+    form: toRepresentativeForm(values),
   });
 
   if (!res.ok) await throwResponseError(res, "Yetkili kaydedilemedi");
@@ -57,7 +64,7 @@ export async function updateRepresentative(
 ) {
   const res = await rpcClient.api.representatives[":id"].$patch({
     param: { id: String(id) },
-    json: toRepresentativeJson(values),
+    form: toRepresentativeForm(values),
   });
 
   if (!res.ok) await throwResponseError(res, "Yetkili güncellenemedi");
@@ -66,7 +73,7 @@ export async function updateRepresentative(
 export async function setRepresentativeActive(id: number, active: boolean) {
   const res = await rpcClient.api.representatives[":id"].$patch({
     param: { id: String(id) },
-    json: { active },
+    form: { active: String(active) },
   });
 
   if (!res.ok) await throwResponseError(res, "Yetkili durumu değiştirilemedi");

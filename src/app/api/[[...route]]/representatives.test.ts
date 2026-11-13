@@ -90,6 +90,23 @@ function json(method: string, body: unknown) {
   };
 }
 
+function form(fields: Record<string, string | File>) {
+  const body = new FormData();
+  for (const [key, value] of Object.entries(fields)) body.append(key, value);
+  return body;
+}
+
+/** The yetkili route takes multipart: links as JSON text, booleans as text */
+function representativeForm(body: Record<string, unknown>) {
+  const fields: Record<string, string | File> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (value instanceof File || typeof value === "string") fields[key] = value;
+    else if (key === "members") fields[key] = JSON.stringify(value);
+    else fields[key] = String(value);
+  }
+  return form(fields);
+}
+
 async function createMember(title: string, status: MemberStatus = "active") {
   const [member] = await db
     .insert(memberTable)
@@ -100,7 +117,10 @@ async function createMember(title: string, status: MemberStatus = "active") {
 }
 
 async function createRepresentative(body: Record<string, unknown>) {
-  const res = await representativesRoute.request("/", json("POST", body));
+  const res = await representativesRoute.request("/", {
+    method: "POST",
+    body: representativeForm(body),
+  });
   const resBody = await res.json();
   if (res.status === 201) createdRepresentativeIds.push(resBody.id);
   return { res, body: resBody };
@@ -112,7 +132,10 @@ async function getRepresentative(id: number) {
 }
 
 function patch(id: number, body: Record<string, unknown>) {
-  return representativesRoute.request(`/${id}`, json("PATCH", body));
+  return representativesRoute.request(`/${id}`, {
+    method: "PATCH",
+    body: representativeForm(body),
+  });
 }
 
 describe("POST /api/representatives", () => {
@@ -189,6 +212,15 @@ describe("POST /api/representatives", () => {
     });
     expect(res.status).toBe(400);
     expect(body.error).toBe("Geçerli bir e-posta adresi girin");
+  });
+
+  it("rejects a members field that isn't JSON", async () => {
+    const res = await representativesRoute.request("/", {
+      method: "POST",
+      body: form({ name: "__test__ Bozuk Liste", members: "[{" }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Geçersiz üye listesi");
   });
 
   it("rejects the same member twice", async () => {

@@ -191,9 +191,9 @@ export const representativesRoute = new Hono<AppEnv>()
   )
   .post(
     "/",
-    zValidator("json", createRepresentativeSchema, respondWithFirstIssue),
+    zValidator("form", createRepresentativeSchema, respondWithFirstIssue),
     async (c) => {
-      const { members = [], ...fields } = c.req.valid("json");
+      const { members = [], ...fields } = c.req.valid("form");
 
       try {
         const id = await db.transaction(async (tx) => {
@@ -236,10 +236,10 @@ export const representativesRoute = new Hono<AppEnv>()
   .patch(
     "/:id",
     zValidator("param", idParamSchema, respondWithFirstIssue),
-    zValidator("json", updateRepresentativeSchema, respondWithFirstIssue),
+    zValidator("form", updateRepresentativeSchema, respondWithFirstIssue),
     async (c) => {
       const { id } = c.req.valid("param");
-      const { members, ...fields } = c.req.valid("json");
+      const { members, ...fields } = c.req.valid("form");
 
       try {
         const found = await db.transaction(async (tx) => {

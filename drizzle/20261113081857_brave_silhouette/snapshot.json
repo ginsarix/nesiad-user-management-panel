@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "f9464bd9-7e88-430c-946b-afec1903a38d",
+  "prevIds": [
+    "e0b00b06-32b4-4abe-baee-04b4ea1c2ecf"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "authorized_representative",
+        "photo"
+      ],
+      "writes": [
+        "s|col|public.authorized_representative.photo",
+        "n|col|public.authorized_representative.photo",
+        "e|col|public.authorized_representative.photo"
+      ],
+      "reads": [
+        "n|tbl|public.authorized_representative",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "authorized_representative",
+        "name": "photo",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

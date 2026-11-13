@@ -15,6 +15,32 @@ function hasDuplicateMembers(links: { memberId: number | null }[]) {
   return new Set(ids).size !== ids.length;
 }
 
+const INVALID_MEMBERS_MESSAGE = "Geçersiz üye listesi";
+
+/** Multipart carries the member links as JSON text */
+const memberLinksTextSchema = z
+  .string()
+  .transform((text, ctx) => {
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      ctx.addIssue({ code: "custom", message: INVALID_MEMBERS_MESSAGE });
+      return z.NEVER;
+    }
+  })
+  .pipe(
+    z
+      .array(
+        z.object({
+          memberId: z.number().int().positive(),
+          role: optionalTextSchema.nullable(),
+        }),
+        { error: INVALID_MEMBERS_MESSAGE },
+      )
+      .refine((links) => !hasDuplicateMembers(links), DUPLICATE_MEMBER_MESSAGE),
+  );
+
+/** API schema; the yetkili form is sent as multipart form data */
 export const createRepresentativeSchema = z.object({
   name: nameSchema,
   dateOfBirth: optionalIsoDateSchema,
@@ -23,18 +49,10 @@ export const createRepresentativeSchema = z.object({
   notes: optionalTextSchema,
 
   /** Defaults to aktif when left out */
-  active: z.boolean().optional(),
+  active: z.stringbool().optional(),
 
   /** The members this yetkili represents, each with their görev there */
-  members: z
-    .array(
-      z.object({
-        memberId: z.number().int().positive(),
-        role: optionalTextSchema,
-      }),
-    )
-    .refine((links) => !hasDuplicateMembers(links), DUPLICATE_MEMBER_MESSAGE)
-    .optional(),
+  members: memberLinksTextSchema.optional(),
 });
 
 /** Fields left out are kept; `members`, when sent, replaces all links */
