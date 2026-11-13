@@ -17,3 +17,10 @@ export function projectLabel({
 export function projectNumberKey(number: string) {
   return number.trim().toLocaleLowerCase("tr").replaceAll("ı", "i");
 }
+
+/** The Taahhütler editor's texts */
+export const PLEDGE_LABELS = {
+  empty: "Henüz taahhüt eklenmemiş.",
+  add: "Taahhüt ekle",
+  remove: "Taahhüdü kaldır",
+};

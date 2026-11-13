@@ -3,6 +3,7 @@ import { count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db, type Transaction } from "@/db";
 import { collectionTable, projectTable } from "@/db/schema";
+import { amountRowsAuditText } from "@/lib/amount-rows";
 import { type AuditActor, recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
@@ -11,11 +12,10 @@ import {
   diffFields,
   formatAudit,
 } from "@/lib/audit-diff";
-import { pledgesAuditText } from "@/lib/pledges";
 import { projectNumberKey } from "@/lib/projects";
 import { compareTr, compareTrNumeric } from "@/lib/turkish";
+import type { AmountRowInput } from "@/lib/zod-schemas/amount-rows";
 import {
-  type PledgeInput,
   type ProjectFields,
   pledgesBodySchema,
   projectSchema,
@@ -28,13 +28,11 @@ import {
   UNIQUE_VIOLATION,
 } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import { loadPledges, pledgesText, replacePledges } from "./pledge-queries";
 import {
-  assertValidPledges,
-  InvalidPledgeError,
-  loadPledges,
-  pledgesText,
-  replacePledges,
-} from "./pledge-queries";
+  assertUsableRepresentatives,
+  InvalidRowError,
+} from "./representative-rows";
 import {
   idParamSchema,
   respondWithFirstField,
@@ -78,7 +76,7 @@ function saveError(error: unknown) {
       status: 409 as const,
     };
   }
-  if (error instanceof InvalidPledgeError) {
+  if (error instanceof InvalidRowError) {
     return {
       body: {
         error: error.message,
@@ -105,10 +103,10 @@ function saveError(error: unknown) {
 async function savePledges(
   tx: Transaction,
   projectId: number,
-  pledges: readonly PledgeInput[],
+  pledges: readonly AmountRowInput[],
 ) {
   const before = await loadPledges(tx, projectId);
-  await assertValidPledges(
+  await assertUsableRepresentatives(
     tx,
     pledges,
     new Set(before.map((p) => p.representativeId)),
@@ -116,7 +114,7 @@ async function savePledges(
   await replacePledges(tx, projectId, pledges);
   return change(
     "Taahhütler",
-    pledgesAuditText(before),
+    amountRowsAuditText(before),
     await pledgesText(tx, projectId),
   );
 }
@@ -125,15 +123,15 @@ async function savePledges(
  * Creates a proje with its taahhütler and audits it inside the caller's
  * transaction. Used by the Projeler page and by a tahsilat that creates its
  * proje. Throws on a duplicate number (see isDuplicateNumber) and on a
- * refused taahhüt (InvalidPledgeError).
+ * refused taahhüt (InvalidRowError).
  */
 export async function insertProject(
   tx: Transaction,
   values: ProjectFields,
   actor: AuditActor,
-  pledges: readonly PledgeInput[] = [],
+  pledges: readonly AmountRowInput[] = [],
 ) {
-  await assertValidPledges(tx, pledges, new Set());
+  await assertUsableRepresentatives(tx, pledges, new Set());
   const [project] = await tx
     .insert(projectTable)
     .values(withNumberKey(values))

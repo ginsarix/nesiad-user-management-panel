@@ -1,47 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
-  pledgeFormRowSchema,
-  pledgesSchema,
-  pledgesToApi,
-  pledgesToForm,
-} from "./project";
+  amountRowFormSchema,
+  amountRowsSchema,
+  amountRowsToApi,
+  amountRowsToForm,
+} from "./amount-rows";
 
 function firstMessage(result: { error?: { issues: { message: string }[] } }) {
   return result.error?.issues[0]?.message;
 }
 
-describe("pledgesSchema", () => {
+describe("amountRowsSchema", () => {
   const row = { representativeId: 4, quantity: 2, amount: "1250.50" };
 
   it("accepts a valid row and an empty list", () => {
-    expect(pledgesSchema.safeParse([row]).success).toBe(true);
-    expect(pledgesSchema.safeParse([]).success).toBe(true);
+    expect(amountRowsSchema.safeParse([row]).success).toBe(true);
+    expect(amountRowsSchema.safeParse([]).success).toBe(true);
   });
 
   it("needs a whole Adet of at least 1", () => {
     expect(
-      firstMessage(pledgesSchema.safeParse([{ ...row, quantity: 0 }])),
+      firstMessage(amountRowsSchema.safeParse([{ ...row, quantity: 0 }])),
     ).toBe("Adet en az 1 olmalı");
     expect(
-      firstMessage(pledgesSchema.safeParse([{ ...row, quantity: 1.5 }])),
+      firstMessage(amountRowsSchema.safeParse([{ ...row, quantity: 1.5 }])),
     ).toBe("Adet tam sayı olmalı");
     expect(
-      firstMessage(pledgesSchema.safeParse([{ ...row, quantity: 1_000_001 }])),
+      firstMessage(
+        amountRowsSchema.safeParse([{ ...row, quantity: 1_000_001 }]),
+      ),
     ).toBe("Adet en fazla 1.000.000 olabilir");
   });
 
   it("needs a Tutar above zero", () => {
     expect(
-      firstMessage(pledgesSchema.safeParse([{ ...row, amount: "0.00" }])),
+      firstMessage(amountRowsSchema.safeParse([{ ...row, amount: "0.00" }])),
     ).toBe("Tutar sıfırdan büyük olmalı");
   });
 });
 
-describe("pledgeFormRowSchema", () => {
+describe("amountRowFormSchema", () => {
   it("needs Adet typed as a whole number", () => {
     expect(
       firstMessage(
-        pledgeFormRowSchema.safeParse({
+        amountRowFormSchema.safeParse({
           representativeId: 4,
           quantity: "abc",
           amount: "10",
@@ -53,7 +55,7 @@ describe("pledgeFormRowSchema", () => {
   it("needs a yetkili", () => {
     expect(
       firstMessage(
-        pledgeFormRowSchema.safeParse({
+        amountRowFormSchema.safeParse({
           representativeId: null,
           quantity: "1",
           amount: "10",
@@ -63,15 +65,15 @@ describe("pledgeFormRowSchema", () => {
   });
 });
 
-describe("pledgesToApi / pledgesToForm", () => {
+describe("amountRowsToApi / amountRowsToForm", () => {
   it("round-trip a saved row", () => {
     const saved = [{ representativeId: 4, quantity: 2, amount: "1250.50" }];
-    const form = pledgesToForm(saved);
+    const form = amountRowsToForm(saved);
     expect(form).toEqual([
       { representativeId: 4, quantity: "2", amount: "1.250,50" },
     ]);
     expect(
-      pledgesToApi(form.map((row) => pledgeFormRowSchema.parse(row))),
+      amountRowsToApi(form.map((row) => amountRowFormSchema.parse(row))),
     ).toEqual(saved);
   });
 });

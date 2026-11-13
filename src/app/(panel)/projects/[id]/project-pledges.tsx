@@ -5,18 +5,21 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type Path, useForm } from "react-hook-form";
-import { PledgesEditor } from "@/components/pledges-editor";
+import { AmountRowsEditor } from "@/components/amount-rows-editor";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/fetches/errors";
 import { type Project, savePledges } from "@/lib/fetches/project";
 import { shakeElement, useNavigationGuard } from "@/lib/navigation-guard";
+import { PLEDGE_LABELS } from "@/lib/projects";
 import { cn } from "@/lib/utils";
+import {
+  amountRowsToApi,
+  amountRowsToForm,
+} from "@/lib/zod-schemas/amount-rows";
 import {
   type PledgesFormInput,
   type PledgesFormValues,
   pledgesFormSchema,
-  pledgesToApi,
-  pledgesToForm,
 } from "@/lib/zod-schemas/project";
 
 const PLEDGE_FIELD = /^pledges\.\d+\.(representativeId|quantity|amount)$/;
@@ -45,17 +48,19 @@ export function ProjectPledges({ project }: { project: Project }) {
 
   const form = useForm({
     resolver: zodResolver(pledgesFormSchema),
-    defaultValues: { pledges: pledgesToForm(project.pledges) },
+    defaultValues: { pledges: amountRowsToForm(project.pledges) },
   });
   const { isDirty } = form.formState;
 
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: (values: PledgesFormValues) =>
-      savePledges(project.id, pledgesToApi(values.pledges)),
+      savePledges(project.id, amountRowsToApi(values.pledges)),
     onSuccess: (_, values) => {
       // what was sent is what the server stored: the form's new starting
       // point, without waiting for (or depending on) the refetch below
-      form.reset({ pledges: pledgesToForm(pledgesToApi(values.pledges)) });
+      form.reset({
+        pledges: amountRowsToForm(amountRowsToApi(values.pledges)),
+      });
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
       // yetkili pages count taahhütler (the delete check)
       void queryClient.invalidateQueries({ queryKey: ["representatives"] });
@@ -103,7 +108,12 @@ export function ProjectPledges({ project }: { project: Project }) {
         <h3 className="border-b px-4 py-2.5 text-sm font-medium">Taahhütler</h3>
         {/* nothing typed while saving, so the reset after it loses nothing */}
         <fieldset disabled={isPending} className="p-4">
-          <PledgesEditor control={form.control} current={project.pledges} />
+          <AmountRowsEditor
+            control={form.control}
+            name="pledges"
+            labels={PLEDGE_LABELS}
+            current={project.pledges}
+          />
         </fieldset>
       </section>
 

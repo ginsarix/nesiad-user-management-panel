@@ -1,10 +1,11 @@
 /**
- * Taahhüt totals: Adet × Tutar per row and the Genel Toplam. They are
+ * Totals of yetkili × Adet × Tutar rows (Taahhütler, Tahakkuk): each row's
+ * Toplam and the Genel Toplam. They are
  * never stored; this computes them wherever they are shown, in whole kuruş
  * (BigInt), so no float ever rounds them. Client-safe.
  */
 import { formatAmountText, parseAmountInput } from "./money";
-import { MAX_QUANTITY, type PledgeFormRow } from "./zod-schemas/project";
+import { type AmountRowFormRow, MAX_QUANTITY } from "./zod-schemas/amount-rows";
 
 /** "1250.50" → 125050n */
 function toKurus(amount: string): bigint {
@@ -19,12 +20,12 @@ function fromKurus(kurus: bigint): string {
 }
 
 /** 2 × "1250.50" → "2501.00" */
-export function pledgeRowTotal(quantity: number, amount: string): string {
+export function rowTotal(quantity: number, amount: string): string {
   return fromKurus(BigInt(quantity) * toKurus(amount));
 }
 
 /** The Genel Toplam of saved rows; "0.00" without rows */
-export function pledgeGrandTotal(
+export function grandTotal(
   rows: readonly { quantity: number; amount: string }[],
 ): string {
   return fromKurus(
@@ -42,7 +43,7 @@ const WHOLE_NUMBER = /^\d+$/;
  * Adet is past what the form accepts (a long paste would otherwise reach
  * BigInt as Infinity and throw during render)
  */
-function typedValues(row: PledgeFormRow) {
+function typedValues(row: AmountRowFormRow) {
   const quantity = row.quantity.trim();
   const amount = parseAmountInput(row.amount);
   if (!WHOLE_NUMBER.test(quantity) || amount === null) return null;
@@ -51,14 +52,14 @@ function typedValues(row: PledgeFormRow) {
 }
 
 /** A form row's Toplam as typed; null while Adet or Tutar doesn't parse */
-export function typedPledgeTotal(row: PledgeFormRow): string | null {
+export function typedRowTotal(row: AmountRowFormRow): string | null {
   const values = typedValues(row);
-  return values && pledgeRowTotal(values.quantity, values.amount);
+  return values && rowTotal(values.quantity, values.amount);
 }
 
 /** The form's Genel Toplam, leaving out rows that don't parse yet */
-export function typedPledgeGrandTotal(rows: readonly PledgeFormRow[]): string {
-  return pledgeGrandTotal(
+export function typedGrandTotal(rows: readonly AmountRowFormRow[]): string {
+  return grandTotal(
     rows.flatMap((row) => {
       const values = typedValues(row);
       return values ? [values] : [];
@@ -67,7 +68,7 @@ export function typedPledgeGrandTotal(rows: readonly PledgeFormRow[]): string {
 }
 
 /** "Ali Veli: 2 × 1.000,00 TL, Ayşe: 1 × 50,25 TL"; "—" without rows */
-export function pledgesAuditText(
+export function amountRowsAuditText(
   rows: readonly {
     representativeName: string;
     quantity: number;
