@@ -24,7 +24,8 @@ export const projectFieldsSchema = z.object({
 
 export type ProjectFields = z.output<typeof projectFieldsSchema>;
 
-const MAX_QUANTITY = 1_000_000;
+/** The largest Adet a taahhüt may have */
+export const MAX_QUANTITY = 1_000_000;
 const QUANTITY_NOT_WHOLE = "Adet tam sayı olmalı";
 const QUANTITY_TOO_SMALL = "Adet en az 1 olmalı";
 const QUANTITY_TOO_LARGE = "Adet en fazla 1.000.000 olabilir";

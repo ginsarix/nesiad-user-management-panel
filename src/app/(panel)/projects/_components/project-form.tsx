@@ -18,6 +18,7 @@ import {
 } from "@/lib/fetches/project";
 import { listHref } from "@/lib/list-href";
 import {
+  type PledgeInput,
   type ProjectFormInput,
   type ProjectFormValues,
   pledgesToApi,
@@ -27,6 +28,22 @@ import {
 
 const FIELDS = ["name", "number", "active"];
 const PLEDGE_FIELD = /^pledges\.\d+\.(representativeId|quantity|amount)$/;
+
+/** Whether the rows read the same as the saved ones they started from */
+function samePledges(
+  rows: readonly PledgeInput[],
+  saved: readonly PledgeInput[],
+) {
+  return (
+    rows.length === saved.length &&
+    rows.every(
+      (row, i) =>
+        row.representativeId === saved[i].representativeId &&
+        row.quantity === saved[i].quantity &&
+        row.amount === saved[i].amount,
+    )
+  );
+}
 
 /** The input an API error is about, when the form shows that input */
 function formField(error: unknown) {
@@ -53,9 +70,14 @@ export function ProjectForm({ project }: { project?: Project }) {
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
-      const api = { ...values, pledges: pledgesToApi(values.pledges) };
-      if (!project) return await createProject(api);
-      await updateProject(project.id, api);
+      const pledges = pledgesToApi(values.pledges);
+      if (!project) return await createProject({ ...values, pledges });
+      // untouched taahhütler aren't sent, so this page doesn't undo rows
+      // saved on the details page while it was open
+      await updateProject(project.id, {
+        ...values,
+        pledges: samePledges(pledges, project.pledges) ? undefined : pledges,
+      });
       return project.id;
     },
     onSuccess: async (id) => {

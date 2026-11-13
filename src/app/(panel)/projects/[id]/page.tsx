@@ -5,6 +5,7 @@ import { getCollections } from "@/lib/fetches/collection";
 import { getProject } from "@/lib/fetches/project";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
+import { prefetchRepresentatives } from "../_components/prefetch-representatives";
 import { ProjectDetails } from "./project-details";
 
 export default async function ProjectPage({
@@ -18,7 +19,7 @@ export default async function ProjectPage({
   const queryClient = getQueryClient();
   const filters = { ...NO_COLLECTION_FILTERS, project: id };
 
-  // prefetch the proje and its tahsilatlar
+  // prefetch the proje, its tahsilatlar and the yetkililer of its taahhütler
   const [project] = await Promise.all([
     queryClient
       .query({
@@ -32,6 +33,7 @@ export default async function ProjectPage({
         queryFn: () => getCollections(filters, options),
       })
       .catch(console.error),
+    prefetchRepresentatives(queryClient, options),
   ]);
 
   if (project === null) notFound();

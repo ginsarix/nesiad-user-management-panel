@@ -52,18 +52,13 @@ export function ProjectPledges({ project }: { project: Project }) {
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: (values: PledgesFormValues) =>
       savePledges(project.id, pledgesToApi(values.pledges)),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["projects"] }),
-        // yetkili pages count taahhütler (the delete check)
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
-      ]);
-      // the saved rows are the form's new starting point
-      const saved = queryClient.getQueryData<Project | null>([
-        "projects",
-        project.id,
-      ]);
-      form.reset({ pledges: pledgesToForm(saved?.pledges ?? []) });
+    onSuccess: (_, values) => {
+      // what was sent is what the server stored: the form's new starting
+      // point, without waiting for (or depending on) the refetch below
+      form.reset({ pledges: pledgesToForm(pledgesToApi(values.pledges)) });
+      void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      // yetkili pages count taahhütler (the delete check)
+      void queryClient.invalidateQueries({ queryKey: ["representatives"] });
       setLeaveAttempted(false);
       setJustSaved(true);
       clearTimeout(savedTimer.current);
@@ -106,9 +101,10 @@ export function ProjectPledges({ project }: { project: Project }) {
     >
       <section className="rounded-lg border bg-card">
         <h3 className="border-b px-4 py-2.5 text-sm font-medium">Taahhütler</h3>
-        <div className="p-4">
+        {/* nothing typed while saving, so the reset after it loses nothing */}
+        <fieldset disabled={isPending} className="p-4">
           <PledgesEditor control={form.control} current={project.pledges} />
-        </div>
+        </fieldset>
       </section>
 
       {(isDirty || justSaved) && (

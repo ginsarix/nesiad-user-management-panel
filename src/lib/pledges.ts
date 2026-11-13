@@ -4,7 +4,7 @@
  * (BigInt), so no float ever rounds them. Client-safe.
  */
 import { formatAmountText, parseAmountInput } from "./money";
-import type { PledgeFormRow } from "./zod-schemas/project";
+import { MAX_QUANTITY, type PledgeFormRow } from "./zod-schemas/project";
 
 /** "1250.50" → 125050n */
 function toKurus(amount: string): bigint {
@@ -37,11 +37,16 @@ export function pledgeGrandTotal(
 
 const WHOLE_NUMBER = /^\d+$/;
 
-/** A form row's typed Adet and Tutar, or null while either doesn't parse */
+/**
+ * A form row's typed Adet and Tutar, or null while either doesn't parse or
+ * Adet is past what the form accepts (a long paste would otherwise reach
+ * BigInt as Infinity and throw during render)
+ */
 function typedValues(row: PledgeFormRow) {
   const quantity = row.quantity.trim();
   const amount = parseAmountInput(row.amount);
   if (!WHOLE_NUMBER.test(quantity) || amount === null) return null;
+  if (Number(quantity) > MAX_QUANTITY) return null;
   return { quantity: Number(quantity), amount };
 }
 

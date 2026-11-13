@@ -59,6 +59,25 @@ describe("typedPledgeTotal", () => {
   });
 });
 
+describe("typedPledgeTotal past the Adet limit", () => {
+  it("is null instead of throwing for an Adet too long for a number", () => {
+    const row = { representativeId: 1, quantity: "9".repeat(400), amount: "1" };
+    expect(() => typedPledgeTotal(row)).not.toThrow();
+    expect(typedPledgeTotal(row)).toBeNull();
+    expect(typedPledgeGrandTotal([row])).toBe("0.00");
+  });
+
+  it("is null above 1.000.000, which the form refuses", () => {
+    expect(
+      typedPledgeTotal({
+        representativeId: 1,
+        quantity: "1000001",
+        amount: "1",
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("typedPledgeGrandTotal", () => {
   it("skips rows that don't parse yet", () => {
     expect(
