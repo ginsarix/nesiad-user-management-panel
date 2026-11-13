@@ -5,10 +5,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   type Control,
   Controller,
+  type UseFormReturn,
+  useController,
   useFieldArray,
   useForm,
   useFormState,
@@ -22,7 +24,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { isoToDisplay } from "@/lib/dates";
-import { getMembers, type MemberListItem } from "@/lib/fetches/member";
+import { getMembers, logoUrl, type MemberListItem } from "@/lib/fetches/member";
 import {
   createRepresentative,
   type RepresentativeDetails,
@@ -31,12 +33,14 @@ import {
 import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
 import { isEstablished } from "@/lib/member-status";
+import { PhotoFileError, resizePhoto } from "@/lib/photo-upload";
 import { compareTr } from "@/lib/turkish";
 import {
   type RepresentativeFormInput,
   type RepresentativeFormValues,
   representativeFormSchema,
 } from "@/lib/zod-schemas/authorized-representative";
+import { PhotoDropZone } from "./photo-drop-zone";
 
 const emptyMembers: MemberListItem[] = [];
 
@@ -65,6 +69,8 @@ export function RepresentativeForm({
       dateOfBirth: isoToDisplay(representative?.dateOfBirth),
       notes: representative?.notes ?? "",
       active: representative?.active ?? true,
+      photo: null,
+      removePhoto: false,
       members: representative
         ? representative.members.map((m) => ({
             memberId: m.id,
@@ -76,6 +82,8 @@ export function RepresentativeForm({
     },
   });
   const { errors } = form.formState;
+  // a picked photo is being shrunk; saving now would leave it out
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (values: RepresentativeFormValues) => {
@@ -142,6 +150,13 @@ export function RepresentativeForm({
               />
               <FieldError errors={[errors.name]} />
             </Field>
+
+            <PhotoField
+              form={form}
+              currentPhoto={representative?.photo ?? null}
+              busy={photoBusy}
+              onBusyChange={setPhotoBusy}
+            />
 
             <Field>
               <FieldLabel htmlFor="phone">Cep Telefonu</FieldLabel>
@@ -220,7 +235,7 @@ export function RepresentativeForm({
           >
             İptal
           </Link>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending || photoBusy}>
             {isPending ? "Kaydediliyor…" : "Kaydet"}
           </Button>
         </div>
@@ -230,6 +245,79 @@ export function RepresentativeForm({
 }
 
 /** "Bağlı Üyeler": one row per linked member with the yetkili's görev there */
+/**
+ * The photo is shrunk to the JPEG that is uploaded as soon as it's picked,
+ * so a file the browser can't open is reported before saving.
+ */
+function PhotoField({
+  form,
+  currentPhoto,
+  busy,
+  onBusyChange,
+}: {
+  form: UseFormReturn<
+    RepresentativeFormInput,
+    unknown,
+    RepresentativeFormValues
+  >;
+  currentPhoto: string | null;
+  busy: boolean;
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const { control } = form;
+  const photo = useController({ control, name: "photo" });
+  const removePhoto = useController({ control, name: "removePhoto" });
+  // only the latest pick may land when an earlier one finishes later
+  const latestPick = useRef(0);
+
+  const pick = async (file: File | null) => {
+    const pickId = ++latestPick.current;
+    form.clearErrors("photo");
+    if (!file) {
+      photo.field.onChange(null);
+      onBusyChange(false);
+      return;
+    }
+
+    onBusyChange(true);
+    try {
+      const resized = await resizePhoto(file);
+      if (pickId !== latestPick.current) return;
+      photo.field.onChange(resized);
+      await form.trigger("photo");
+    } catch (error) {
+      if (pickId !== latestPick.current) return;
+      if (!(error instanceof PhotoFileError)) throw error;
+      photo.field.onChange(null);
+      form.setError("photo", { message: error.message });
+    } finally {
+      if (pickId === latestPick.current) onBusyChange(false);
+    }
+  };
+
+  return (
+    <Field data-invalid={!!photo.fieldState.error} className="sm:col-span-2">
+      <FieldLabel htmlFor="photo">Fotoğraf</FieldLabel>
+      <PhotoDropZone
+        id="photo"
+        file={photo.field.value}
+        currentUrl={
+          currentPhoto && !removePhoto.field.value
+            ? logoUrl(currentPhoto)
+            : null
+        }
+        busy={busy}
+        onPick={pick}
+        onRemove={() => {
+          pick(null);
+          removePhoto.field.onChange(true);
+        }}
+      />
+      <FieldError errors={[photo.fieldState.error]} />
+    </Field>
+  );
+}
+
 function MemberLinks({
   control,
 }: {

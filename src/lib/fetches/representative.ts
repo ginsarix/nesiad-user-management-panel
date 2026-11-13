@@ -37,6 +37,8 @@ function toRepresentativeForm({
   dateOfBirth,
   active,
   members,
+  photo,
+  removePhoto,
   ...fields
 }: RepresentativeFormValues) {
   return {
@@ -45,6 +47,7 @@ function toRepresentativeForm({
     dateOfBirth: displayToIso(dateOfBirth),
     active: String(active),
     members: JSON.stringify(members),
+    ...(photo ? { photo } : removePhoto && { removePhoto: "true" }),
   };
 }
 

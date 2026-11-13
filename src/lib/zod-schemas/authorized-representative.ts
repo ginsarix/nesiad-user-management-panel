@@ -83,6 +83,12 @@ export const representativeFormSchema = z.object({
   email: emailTextSchema,
   notes: z.string(),
   active: z.boolean(),
+  /** Already shrunk to the JPEG that is uploaded, when it was picked */
+  photo: z
+    .instanceof(File)
+    .refine((f) => f.size <= MAX_PHOTO_SIZE, PHOTO_TOO_LARGE_MESSAGE)
+    .nullable(),
+  removePhoto: z.boolean(),
   members: z
     .array(
       z.object({
