@@ -478,14 +478,14 @@ describe("/api/sms/collection-notice-settings", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual([
-      "memberEmailBody",
-      "memberEmailSubject",
-      "memberSms",
+      "representativeEmailBody",
+      "representativeEmailSubject",
+      "representativeSms",
       "staffEmailBody",
       "staffEmailSubject",
       "staffSms",
     ]);
-    expect(body.memberSms).toContain("{uye}");
+    expect(body.representativeSms).toContain("{yetkili}");
   });
 
   it("refuses an unknown placeholder", async () => {
@@ -496,7 +496,7 @@ describe("/api/sms/collection-notice-settings", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
       error:
-        "Tanınmayan alan: {ad}. Kullanılabilenler: {uye}, {tutar}, {tarih}, {tur}, {tip}, {proje}",
+        "Tanınmayan alan: {ad}. Kullanılabilenler: {yetkili}, {tutar}, {tarih}, {tur}, {tip}, {proje}",
     });
   });
 
@@ -508,7 +508,7 @@ describe("/api/sms/collection-notice-settings", () => {
       .select({ maxId: max(auditLogTable.id) })
       .from(auditLogTable);
     try {
-      const values = { ...original, staffSms: "__test__ {uye} {tutar}" };
+      const values = { ...original, staffSms: "__test__ {yetkili} {tutar}" };
       const res = await put(values);
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual(values);

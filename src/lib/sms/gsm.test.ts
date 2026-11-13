@@ -54,7 +54,7 @@ describe("shipped SMS texts", () => {
       DEFAULT_NOTICE_TEMPLATES.receivedSms,
       DEFAULT_NOTICE_TEMPLATES.acceptedSms,
       DEFAULT_NOTICE_TEMPLATES.rejectedSms,
-      DEFAULT_COLLECTION_NOTICE_TEMPLATES.memberSms,
+      DEFAULT_COLLECTION_NOTICE_TEMPLATES.representativeSms,
       DEFAULT_COLLECTION_NOTICE_TEMPLATES.staffSms,
       loginCodeSms("123456"),
       phoneCodeSms("123456"),

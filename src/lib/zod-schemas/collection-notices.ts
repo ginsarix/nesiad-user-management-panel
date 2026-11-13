@@ -2,7 +2,7 @@ import { z } from "zod";
 import { COLLECTION_NOTICE_PLACEHOLDERS } from "../sms/templates";
 import { TEMPLATE_MAX_LENGTH, templateText } from "./sms";
 
-const ALLOWED = "{uye}, {tutar}, {tarih}, {tur}, {tip}, {proje}";
+const ALLOWED = "{yetkili}, {tutar}, {tarih}, {tur}, {tip}, {proje}";
 const sms = () =>
   templateText(
     { name: "Mesaj", max: TEMPLATE_MAX_LENGTH, sms: true },
@@ -24,9 +24,9 @@ const body = () =>
 
 /** PUT /api/sms/collection-notice-settings and the Ayarlar form (same shape) */
 export const collectionNoticeSettingsSchema = z.object({
-  memberSms: sms(),
-  memberEmailSubject: subject(),
-  memberEmailBody: body(),
+  representativeSms: sms(),
+  representativeEmailSubject: subject(),
+  representativeEmailBody: body(),
   staffSms: sms(),
   staffEmailSubject: subject(),
   staffEmailBody: body(),

@@ -12,8 +12,8 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { db, type Executor } from "@/db";
 import {
+  authorizedRepresentativeTable,
   collectionTable,
-  memberTable,
   parameterTable,
   projectTable,
 } from "@/db/schema";
@@ -27,7 +27,7 @@ export function sumOfCollected() {
   return sql<string>`coalesce(sum(${collectionTable.amount}), 0)::numeric(14,2)::text`;
 }
 
-/** Tahsilatlar with the current member title, parameter and proje names */
+/** Tahsilatlar with the current yetkili name, parameter and proje names */
 function selectCollectionRows(executor: Executor = db) {
   return executor
     .select({
@@ -35,8 +35,8 @@ function selectCollectionRows(executor: Executor = db) {
       date: collectionTable.date,
       amount: collectionTable.amount,
       note: collectionTable.note,
-      memberId: collectionTable.memberId,
-      memberTitle: memberTable.title,
+      representativeId: collectionTable.representativeId,
+      representativeName: authorizedRepresentativeTable.name,
       categoryId: collectionTable.categoryId,
       categoryName: category.name,
       methodId: collectionTable.methodId,
@@ -46,7 +46,10 @@ function selectCollectionRows(executor: Executor = db) {
       projectNumber: projectTable.number,
     })
     .from(collectionTable)
-    .innerJoin(memberTable, eq(collectionTable.memberId, memberTable.id))
+    .innerJoin(
+      authorizedRepresentativeTable,
+      eq(collectionTable.representativeId, authorizedRepresentativeTable.id),
+    )
     .innerJoin(category, eq(collectionTable.categoryId, category.id))
     .innerJoin(method, eq(collectionTable.methodId, method.id))
     .leftJoin(projectTable, eq(collectionTable.projectId, projectTable.id));
@@ -56,8 +59,10 @@ function whereOf(filters: CollectionFilters) {
   const conditions: (SQL | undefined)[] = [];
   if (filters.from) conditions.push(gte(collectionTable.date, filters.from));
   if (filters.to) conditions.push(lte(collectionTable.date, filters.to));
-  if (filters.member !== null) {
-    conditions.push(eq(collectionTable.memberId, filters.member));
+  if (filters.representative !== null) {
+    conditions.push(
+      eq(collectionTable.representativeId, filters.representative),
+    );
   }
   if (filters.category !== null) {
     conditions.push(eq(collectionTable.categoryId, filters.category));

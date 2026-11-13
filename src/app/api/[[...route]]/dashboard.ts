@@ -17,6 +17,7 @@ import { Hono } from "hono";
 import { db } from "@/db";
 import {
   auditLogTable,
+  authorizedRepresentativeTable,
   collectionTable,
   memberTable,
   parameterTable,
@@ -210,28 +211,34 @@ function activeProjects() {
     );
 }
 
-/** Aktif members without a tahsilat dated this year, by name */
-async function membersWithoutCollection(from: string, to: string) {
-  const members = await db
-    .select({ id: memberTable.id, title: memberTable.title })
-    .from(memberTable)
+/** Aktif yetkililer without a tahsilat dated this year, by name */
+async function representativesWithoutCollection(from: string, to: string) {
+  const representatives = await db
+    .select({
+      id: authorizedRepresentativeTable.id,
+      name: authorizedRepresentativeTable.name,
+    })
+    .from(authorizedRepresentativeTable)
     .where(
       and(
-        eq(memberTable.status, "active"),
+        eq(authorizedRepresentativeTable.active, true),
         notExists(
           db
             .select({ one: sql`1` })
             .from(collectionTable)
             .where(
               and(
-                eq(collectionTable.memberId, memberTable.id),
+                eq(
+                  collectionTable.representativeId,
+                  authorizedRepresentativeTable.id,
+                ),
                 between(collectionTable.date, from, to),
               ),
             ),
         ),
       ),
     );
-  return members.sort((a, b) => compareTr(a.title, b.title));
+  return representatives.sort((a, b) => compareTr(a.name, b.name));
 }
 
 /** Aktif members per sector, largest first; `id` null for those without one */
@@ -326,7 +333,7 @@ export const dashboardRoute = new Hono<AppEnv>().get("/", async (c) => {
     collectionsByCategory(from, to),
     paymentsByCategory(from, to),
     activeProjects(),
-    membersWithoutCollection(from, to),
+    representativesWithoutCollection(from, to),
     membersBySector(),
     activeLoginDates(),
     joinsPerYear(today),
@@ -365,7 +372,7 @@ export const dashboardRoute = new Hono<AppEnv>().get("/", async (c) => {
       collectionsByCategory: byCollectionCategory,
       paymentsByCategory: byPaymentCategory,
       activeProjects: projects,
-      membersWithoutCollection: withoutCollection,
+      representativesWithoutCollection: withoutCollection,
     },
     membership: {
       bySector,

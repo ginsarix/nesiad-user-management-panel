@@ -38,7 +38,7 @@ export function DeleteCollectionButton({
       await Promise.all([
         // not this tahsilat's own query: refetching it now would just 404
         queryClient.invalidateQueries({ queryKey: ["collections", "list"] }),
-        queryClient.invalidateQueries({ queryKey: ["members"] }),
+        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
       ]);
@@ -66,9 +66,10 @@ export function DeleteCollectionButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Bu tahsilat silinsin mi?</AlertDialogTitle>
           <AlertDialogDescription>
-            {collection.memberTitle} üyesinden {isoToDisplay(collection.date)}{" "}
-            tarihli {formatAmount(collection.amount)} tahsilat kalıcı olarak
-            silinir. Bu işlem geri alınamaz.
+            {collection.representativeName} adına{" "}
+            {isoToDisplay(collection.date)} tarihli{" "}
+            {formatAmount(collection.amount)} tahsilat kalıcı olarak silinir. Bu
+            işlem geri alınamaz.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && <FieldError>{error.message}</FieldError>}

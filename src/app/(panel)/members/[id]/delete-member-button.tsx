@@ -57,41 +57,24 @@ export function DeleteMemberButton({ member }: { member: MemberDetails }) {
         }
       />
       <AlertDialogContent>
-        {member.collectionCount > 0 ? (
-          <>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Bu üye silinemez</AlertDialogTitle>
-              <AlertDialogDescription>
-                “{member.title}” üyesine ait {member.collectionCount} tahsilat
-                var. Silmek yerine üyeyi pasif yapabilirsiniz.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Tamam</AlertDialogCancel>
-            </AlertDialogFooter>
-          </>
-        ) : (
-          <>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{member.title} silinsin mi?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Üye kalıcı olarak silinir ve yetkilileriyle bağlantısı
-                kaldırılır. Yetkililer silinmez. Bu işlem geri alınamaz.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {error && <FieldError>{error.message}</FieldError>}
-            <AlertDialogFooter>
-              <AlertDialogCancel>Vazgeç</AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                disabled={isPending}
-                onClick={() => mutate()}
-              >
-                {isPending ? "Siliniyor…" : "Sil"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </>
-        )}
+        <AlertDialogHeader>
+          <AlertDialogTitle>{member.title} silinsin mi?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Üye kalıcı olarak silinir ve yetkilileriyle bağlantısı kaldırılır.
+            Yetkililer silinmez. Bu işlem geri alınamaz.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error && <FieldError>{error.message}</FieldError>}
+        <AlertDialogFooter>
+          <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={isPending}
+            onClick={() => mutate()}
+          >
+            {isPending ? "Siliniyor…" : "Sil"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );

@@ -9,7 +9,7 @@ export function EditCollection({
   from,
 }: {
   id: number;
-  from: { member?: number; project?: number };
+  from: { representative?: number; project?: number };
 }) {
   const { data: collection, isError } = useQuery({
     queryKey: ["collections", "detail", id],

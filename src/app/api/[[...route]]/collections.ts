@@ -5,8 +5,8 @@ import writeXlsxFile from "write-excel-file/node";
 import { z } from "zod";
 import { db, type Transaction } from "@/db";
 import {
+  authorizedRepresentativeTable,
   collectionTable,
-  memberTable,
   parameterTable,
   projectTable,
 } from "@/db/schema";
@@ -49,7 +49,7 @@ import {
 const NOT_FOUND_ERROR = "Tahsilat bulunamadı";
 
 const collectionAuditSpec: AuditSpec = {
-  member: { label: "Üye", format: formatAudit.text },
+  representative: { label: "Yetkili", format: formatAudit.text },
   amount: { label: "Tutar", format: formatAudit.text },
   date: { label: "Tarih", format: formatAudit.date },
   category: { label: "Tahsilat Türü", format: formatAudit.text },
@@ -60,7 +60,7 @@ const collectionAuditSpec: AuditSpec = {
 
 /** The tahsilat as the audit log shows it: names, not ids */
 type CollectionRecord = {
-  member: string;
+  representative: string;
   amount: string;
   date: string;
   category: string;
@@ -73,14 +73,14 @@ function auditRecord(record: CollectionRecord) {
   return { ...record, amount: formatAmount(record.amount) };
 }
 
-/** "Üye ünvanı · ₺1.250,00 · 10.11.2026" */
-function auditLabel({ member, amount, date }: CollectionRecord) {
-  return `${member} · ${formatAmount(amount)} · ${isoToDisplay(date)}`;
+/** "Yetkili adı · ₺1.250,00 · 10.11.2026" */
+function auditLabel({ representative, amount, date }: CollectionRecord) {
+  return `${representative} · ${formatAmount(amount)} · ${isoToDisplay(date)}`;
 }
 
 function recordOf(row: CollectionRow): CollectionRecord {
   return {
-    member: row.memberTitle,
+    representative: row.representativeName,
     amount: row.amount,
     date: row.date,
     category: row.categoryName,
@@ -107,8 +107,8 @@ class CollectionInputError extends Error {
 type Values = z.output<typeof collectionSchema>;
 
 /**
- * Checks the member, parameters and proje, creating the proje when asked.
- * A new tahsilat needs an Aktif member and proje; an edit may keep the
+ * Checks the yetkili, parameters and proje, creating the proje when asked.
+ * A new tahsilat needs an Aktif yetkili and proje; an edit may keep the
  * ones it already has. Returns the project id and the names to audit.
  */
 async function resolveReferences(
@@ -117,15 +117,27 @@ async function resolveReferences(
   actor: ReturnType<typeof actorOf>,
   existing: CollectionRow | null,
 ) {
-  const [member] = await tx
-    .select({ title: memberTable.title, status: memberTable.status })
-    .from(memberTable)
-    .where(eq(memberTable.id, values.memberId));
-  if (!member) {
-    throw new CollectionInputError("Seçilen üye bulunamadı", "memberId");
+  const [representative] = await tx
+    .select({
+      name: authorizedRepresentativeTable.name,
+      active: authorizedRepresentativeTable.active,
+    })
+    .from(authorizedRepresentativeTable)
+    .where(eq(authorizedRepresentativeTable.id, values.representativeId));
+  if (!representative) {
+    throw new CollectionInputError(
+      "Seçilen yetkili bulunamadı",
+      "representativeId",
+    );
   }
-  if (member.status !== "active" && existing?.memberId !== values.memberId) {
-    throw new CollectionInputError("Seçilen üye aktif değil", "memberId");
+  if (
+    !representative.active &&
+    existing?.representativeId !== values.representativeId
+  ) {
+    throw new CollectionInputError(
+      "Seçilen yetkili aktif değil",
+      "representativeId",
+    );
   }
 
   const parameters = await tx
@@ -187,7 +199,7 @@ async function resolveReferences(
   }
 
   const record: CollectionRecord = {
-    member: member.title,
+    representative: representative.name,
     amount: values.amount,
     date: values.date,
     category: category.name,
@@ -215,7 +227,7 @@ function countsText(counts: OutcomeCounts) {
 }
 
 /**
- * Emails and texts the member and the other panel users about a new
+ * Emails and texts the yetkili and the other panel users about a new
  * tahsilat, then records the outcomes (never addresses, numbers or text).
  * Runs after the response; a failure here never undoes the tahsilat.
  */
@@ -232,10 +244,13 @@ async function notifyCollectionCreated(id: number, actor: AuditActor) {
       entityLabel: auditLabel(recordOf(collection)),
       details: [
         {
-          label: "Üye e-posta",
-          value: NOTICE_OUTCOME_LABELS[result.member.email],
+          label: "Yetkili e-posta",
+          value: NOTICE_OUTCOME_LABELS[result.representative.email],
         },
-        { label: "Üye SMS", value: NOTICE_OUTCOME_LABELS[result.member.sms] },
+        {
+          label: "Yetkili SMS",
+          value: NOTICE_OUTCOME_LABELS[result.representative.sms],
+        },
         {
           label: "Panel kullanıcıları e-posta",
           value: countsText(result.staff.email),
@@ -261,7 +276,7 @@ async function notifyCollectionCreated(id: number, actor: AuditActor) {
 const filtersQuerySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
-  member: z.string().optional(),
+  representative: z.string().optional(),
   category: z.string().optional(),
   method: z.string().optional(),
   project: z.string().optional(),
@@ -278,7 +293,7 @@ async function collectionsWorkbook({
     [
       [
         "Tarih",
-        "Üye",
+        "Yetkili",
         "Tutar",
         "Tahsilat Türü",
         "Tahsilat Tipi",
@@ -287,7 +302,7 @@ async function collectionsWorkbook({
       ].map(header),
       ...collections.map((collection) => [
         dateCell(collection.date),
-        collection.memberTitle,
+        collection.representativeName,
         amountCell(collection.amount),
         collection.categoryName,
         collection.methodName,

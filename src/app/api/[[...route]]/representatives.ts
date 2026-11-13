@@ -6,6 +6,7 @@ import { createMiddleware } from "hono/factory";
 import { db, type Executor, type Transaction } from "@/db";
 import {
   authorizedRepresentativeTable,
+  collectionTable,
   membersRepresentativesTable,
   memberTable,
 } from "@/db/schema";
@@ -36,6 +37,11 @@ import {
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 const MISSING_MEMBER_ERROR = "Seçilen üye bulunamadı";
+
+/** null when a concurrent tahsilat made the count unknown */
+function hasCollectionsError(collectionCount: number | null) {
+  return `Bu yetkiliye ait ${collectionCount ? `${collectionCount} ` : ""}tahsilat var. Silmek yerine pasif yapabilirsiniz.`;
+}
 
 /** Members joined to their yetkili, optionally for a single yetkili */
 function selectLinkedMembers(
@@ -216,15 +222,20 @@ export const representativesRoute = new Hono<AppEnv>()
 
       if (!representative) return c.json({ error: "Yetkili bulunamadı" }, 404);
 
-      const [links, organizations] = await Promise.all([
+      const [links, organizations, collectionCount] = await Promise.all([
         selectLinkedMembers(id),
         selectRepresentativeOrganizations(id),
+        // a yetkili with tahsilatlar can't be deleted; the page says so
+        db.$count(collectionTable, eq(collectionTable.representativeId, id)),
       ]);
       const members = links
         .map(({ representativeId: _, ...member }) => member)
         .sort(byTitle);
 
-      return c.json({ ...representative, members, organizations }, 200);
+      return c.json(
+        { ...representative, members, organizations, collectionCount },
+        200,
+      );
     },
   )
   .post(
@@ -380,39 +391,64 @@ export const representativesRoute = new Hono<AppEnv>()
     async (c) => {
       const { id } = c.req.valid("param");
 
-      const deleted = await db.transaction(async (tx) => {
-        const [representative] = await tx
-          .select()
-          .from(authorizedRepresentativeTable)
-          .where(eq(authorizedRepresentativeTable.id, id));
-        if (!representative) return null;
+      const result = await db
+        .transaction(async (tx) => {
+          // tahsilatlar keep their yetkili: refuse while it has any
+          const collectionCount = await tx.$count(
+            collectionTable,
+            eq(collectionTable.representativeId, id),
+          );
+          if (collectionCount > 0) return { refused: collectionCount };
 
-        // the foreign keys remove its member links and group rows, so
-        // name them now
-        const members = await linkedMembersText(tx, id);
-        const organizations = await representativeOrganizationsText(tx, id);
+          const [representative] = await tx
+            .select()
+            .from(authorizedRepresentativeTable)
+            .where(eq(authorizedRepresentativeTable.id, id));
+          if (!representative) return null;
 
-        await tx
-          .delete(authorizedRepresentativeTable)
-          .where(eq(authorizedRepresentativeTable.id, id));
-        await recordAudit(tx, {
-          actor: actorOf(c),
-          action: "delete",
-          entityType: "representative",
-          entityId: id,
-          entityLabel: representative.name,
-          details: [
-            ...describeFields(representativeAuditSpec, representative),
-            { label: "Fotoğraf", value: photoAuditValue(representative.photo) },
-            { label: "Bağlı Üyeler", value: members },
-            { label: "Organizasyonlar", value: organizations },
-          ],
+          // the foreign keys remove its member links and group rows, so
+          // name them now
+          const members = await linkedMembersText(tx, id);
+          const organizations = await representativeOrganizationsText(tx, id);
+
+          await tx
+            .delete(authorizedRepresentativeTable)
+            .where(eq(authorizedRepresentativeTable.id, id));
+          await recordAudit(tx, {
+            actor: actorOf(c),
+            action: "delete",
+            entityType: "representative",
+            entityId: id,
+            entityLabel: representative.name,
+            details: [
+              ...describeFields(representativeAuditSpec, representative),
+              {
+                label: "Fotoğraf",
+                value: photoAuditValue(representative.photo),
+              },
+              { label: "Bağlı Üyeler", value: members },
+              { label: "Organizasyonlar", value: organizations },
+            ],
+          });
+          return { deleted: representative };
+        })
+        .catch((error) => {
+          // a tahsilat added between the count and the delete
+          if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+            return { refused: null };
+          }
+          throw error;
         });
-        return representative;
-      });
 
-      if (!deleted) return c.json({ error: "Yetkili bulunamadı" }, 404);
-      await deleteFiles([deleted.photo]);
+      if (!result) return c.json({ error: "Yetkili bulunamadı" }, 404);
+      if ("refused" in result) {
+        return c.json(
+          { error: hasCollectionsError(result.refused ?? null) },
+          409,
+        );
+      }
+      // only now: a refused delete keeps the photo
+      await deleteFiles([result.deleted.photo]);
 
       return c.json({ message: "Yetkili silindi" }, 200);
     },

@@ -5,7 +5,7 @@ import type { NoticeGroup } from "./template-forms";
 export const COLLECTION_NOTICES: NoticeGroup = {
   placeholders: COLLECTION_NOTICE_PLACEHOLDERS,
   sample: {
-    uye: "Kapadokya Gıda A.Ş.",
+    yetkili: "Ayşe Yılmaz",
     tutar: "1.250,00 TL",
     tarih: "10.11.2026",
     tur: "Aidat",
@@ -13,14 +13,14 @@ export const COLLECTION_NOTICES: NoticeGroup = {
     proje: "Kreş Projesi (PR-7)",
   },
   sms: [
-    { label: "Üyeye", name: "memberSms" },
+    { label: "Yetkiliye", name: "representativeSms" },
     { label: "Panel kullanıcılarına", name: "staffSms" },
   ],
   email: [
     {
-      label: "Üyeye",
-      subject: "memberEmailSubject",
-      body: "memberEmailBody",
+      label: "Yetkiliye",
+      subject: "representativeEmailSubject",
+      body: "representativeEmailBody",
     },
     {
       label: "Panel kullanıcılarına",

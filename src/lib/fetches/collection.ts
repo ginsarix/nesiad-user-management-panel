@@ -42,7 +42,7 @@ export async function getCollection(
 
 /** The form's values in the API's forms; only the chosen proje mode is sent */
 function toCollectionJson({
-  memberId,
+  representativeId,
   categoryId,
   methodId,
   amount,
@@ -52,7 +52,7 @@ function toCollectionJson({
 }: CollectionFormValues) {
   return {
     // the form schema guarantees these are picked and the amount parses
-    memberId: memberId as number,
+    representativeId: representativeId as number,
     categoryId: categoryId as number,
     methodId: methodId as number,
     amount: parseAmountInput(amount) ?? "",

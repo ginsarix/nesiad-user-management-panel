@@ -1,15 +1,15 @@
 /**
- * What has to exist before a tahsilat can be recorded: an Aktif member,
+ * What has to exist before a tahsilat can be recorded: an Aktif yetkili,
  * and a Tahsilat Türü and Tahsilat Tipi. A list that hasn't loaded
  * (undefined) counts as not missing. Client-safe.
  */
 export function missingForCollections(
-  members: readonly { status: string }[] | undefined,
+  representatives: readonly { active: boolean }[] | undefined,
   parameters: readonly { kind: string }[] | undefined,
 ) {
   return {
-    member:
-      members !== undefined && !members.some((m) => m.status === "active"),
+    representative:
+      representatives !== undefined && !representatives.some((r) => r.active),
     parameters:
       parameters !== undefined &&
       !(

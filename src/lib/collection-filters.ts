@@ -5,7 +5,8 @@ export type CollectionFilters = {
   /** yyyy-aa-gg, inclusive */
   from: string | null;
   to: string | null;
-  member: number | null;
+  /** the yetkili the tahsilat is from */
+  representative: number | null;
   /** Tahsilat Türü (parameter id) */
   category: number | null;
   /** Tahsilat Tipi (parameter id) */
@@ -17,13 +18,13 @@ export type CollectionFilters = {
 export const NO_COLLECTION_FILTERS: CollectionFilters = {
   from: null,
   to: null,
-  member: null,
+  representative: null,
   category: null,
   method: null,
   project: null,
 };
 
-const ID_KEYS = ["member", "category", "method"] as const;
+const ID_KEYS = ["representative", "category", "method"] as const;
 
 function parseId(value: string | null) {
   const id = Number(value);
@@ -41,7 +42,7 @@ export function parseCollectionFilters(params: {
   return {
     from: isoDate(params.get("from")),
     to: isoDate(params.get("to")),
-    member: parseId(params.get("member")),
+    representative: parseId(params.get("representative")),
     category: parseId(params.get("category")),
     method: parseId(params.get("method")),
     project: project === "none" ? "none" : parseId(project),

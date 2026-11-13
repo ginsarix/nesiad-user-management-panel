@@ -36,9 +36,12 @@ import {
   collectionsExportHref,
   getCollections,
 } from "@/lib/fetches/collection";
-import { getMembers, type MemberListItem } from "@/lib/fetches/member";
 import { getParameters, type Parameter } from "@/lib/fetches/parameter";
 import { getProjects, type ProjectListItem } from "@/lib/fetches/project";
+import {
+  getRepresentatives,
+  type RepresentativeListItem,
+} from "@/lib/fetches/representative";
 import { rememberListSearch } from "@/lib/list-href";
 import { formatAmount } from "@/lib/money";
 import { projectLabel } from "@/lib/projects";
@@ -92,15 +95,15 @@ const columns = helper.columns([
       </Link>
     ),
   }),
-  helper.accessor("memberTitle", {
-    header: "Üye",
+  helper.accessor("representativeName", {
+    header: "Yetkili",
     sortFn: sortByText,
     cell: ({ row }) => (
       <Link
-        href={`/members/${row.original.memberId}`}
+        href={`/representatives/${row.original.representativeId}`}
         className="hover:underline"
       >
-        {row.original.memberTitle}
+        {row.original.representativeName}
       </Link>
     ),
   }),
@@ -156,7 +159,7 @@ const DEFAULT_COLUMN_VISIBILITY = {};
 
 const SORTABLE_COLUMNS = [
   "date",
-  "memberTitle",
+  "representativeName",
   "amount",
   "categoryName",
   "methodName",
@@ -180,7 +183,7 @@ function serializeSort([sort]: SortingState) {
 const NO_PROJECT_ITEM = -1;
 
 const emptyCollections: CollectionRow[] = [];
-const emptyMembers: MemberListItem[] = [];
+const emptyRepresentatives: RepresentativeListItem[] = [];
 const emptyParameters: Parameter[] = [];
 const emptyProjects: ProjectListItem[] = [];
 
@@ -244,9 +247,9 @@ export function Collections({
   });
   const collections = data?.collections ?? emptyCollections;
 
-  const { data: loadedMembers } = useQuery({
-    queryKey: ["members"],
-    queryFn: () => getMembers(),
+  const { data: loadedRepresentatives } = useQuery({
+    queryKey: ["representatives"],
+    queryFn: () => getRepresentatives(),
   });
   const { data: loadedParameters } = useQuery({
     queryKey: ["parameters"],
@@ -256,17 +259,17 @@ export function Collections({
     queryKey: ["projects"],
     queryFn: () => getProjects(),
   });
-  const members = loadedMembers ?? emptyMembers;
+  const representatives = loadedRepresentatives ?? emptyRepresentatives;
   const parameters = loadedParameters ?? emptyParameters;
 
-  // Aktif members, plus the one being filtered by (it may be Pasif now)
-  const memberItems = useMemo(
+  // Aktif yetkililer, plus the one being filtered by (it may be Pasif now)
+  const representativeItems = useMemo(
     () =>
-      members
-        .filter((m) => m.status === "active" || m.id === filters.member)
-        .map((m) => ({ value: m.id, label: m.title }))
+      representatives
+        .filter((r) => r.active || r.id === filters.representative)
+        .map((r) => ({ value: r.id, label: r.name }))
         .toSorted((a, b) => compareTr(a.label, b.label)),
-    [members, filters.member],
+    [representatives, filters.representative],
   );
   const categoryItems = useMemo(
     () =>
@@ -314,7 +317,7 @@ export function Collections({
   return (
     <div className="flex flex-col gap-3">
       <MissingPrerequisitesNotice
-        members={loadedMembers}
+        representatives={loadedRepresentatives}
         parameters={loadedParameters}
       />
 
@@ -342,13 +345,13 @@ export function Collections({
         </div>
         <div className="w-56 [&_input]:bg-card">
           <SearchCombobox
-            id="collections-member"
-            items={memberItems}
-            value={filters.member}
-            onChange={(member) => updateFilters({ member })}
-            placeholder="Tüm üyeler"
-            noItemsText="Aktif üye yok."
-            noMatchText="Aramanızla eşleşen üye yok."
+            id="collections-representative"
+            items={representativeItems}
+            value={filters.representative}
+            onChange={(representative) => updateFilters({ representative })}
+            placeholder="Tüm yetkililer"
+            noItemsText="Aktif yetkili yok."
+            noMatchText="Aramanızla eşleşen yetkili yok."
           />
         </div>
         <div className="w-44 [&_input]:bg-card">

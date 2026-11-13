@@ -98,6 +98,8 @@ export function RepresentativeForm({
         queryClient.invalidateQueries({ queryKey: ["members"] }),
         // Organizasyon pages show the yetkili's name and status
         queryClient.invalidateQueries({ queryKey: ["organizations"] }),
+        // tahsilatlar show the yetkili's name
+        queryClient.invalidateQueries({ queryKey: ["collections"] }),
         invalidateSmsQueries(queryClient),
       ]);
       router.push(

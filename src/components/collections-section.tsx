@@ -22,7 +22,7 @@ import { formatAmount } from "@/lib/money";
 import { projectLabel } from "@/lib/projects";
 
 /**
- * The tahsilatlar of one member or one proje, with their count and total.
+ * The tahsilatlar of one yetkili or one proje, with their count and total.
  * `of` picks which; that column is left out since it's always the same.
  */
 export function CollectionsSection({
@@ -30,15 +30,15 @@ export function CollectionsSection({
   id,
   canAdd,
 }: {
-  of: "member" | "project";
+  of: "representative" | "project";
   id: number;
-  /** A new tahsilat needs an Aktif member or proje */
+  /** A new tahsilat needs an Aktif yetkili or proje */
   canAdd: boolean;
 }) {
   const filters: CollectionFilters = {
     from: null,
     to: null,
-    member: of === "member" ? id : null,
+    representative: of === "representative" ? id : null,
     category: null,
     method: null,
     project: of === "project" ? id : null,
@@ -88,11 +88,11 @@ export function CollectionsSection({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tarih</TableHead>
-                    {of === "project" && <TableHead>Üye</TableHead>}
+                    {of === "project" && <TableHead>Yetkili</TableHead>}
                     <TableHead className="text-right">Tutar</TableHead>
                     <TableHead>Tahsilat Türü</TableHead>
                     <TableHead>Tahsilat Tipi</TableHead>
-                    {of === "member" && <TableHead>Proje</TableHead>}
+                    {of === "representative" && <TableHead>Proje</TableHead>}
                     <TableHead>Not</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -110,10 +110,10 @@ export function CollectionsSection({
                       {of === "project" && (
                         <TableCell>
                           <Link
-                            href={`/members/${collection.memberId}`}
+                            href={`/representatives/${collection.representativeId}`}
                             className="hover:underline"
                           >
-                            {collection.memberTitle}
+                            {collection.representativeName}
                           </Link>
                         </TableCell>
                       )}
@@ -122,7 +122,7 @@ export function CollectionsSection({
                       </TableCell>
                       <TableCell>{collection.categoryName}</TableCell>
                       <TableCell>{collection.methodName}</TableCell>
-                      {of === "member" && (
+                      {of === "representative" && (
                         <TableCell>
                           {collection.projectId &&
                           collection.projectName &&

@@ -61,7 +61,7 @@ export function Dashboard() {
           >
             <MoneyChart monthly={data.money.monthly} />
           </Panel>
-          <MembersWithoutCollection data={data} />
+          <RepresentativesWithoutCollection data={data} />
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <Panel title="Tahsilat türleri" note={String(data.year)}>
@@ -482,24 +482,24 @@ function MoneyTiles({ data }: { data: DashboardData }) {
   );
 }
 
-function MembersWithoutCollection({ data }: { data: DashboardData }) {
-  const members = data.money.membersWithoutCollection;
+function RepresentativesWithoutCollection({ data }: { data: DashboardData }) {
+  const representatives = data.money.representativesWithoutCollection;
   return (
     <Panel
-      title={`Bu yıl tahsilatı olmayan aktif üyeler${members.length ? ` (${members.length})` : ""}`}
+      title={`Bu yıl tahsilatı olmayan aktif yetkililer${representatives.length ? ` (${representatives.length})` : ""}`}
       note="Aidat borcu değil: yalnızca bu yıl hiç tahsilat girilmemiş olanlar"
     >
-      {members.length === 0 ? (
-        <EmptyNote>Her aktif üyenin bu yıl tahsilatı var</EmptyNote>
+      {representatives.length === 0 ? (
+        <EmptyNote>Her aktif yetkilinin bu yıl tahsilatı var</EmptyNote>
       ) : (
         <ul className="flex max-h-72 flex-col divide-y overflow-y-auto text-sm">
-          {members.map((m) => (
-            <li key={m.id} className="py-1.5">
+          {representatives.map((r) => (
+            <li key={r.id} className="py-1.5">
               <Link
-                href={`/members/${m.id}`}
+                href={`/representatives/${r.id}`}
                 className="block truncate text-primary hover:underline"
               >
-                {m.title}
+                {r.name}
               </Link>
             </li>
           ))}

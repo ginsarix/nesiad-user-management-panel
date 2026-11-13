@@ -1,0 +1,282 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "995dce7b-9db7-492c-b859-1a1b221cebc7",
+  "prevIds": [
+    "f9464bd9-7e88-430c-946b-afec1903a38d"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_member_id_member_id_fkey",
+        "n|fk|public.collection.collection_member_id_member_id_fkey",
+        "e|fk|public.collection.collection_member_id_member_id_fkey",
+        "n|con|public.collection.collection_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "e|col|public.collection.member_id"
+      ]
+    },
+    {
+      "statementType": "rename_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection_notice_settings",
+        "member_sms"
+      ],
+      "writes": [
+        "s|col|public.collection_notice_settings.member_sms",
+        "n|col|public.collection_notice_settings.member_sms",
+        "s|col|public.collection_notice_settings.representative_sms",
+        "n|col|public.collection_notice_settings.representative_sms"
+      ],
+      "reads": [
+        "n|tbl|public.collection_notice_settings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "rename_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection_notice_settings",
+        "member_email_subject"
+      ],
+      "writes": [
+        "s|col|public.collection_notice_settings.member_email_subject",
+        "n|col|public.collection_notice_settings.member_email_subject",
+        "s|col|public.collection_notice_settings.representative_email_subject",
+        "n|col|public.collection_notice_settings.representative_email_subject"
+      ],
+      "reads": [
+        "n|tbl|public.collection_notice_settings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "rename_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection_notice_settings",
+        "member_email_body"
+      ],
+      "writes": [
+        "s|col|public.collection_notice_settings.member_email_body",
+        "n|col|public.collection_notice_settings.member_email_body",
+        "s|col|public.collection_notice_settings.representative_email_body",
+        "n|col|public.collection_notice_settings.representative_email_body"
+      ],
+      "reads": [
+        "n|tbl|public.collection_notice_settings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "collection",
+        "collection_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.collection_member_idx",
+        "n|idx|public.collection_member_idx",
+        "e|idx|public.collection_member_idx",
+        "n|rel|public.collection_member_idx"
+      ],
+      "reads": [
+        "e|tbl|public.collection",
+        "n|sch|public",
+        "e|col|public.collection.member_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.collection.representative_id",
+        "n|col|public.collection.representative_id",
+        "e|col|public.collection.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection",
+        "member_id"
+      ],
+      "writes": [
+        "s|col|public.collection.member_id",
+        "n|col|public.collection.member_id",
+        "e|col|public.collection.member_id"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "collection",
+        "collection_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.collection_representative_idx",
+        "n|idx|public.collection_representative_idx",
+        "e|idx|public.collection_representative_idx",
+        "n|rel|public.collection_representative_idx"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|col|public.collection.representative_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_representative_id_authorized_representative_id_fkey",
+        "n|fk|public.collection.collection_representative_id_authorized_representative_id_fkey",
+        "e|fk|public.collection.collection_representative_id_authorized_representative_id_fkey",
+        "n|con|public.collection.collection_representative_id_authorized_representative_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|tbl|public.authorized_representative",
+        "n|sch|public",
+        "n|col|public.collection.representative_id",
+        "n|col|public.authorized_representative.id",
+        "e|uniqueness|public.authorized_representative.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "rename",
+      "key": "columns\u0000[\"public\",\"collection_notice_settings\",\"member_sms\"]",
+      "set": {
+        "name": "representative_sms"
+      }
+    },
+    {
+      "op": "rename",
+      "key": "columns\u0000[\"public\",\"collection_notice_settings\",\"member_email_subject\"]",
+      "set": {
+        "name": "representative_email_subject"
+      }
+    },
+    {
+      "op": "rename",
+      "key": "columns\u0000[\"public\",\"collection_notice_settings\",\"member_email_body\"]",
+      "set": {
+        "name": "representative_email_body"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "representative_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_representative_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "representative_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_representative_id_authorized_representative_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "representative_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "authorized_representative",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"collection\",\"member_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"collection_member_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"collection\",\"collection_member_id_member_id_fkey\"]"
+    }
+  ]
+}

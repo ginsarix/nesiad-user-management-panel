@@ -97,7 +97,7 @@ const GROUPS: {
     key: "collections",
     title: "Tahsilat Bildirimleri",
     description:
-      "Yeni bir tahsilat kaydedilince üyeye ve tahsilatı kaydeden dışındaki bütün aktif panel kullanıcılarına hem SMS hem e-posta gider. Üyenin SMS'i Telefon numarasına gider. Tahsilat düzenlenince veya silinince bildirim gönderilmez.",
+      "Yeni bir tahsilat kaydedilince yetkiliye ve tahsilatı kaydeden dışındaki bütün aktif panel kullanıcılarına hem SMS hem e-posta gider. Yetkilinin SMS'i Cep Telefonu numarasına gider. Tahsilat düzenlenince veya silinince bildirim gönderilmez.",
     items: [
       {
         section: "collections-sms",

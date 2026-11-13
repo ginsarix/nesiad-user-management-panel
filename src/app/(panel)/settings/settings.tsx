@@ -50,7 +50,7 @@ export function Settings({
 
         <SettingsGroup
           title="Tahsilat"
-          description="Üyelerden alınan ödemeler: ne için alındığı ve nasıl."
+          description="Yetkililerden alınan ödemeler: ne için alındığı ve nasıl."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <ParameterList kind="collection_category" title="Tür" />

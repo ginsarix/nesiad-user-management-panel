@@ -9,7 +9,7 @@ import {
   vi,
 } from "vitest";
 import { db } from "@/db";
-import { memberTable, userTable } from "@/db/schema";
+import { authorizedRepresentativeTable, userTable } from "@/db/schema";
 import { getCollectionNoticeSettings } from "./collection-notice-settings";
 import { sendCollectionNotices } from "./collection-notices";
 import type { NetgsmClient } from "./sms/netgsm";
@@ -34,7 +34,7 @@ vi.mock("@/lib/sms/netgsm", async (importOriginal) => {
 
 const suffix = crypto.randomUUID().slice(0, 8);
 const userIds: string[] = [];
-const memberIds: number[] = [];
+const representativeIds: number[] = [];
 
 async function insertUser(key: string, phone: string, banned = false) {
   const id = `__test__${key}-${suffix}`;
@@ -51,24 +51,22 @@ async function insertUser(key: string, phone: string, banned = false) {
 }
 
 let actor: string;
-let member: number;
+let representative: number;
 
 beforeAll(async () => {
   actor = await insertUser("kaydeden", "+905320000001");
   await insertUser("diger", "+905320000002");
   await insertUser("engelli", "+905320000003", true);
   const [row] = await db
-    .insert(memberTable)
+    .insert(authorizedRepresentativeTable)
     .values({
-      title: `__test__ Üye ${suffix}`,
-      email: `__test__uye-${suffix}@example.com`,
+      name: `__test__ Yetkili ${suffix}`,
+      email: `__test__yetkili-${suffix}@example.com`,
       phone: "0532 000 00 09",
-      // the Cep Telefonu is not where the SMS goes
-      mobilePhone: "0532 000 00 08",
     })
-    .returning({ id: memberTable.id });
-  member = row.id;
-  memberIds.push(member);
+    .returning({ id: authorizedRepresentativeTable.id });
+  representative = row.id;
+  representativeIds.push(representative);
 });
 
 afterEach(() => {
@@ -79,13 +77,15 @@ afterEach(() => {
 
 afterAll(async () => {
   await db.delete(userTable).where(inArray(userTable.id, userIds));
-  await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
+  await db
+    .delete(authorizedRepresentativeTable)
+    .where(inArray(authorizedRepresentativeTable.id, representativeIds));
 });
 
 function collection(overrides: Record<string, unknown> = {}) {
   return {
-    memberId: member,
-    memberTitle: `__test__ Üye ${suffix}`,
+    representativeId: representative,
+    representativeName: `__test__ Yetkili ${suffix}`,
     amount: "1250.50",
     date: "2026-11-01",
     categoryName: "Aidat",
@@ -100,10 +100,10 @@ const emailsTo = (address: string) =>
   mail.sendEmail.mock.calls.filter(([message]) => message.to === address);
 
 describe("sendCollectionNotices", () => {
-  it("sends the member's email and SMS (to Telefon) from the member templates", async () => {
+  it("sends the yetkili's email and SMS from the yetkili templates", async () => {
     const settings = await getCollectionNoticeSettings();
     const values = {
-      uye: `__test__ Üye ${suffix}`,
+      yetkili: `__test__ Yetkili ${suffix}`,
       tutar: "1.250,50 TL",
       tarih: "01.11.2026",
       tur: "Aidat",
@@ -113,21 +113,20 @@ describe("sendCollectionNotices", () => {
 
     const result = await sendCollectionNotices(collection(), actor);
 
-    expect(result.member).toEqual({ email: "sent", sms: "sent" });
-    expect(emailsTo(`__test__uye-${suffix}@example.com`)).toEqual([
+    expect(result.representative).toEqual({ email: "sent", sms: "sent" });
+    expect(emailsTo(`__test__yetkili-${suffix}@example.com`)).toEqual([
       [
         {
-          to: `__test__uye-${suffix}@example.com`,
-          subject: fillTemplate(settings.memberEmailSubject, values),
-          text: fillTemplate(settings.memberEmailBody, values),
+          to: `__test__yetkili-${suffix}@example.com`,
+          subject: fillTemplate(settings.representativeEmailSubject, values),
+          text: fillTemplate(settings.representativeEmailBody, values),
         },
       ],
     ]);
     expect(sentSms).toContainEqual({
       no: "5320000009",
-      msg: fillTemplate(settings.memberSms, values),
+      msg: fillTemplate(settings.representativeSms, values),
     });
-    expect(sentSms.some((sms) => sms.no === "5320000008")).toBe(false);
   });
 
   it("notifies active panel users but not the recorder or disabled accounts", async () => {
@@ -138,7 +137,7 @@ describe("sendCollectionNotices", () => {
     );
 
     const staffValues = {
-      uye: `__test__ Üye ${suffix}`,
+      yetkili: `__test__ Yetkili ${suffix}`,
       tutar: "1.250,50 TL",
       tarih: "01.11.2026",
       tur: "Aidat",
@@ -165,21 +164,28 @@ describe("sendCollectionNotices", () => {
     expect(sentSms.some((sms) => sms.no === "5320000003")).toBe(false);
   });
 
-  it("skips the member's channels without an address or a mobile number", async () => {
+  it("skips the yetkili's channels without an address or a mobile number", async () => {
     const [bare] = await db
-      .insert(memberTable)
-      .values({ title: `__test__ Adressiz ${suffix}`, phone: "0384 213 11 11" })
-      .returning({ id: memberTable.id });
-    memberIds.push(bare.id);
+      .insert(authorizedRepresentativeTable)
+      .values({
+        name: `__test__ Adressiz ${suffix}`,
+        // a landline can't take an SMS
+        phone: "0384 213 11 11",
+      })
+      .returning({ id: authorizedRepresentativeTable.id });
+    representativeIds.push(bare.id);
 
     const result = await sendCollectionNotices(
       collection({
-        memberId: bare.id,
-        memberTitle: `__test__ Adressiz ${suffix}`,
+        representativeId: bare.id,
+        representativeName: `__test__ Adressiz ${suffix}`,
       }),
       actor,
     );
-    expect(result.member).toEqual({ email: "skipped", sms: "skipped" });
+    expect(result.representative).toEqual({
+      email: "skipped",
+      sms: "skipped",
+    });
   });
 
   it("counts each panel-user outcome", async () => {

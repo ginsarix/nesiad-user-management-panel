@@ -8,7 +8,6 @@ import {
   committeeMemberTable,
   committeeTable,
   counterpartyTable,
-  memberTable,
   parameterTable,
   paymentTable,
 } from "@/db/schema";
@@ -16,12 +15,21 @@ import { parametersRoute } from "./parameters";
 
 const createdIds: number[] = [];
 const counterpartyIds: number[] = [];
-const memberIds: number[] = [];
+// yetkililer with tahsilatlar, removed with them before the rest
+const payerIds: number[] = [];
 
 const committeeIds: number[] = [];
 const representativeIds: number[] = [];
 
 afterAll(async () => {
+  if (payerIds.length) {
+    await db
+      .delete(collectionTable)
+      .where(inArray(collectionTable.representativeId, payerIds));
+    await db
+      .delete(authorizedRepresentativeTable)
+      .where(inArray(authorizedRepresentativeTable.id, payerIds));
+  }
   if (committeeIds.length) {
     await db
       .delete(committeeTable)
@@ -31,12 +39,6 @@ afterAll(async () => {
     await db
       .delete(authorizedRepresentativeTable)
       .where(inArray(authorizedRepresentativeTable.id, representativeIds));
-  }
-  if (memberIds.length) {
-    await db
-      .delete(collectionTable)
-      .where(inArray(collectionTable.memberId, memberIds));
-    await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
   }
   if (counterpartyIds.length) {
     await db
@@ -297,13 +299,13 @@ describe("parameters used by tahsilatlar", () => {
     const method = (
       await createParameter("collection_method", `__test__ EFT ${suffix}`)
     ).body.id;
-    const [member] = await db
-      .insert(memberTable)
-      .values({ title: `__test__ Üye ${suffix}` })
-      .returning({ id: memberTable.id });
-    memberIds.push(member.id);
+    const [payer] = await db
+      .insert(authorizedRepresentativeTable)
+      .values({ name: `__test__ Yetkili ${suffix}` })
+      .returning({ id: authorizedRepresentativeTable.id });
+    payerIds.push(payer.id);
     await db.insert(collectionTable).values({
-      memberId: member.id,
+      representativeId: payer.id,
       categoryId: category,
       methodId: method,
       amount: "10.00",

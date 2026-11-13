@@ -3,20 +3,20 @@ import { missingForCollections } from "@/lib/collection-prerequisites";
 
 const linkClass = "font-medium underline";
 
-/** Says what to add first when there's no Aktif member, Tahsilat Türü or Tipi */
+/** Says what to add first when there's no Aktif yetkili, Tahsilat Türü or Tipi */
 export function MissingPrerequisitesNotice({
-  members,
+  representatives,
   parameters,
 }: {
-  members: readonly { status: string }[] | undefined;
+  representatives: readonly { active: boolean }[] | undefined;
   parameters: readonly { kind: string }[] | undefined;
 }) {
-  const missing = missingForCollections(members, parameters);
-  if (!missing.member && !missing.parameters) return null;
+  const missing = missingForCollections(representatives, parameters);
+  if (!missing.representative && !missing.parameters) return null;
 
-  const membersLink = (
-    <Link href="/members" className={linkClass}>
-      Üyeler
+  const representativesLink = (
+    <Link href="/representatives" className={linkClass}>
+      Yetkililer
     </Link>
   );
   const parametersLink = (
@@ -28,13 +28,13 @@ export function MissingPrerequisitesNotice({
   return (
     <p className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-900 dark:text-amber-200">
       Tahsilat eklemek için önce{" "}
-      {missing.member && missing.parameters ? (
+      {missing.representative && missing.parameters ? (
         <>
-          {membersLink}'den aktif üye, {parametersLink}'den tahsilat türü ve
-          tipi
+          {representativesLink}'nden aktif yetkili, {parametersLink}'den
+          tahsilat türü ve tipi
         </>
-      ) : missing.member ? (
-        <>{membersLink}'den aktif üye</>
+      ) : missing.representative ? (
+        <>{representativesLink}'nden aktif yetkili</>
       ) : (
         <>{parametersLink}'den tahsilat türü ve tipi</>
       )}{" "}

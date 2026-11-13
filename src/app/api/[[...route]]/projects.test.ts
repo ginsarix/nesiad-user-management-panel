@@ -3,8 +3,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
+  authorizedRepresentativeTable,
   collectionTable,
-  memberTable,
   parameterTable,
   projectTable,
 } from "@/db/schema";
@@ -12,15 +12,17 @@ import { projectsRoute } from "./projects";
 
 const createdIds: number[] = [];
 
-const memberIds: number[] = [];
+const representativeIds: number[] = [];
 const parameterIds: number[] = [];
 
 afterAll(async () => {
-  if (memberIds.length) {
+  if (representativeIds.length) {
     await db
       .delete(collectionTable)
-      .where(inArray(collectionTable.memberId, memberIds));
-    await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
+      .where(inArray(collectionTable.representativeId, representativeIds));
+    await db
+      .delete(authorizedRepresentativeTable)
+      .where(inArray(authorizedRepresentativeTable.id, representativeIds));
   }
   if (createdIds.length) {
     await db.delete(projectTable).where(inArray(projectTable.id, createdIds));
@@ -34,11 +36,11 @@ afterAll(async () => {
 
 /** Two tahsilatlar (100.00 and 50.25) for the project, inserted directly */
 async function addCollections(projectId: number) {
-  const [member] = await db
-    .insert(memberTable)
-    .values({ title: `__test__ Üye ${projectId}` })
-    .returning({ id: memberTable.id });
-  memberIds.push(member.id);
+  const [representative] = await db
+    .insert(authorizedRepresentativeTable)
+    .values({ name: `__test__ Yetkili ${projectId}` })
+    .returning({ id: authorizedRepresentativeTable.id });
+  representativeIds.push(representative.id);
   const parameters = await db
     .insert(parameterTable)
     .values([
@@ -57,7 +59,7 @@ async function addCollections(projectId: number) {
   parameterIds.push(...parameters.map((p) => p.id));
   await db.insert(collectionTable).values(
     ["100.00", "50.25"].map((amount) => ({
-      memberId: member.id,
+      representativeId: representative.id,
       categoryId: parameters[0].id,
       methodId: parameters[1].id,
       amount,

@@ -32,12 +32,8 @@ const ids = {
   project: 0,
   counterparty: 0,
 };
-const m = {
-  candidate: 0,
-  paying: 0,
-  notPaying: 0,
-};
-const r = { active: 0, inactive: 0 };
+const m = { candidate: 0 };
+const r = { active: 0, inactive: 0, paying: 0 };
 const p = { collectionCategory: 0, paymentCategory: 0 };
 const sms = { failed: 0, sent: 0, freshPending: 0, stalePending: 0 };
 
@@ -100,8 +96,8 @@ beforeAll(async () => {
     status: "candidate",
     createdAt: new Date("1990-01-01T00:00:00Z"),
   });
-  m.paying = await insertMember({ sectorId: sector.id });
-  m.notPaying = await insertMember({ sectorId: sector.id });
+  await insertMember({ sectorId: sector.id });
+  await insertMember({ sectorId: sector.id });
   await insertMember({ status: "passive", sectorId: sector.id });
 
   const birth = format(
@@ -117,10 +113,11 @@ beforeAll(async () => {
         dateOfBirth: birth,
         active: false,
       },
+      { name: `__test__ Dashboard ${tag} C` },
     ])
     .returning({ id: authorizedRepresentativeTable.id });
   ids.representatives.push(...reps.map((rep) => rep.id));
-  [r.active, r.inactive] = reps.map((rep) => rep.id);
+  [r.active, r.inactive, r.paying] = reps.map((rep) => rep.id);
 
   p.collectionCategory = await insertParameter("collection_category");
   const collectionMethod = await insertParameter("collection_method");
@@ -138,7 +135,7 @@ beforeAll(async () => {
   ids.project = project.id;
 
   await db.insert(collectionTable).values({
-    memberId: m.paying,
+    representativeId: r.paying,
     categoryId: p.collectionCategory,
     methodId: collectionMethod,
     amount: "100.00",
@@ -173,7 +170,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db
     .delete(collectionTable)
-    .where(inArray(collectionTable.memberId, ids.members));
+    .where(inArray(collectionTable.representativeId, ids.representatives));
   if (ids.counterparty) {
     await db
       .delete(paymentTable)
@@ -301,14 +298,14 @@ describe("GET /api/dashboard", () => {
     ).toMatchObject({ count: 1, total: "100.00" });
   });
 
-  it("lists Aktif members with no tahsilat this year", async () => {
+  it("lists Aktif yetkililer with no tahsilat this year", async () => {
     const { money } = await getDashboard();
-    const listed = money.membersWithoutCollection.map(
-      (member: { id: number }) => member.id,
+    const listed = money.representativesWithoutCollection.map(
+      (representative: { id: number }) => representative.id,
     );
-    expect(listed).toContain(m.notPaying);
-    expect(listed).not.toContain(m.paying);
-    expect(listed).not.toContain(m.candidate);
+    expect(listed).toContain(r.active);
+    expect(listed).not.toContain(r.paying);
+    expect(listed).not.toContain(r.inactive);
   });
 
   it("counts Aktif members per sector and summarizes membership", async () => {

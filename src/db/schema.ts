@@ -104,15 +104,17 @@ export const projectTable = pgTable("project", {
     .notNull(),
 });
 
-/** Tahsilatlar: what the association collected from a member */
+/** Tahsilatlar: what the association collected from a yetkili */
 export const collectionTable = pgTable(
   "collection",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    // a member, parameter or proje with tahsilatlar can't be deleted
-    memberId: integer("member_id")
+    // a yetkili, parameter or proje with tahsilatlar can't be deleted
+    representativeId: integer("representative_id")
       .notNull()
-      .references(() => memberTable.id, { onDelete: "restrict" }),
+      .references(() => authorizedRepresentativeTable.id, {
+        onDelete: "restrict",
+      }),
     // Tahsilat Türü: a collection_category parameter
     categoryId: integer("category_id")
       .notNull()
@@ -141,7 +143,7 @@ export const collectionTable = pgTable(
   (table) => [
     check("collection_amount_positive", sql`${table.amount} > 0`),
     index("collection_date_idx").on(table.date.desc(), table.id.desc()),
-    index("collection_member_idx").on(table.memberId),
+    index("collection_representative_idx").on(table.representativeId),
     index("collection_project_idx").on(table.projectId),
   ],
 );
@@ -584,10 +586,10 @@ export const collectionNoticeSettingsTable = pgTable(
   "collection_notice_settings",
   {
     id: integer().primaryKey().default(1),
-    // to the member the tahsilat is from
-    memberSms: text("member_sms").notNull(),
-    memberEmailSubject: text("member_email_subject").notNull(),
-    memberEmailBody: text("member_email_body").notNull(),
+    // to the yetkili the tahsilat is from
+    representativeSms: text("representative_sms").notNull(),
+    representativeEmailSubject: text("representative_email_subject").notNull(),
+    representativeEmailBody: text("representative_email_body").notNull(),
     // to every other active panel user
     staffSms: text("staff_sms").notNull(),
     staffEmailSubject: text("staff_email_subject").notNull(),

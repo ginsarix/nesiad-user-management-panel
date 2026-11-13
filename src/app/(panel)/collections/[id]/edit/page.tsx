@@ -19,10 +19,10 @@ export default async function EditCollectionPage({
 
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
-  // opened from a member or proje page: return there
+  // opened from a yetkili or proje page: return there
   const query = await searchParams;
   const from = {
-    member: idParam(query.member),
+    representative: idParam(query.representative),
     project: idParam(query.project),
   };
 

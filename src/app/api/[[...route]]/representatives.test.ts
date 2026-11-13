@@ -5,6 +5,7 @@ import { db } from "@/db";
 import {
   auditLogTable,
   authorizedRepresentativeTable,
+  collectionTable,
   committeeMemberTable,
   committeeTable,
   memberTable,
@@ -39,6 +40,11 @@ afterAll(async () => {
       .where(inArray(supervisoryBoardTable.id, supervisoryBoardIds));
   }
   if (createdRepresentativeIds.length) {
+    await db
+      .delete(collectionTable)
+      .where(
+        inArray(collectionTable.representativeId, createdRepresentativeIds),
+      );
     await db
       .delete(authorizedRepresentativeTable)
       .where(
@@ -381,6 +387,60 @@ describe("DELETE /api/representatives/:id", () => {
       method: "DELETE",
     });
     expect(res.status).toBe(404);
+  });
+});
+
+/** One tahsilat for the yetkili, inserted directly */
+async function addCollection(representativeId: number) {
+  const key = crypto.randomUUID().slice(0, 8);
+  const parameters = await db
+    .insert(parameterTable)
+    .values([
+      {
+        kind: "collection_category" as const,
+        name: `__test__ Tür ${key}`,
+        nameKey: `__test__ tür ${key}`,
+      },
+      {
+        kind: "collection_method" as const,
+        name: `__test__ Tip ${key}`,
+        nameKey: `__test__ tip ${key}`,
+      },
+    ])
+    .returning({ id: parameterTable.id });
+  parameterIds.push(...parameters.map((p) => p.id));
+  await db.insert(collectionTable).values({
+    representativeId,
+    categoryId: parameters[0].id,
+    methodId: parameters[1].id,
+    amount: "10.00",
+    date: "2026-11-01",
+  });
+}
+
+describe("yetkililer with tahsilatlar", () => {
+  it("includes collectionCount in the yetkili detail", async () => {
+    const { body } = await createRepresentative({
+      name: "__test__ Tahsilatlı",
+    });
+    expect((await getRepresentative(body.id)).body.collectionCount).toBe(0);
+    await addCollection(body.id);
+    expect((await getRepresentative(body.id)).body.collectionCount).toBe(1);
+  });
+
+  it("refuses to delete a yetkili with tahsilatlar", async () => {
+    const { id, photo } = await createWithPhoto("__test__ Silinemez");
+    await addCollection(id);
+
+    const res = await representativesRoute.request(`/${id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu yetkiliye ait 1 tahsilat var. Silmek yerine pasif yapabilirsiniz.",
+    );
+    expect((await getRepresentative(id)).res.status).toBe(200);
+    expect(await readStoredFile(photo)).not.toBeNull();
   });
 });
 

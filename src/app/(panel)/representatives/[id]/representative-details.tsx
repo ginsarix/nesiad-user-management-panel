@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
+import { CollectionsSection } from "@/components/collections-section";
 import {
   formatDate,
   InfoFields,
@@ -158,6 +159,12 @@ export function RepresentativeDetails({ id }: { id: number }) {
               </div>
             </section>
           </div>
+
+          <CollectionsSection
+            of="representative"
+            id={representative.id}
+            canAdd={representative.active}
+          />
         </>
       )}
     </div>

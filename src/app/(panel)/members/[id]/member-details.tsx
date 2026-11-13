@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
-import { CollectionsSection } from "@/components/collections-section";
 import { formatDate, InfoFields, StatusTag } from "@/components/info-fields";
 import { buttonVariants } from "@/components/ui/button";
 import { getMember } from "@/lib/fetches/member";
@@ -122,15 +121,6 @@ export function MemberDetails({ id }: { id: number }) {
 
             <ApplicationSections member={member} />
           </div>
-
-          {/* applicants can't have tahsilatlar, so they don't get the section */}
-          {(isEstablished(member.status) || member.collectionCount > 0) && (
-            <CollectionsSection
-              of="member"
-              id={member.id}
-              canAdd={member.status === "active"}
-            />
-          )}
         </>
       )}
     </div>

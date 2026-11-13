@@ -40,7 +40,7 @@ export const DEFAULT_NOTICE_TEMPLATES = {
 
 /** What a tahsilat notice can contain */
 export const COLLECTION_NOTICE_PLACEHOLDERS = {
-  uye: "üyenin unvanı",
+  yetkili: "yetkilinin adı soyadı",
   tutar: "tutar, ör. 1.250,00 TL",
   tarih: "tahsilat tarihi",
   tur: "tahsilat türü",
@@ -50,16 +50,16 @@ export const COLLECTION_NOTICE_PLACEHOLDERS = {
 
 /** The tahsilat notice texts shipped before staff edit them (Ayarlar page, Bildirimler tab) */
 export const DEFAULT_COLLECTION_NOTICE_TEMPLATES = {
-  memberSms:
-    "Sayın {uye}, {tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz. NESİAD",
-  memberEmailSubject: "NESİAD ödemeniz alındı",
-  memberEmailBody:
-    "Sayın {uye},\n\n{tarih} tarihli {tutar} tutarındaki {tur} ödemeniz ({tip}) alınmıştır. Teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
+  representativeSms:
+    "Sayın {yetkili}, {tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz. NESİAD",
+  representativeEmailSubject: "NESİAD ödemeniz alındı",
+  representativeEmailBody:
+    "Sayın {yetkili},\n\n{tarih} tarihli {tutar} tutarındaki {tur} ödemeniz ({tip}) alınmıştır. Teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
   staffSms:
-    "Yeni tahsilat: {uye}, {tutar} ({tur}, {tip}), {tarih}. Proje: {proje}",
-  staffEmailSubject: "Yeni tahsilat: {uye}, {tutar}",
+    "Yeni tahsilat: {yetkili}, {tutar} ({tur}, {tip}), {tarih}. Proje: {proje}",
+  staffEmailSubject: "Yeni tahsilat: {yetkili}, {tutar}",
   staffEmailBody:
-    "Panele yeni bir tahsilat kaydedildi.\n\nÜye: {uye}\nTutar: {tutar}\nTarih: {tarih}\nTahsilat Türü: {tur}\nTahsilat Tipi: {tip}\nProje: {proje}",
+    "Panele yeni bir tahsilat kaydedildi.\n\nYetkili: {yetkili}\nTutar: {tutar}\nTarih: {tarih}\nTahsilat Türü: {tur}\nTahsilat Tipi: {tip}\nProje: {proje}",
 } as const;
 
 const PLACEHOLDER = /\{([^{}]*)\}/g;

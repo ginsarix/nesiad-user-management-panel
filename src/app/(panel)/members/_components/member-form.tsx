@@ -126,8 +126,6 @@ export function MemberForm({ member }: { member?: MemberDetails }) {
     onSuccess: async (id) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["members"] }),
-        // tahsilatlar show the member's Ünvan
-        queryClient.invalidateQueries({ queryKey: ["collections"] }),
         // member counts per sector
         queryClient.invalidateQueries({ queryKey: ["sectors"] }),
         // yetkili pages show member titles

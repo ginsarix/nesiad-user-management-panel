@@ -20,9 +20,12 @@ import {
   updateCollection,
 } from "@/lib/fetches/collection";
 import { ApiError } from "@/lib/fetches/errors";
-import { getMembers, type MemberListItem } from "@/lib/fetches/member";
 import { getParameters, type Parameter } from "@/lib/fetches/parameter";
 import { getProjects, type ProjectListItem } from "@/lib/fetches/project";
+import {
+  getRepresentatives,
+  type RepresentativeListItem,
+} from "@/lib/fetches/representative";
 import { listHref } from "@/lib/list-href";
 import { amountToInput } from "@/lib/money";
 import type { ParameterKind } from "@/lib/parameters";
@@ -36,13 +39,13 @@ import { DeleteCollectionButton } from "../[id]/edit/delete-collection-button";
 import { MissingPrerequisitesNotice } from "./missing-prerequisites-notice";
 import { ProjectSection } from "./project-section";
 
-const emptyMembers: MemberListItem[] = [];
+const emptyRepresentatives: RepresentativeListItem[] = [];
 const emptyParameters: Parameter[] = [];
 const emptyProjects: ProjectListItem[] = [];
 
 // API field names the form can show an error under
 const FIELDS = new Set([
-  "memberId",
+  "representativeId",
   "categoryId",
   "methodId",
   "amount",
@@ -60,7 +63,7 @@ function itemsOf(parameters: Parameter[], kind: ParameterKind) {
 }
 
 /**
- * Create form without a tahsilat, edit form with one. `from` is the member
+ * Create form without a tahsilat, edit form with one. `from` is the yetkili
  * or proje page it was opened from: that one is preselected (when it can
  * be picked) and saving or cancelling returns there.
  */
@@ -69,14 +72,14 @@ export function CollectionForm({
   from,
 }: {
   collection?: Collection;
-  from?: { member?: number; project?: number };
+  from?: { representative?: number; project?: number };
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: loadedMembers } = useQuery({
-    queryKey: ["members"],
-    queryFn: () => getMembers(),
+  const { data: loadedRepresentatives } = useQuery({
+    queryKey: ["representatives"],
+    queryFn: () => getRepresentatives(),
   });
   const { data: loadedParameters } = useQuery({
     queryKey: ["parameters"],
@@ -86,20 +89,20 @@ export function CollectionForm({
     queryKey: ["projects"],
     queryFn: () => getProjects(),
   });
-  const members = loadedMembers ?? emptyMembers;
+  const representatives = loadedRepresentatives ?? emptyRepresentatives;
   const parameters = loadedParameters ?? emptyParameters;
 
-  // Aktif members, plus the tahsilat's own member when editing
-  const memberItems = useMemo(
+  // Aktif yetkililer, plus the tahsilat's own yetkili when editing
+  const representativeItems = useMemo(
     () =>
-      members
-        .filter((m) => m.status === "active" || m.id === collection?.memberId)
-        .map((m) => ({
-          value: m.id,
-          label: m.status === "active" ? m.title : `${m.title} (Pasif)`,
+      representatives
+        .filter((r) => r.active || r.id === collection?.representativeId)
+        .map((r) => ({
+          value: r.id,
+          label: r.active ? r.name : `${r.name} (Pasif)`,
         }))
         .toSorted((a, b) => compareTr(a.label, b.label)),
-    [members, collection?.memberId],
+    [representatives, collection?.representativeId],
   );
   const categoryItems = useMemo(
     () => itemsOf(parameters, "collection_category"),
@@ -110,9 +113,11 @@ export function CollectionForm({
     [parameters],
   );
 
-  // a `?member=` / `?project=` that can't be picked preselects nothing
-  const fromMember = memberItems.some((m) => m.value === from?.member)
-    ? (from?.member ?? null)
+  // a `?representative=` / `?project=` that can't be picked preselects nothing
+  const fromRepresentative = representativeItems.some(
+    (r) => r.value === from?.representative,
+  )
+    ? (from?.representative ?? null)
     : null;
   const fromProject = projects.some((p) => p.id === from?.project && p.active)
     ? (from?.project ?? null)
@@ -123,7 +128,7 @@ export function CollectionForm({
   const form = useForm<CollectionFormInput, unknown, CollectionFormValues>({
     resolver: zodResolver(collectionFormSchema),
     defaultValues: {
-      memberId: collection?.memberId ?? fromMember,
+      representativeId: collection?.representativeId ?? fromRepresentative,
       categoryId: collection?.categoryId ?? null,
       methodId: collection?.methodId ?? null,
       amount: collection ? amountToInput(collection.amount) : "",
@@ -139,8 +144,8 @@ export function CollectionForm({
     },
   });
 
-  const backHref = from?.member
-    ? `/members/${from.member}`
+  const backHref = from?.representative
+    ? `/representatives/${from.representative}`
     : from?.project
       ? `/projects/${from.project}`
       : listHref("/collections");
@@ -153,9 +158,9 @@ export function CollectionForm({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["collections"] }),
-        // projeler show totals and may be new; members show their count
+        // projeler show totals and may be new; yetkililer show their count
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
-        queryClient.invalidateQueries({ queryKey: ["members"] }),
+        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
       ]);
       router.push(backHref);
@@ -182,15 +187,15 @@ export function CollectionForm({
         className="inline-flex w-fit items-center gap-1.5 text-sm text-primary hover:underline"
       >
         <ArrowLeft className="size-4" />
-        {from?.member
-          ? "Üyeye dön"
+        {from?.representative
+          ? "Yetkiliye dön"
           : from?.project
             ? "Projeye dön"
             : "Tahsilatlara dön"}
       </Link>
 
       <MissingPrerequisitesNotice
-        members={loadedMembers}
+        representatives={loadedRepresentatives}
         parameters={loadedParameters}
       />
 
@@ -207,23 +212,23 @@ export function CollectionForm({
           <div className="grid gap-x-5 gap-y-4 p-4 sm:grid-cols-2">
             <Controller
               control={form.control}
-              name="memberId"
+              name="representativeId"
               render={({ field, fieldState }) => (
                 <Field
                   data-invalid={!!fieldState.error}
                   className="sm:col-span-2"
                 >
-                  <Required htmlFor="memberId">Üye</Required>
+                  <Required htmlFor="representativeId">Yetkili</Required>
                   <SearchCombobox
-                    id="memberId"
-                    items={memberItems}
+                    id="representativeId"
+                    items={representativeItems}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
                     invalid={!!fieldState.error}
-                    placeholder="Üye seçin"
-                    noItemsText="Aktif üye yok."
-                    noMatchText="Aramanızla eşleşen üye yok."
+                    placeholder="Yetkili seçin"
+                    noItemsText="Aktif yetkili yok."
+                    noMatchText="Aramanızla eşleşen yetkili yok."
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>
