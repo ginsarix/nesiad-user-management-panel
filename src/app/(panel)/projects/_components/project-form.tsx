@@ -133,6 +133,7 @@ export function ProjectForm({ project }: { project?: Project }) {
             <PledgesEditor
               control={form.control}
               setValue={form.setValue}
+              getValues={form.getValues}
               current={project?.pledges ?? []}
             />
           </div>

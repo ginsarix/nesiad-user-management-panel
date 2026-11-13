@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type ArrayPath,
   type Control,
@@ -10,6 +10,7 @@ import {
   type FieldValues,
   type Path,
   type PathValue,
+  type UseFormGetValues,
   type UseFormSetValue,
   useFieldArray,
   useFormState,
@@ -28,6 +29,15 @@ import {
   typedPledgeGrandTotal,
   typedPledgeTotal,
 } from "@/lib/pledges";
+import {
+  emptySpreadHistory,
+  recordSpread,
+  redoSpread,
+  type SpreadField,
+  type SpreadHistory,
+  undoShortcut,
+  undoSpread,
+} from "@/lib/spread-history";
 import type { PledgeFormRow } from "@/lib/zod-schemas/project";
 
 const emptyRows: PledgeFormRow[] = [];
@@ -41,20 +51,30 @@ const COLUMNS =
  * the Toplam of each row, with the Genel Toplam under them, all updated as
  * the user types. `current` are the saved rows: their Pasif yetkililer
  * stay pickable. While "Adet ve tutarı tüm satırlara uygula" is ticked, an
- * Adet or Tutar typed in one row goes into every row (`setValue` is the
- * form's).
+ * Adet or Tutar typed in one row goes into every row, and Cmd/Ctrl+Z puts
+ * every row back (src/lib/spread-history.ts). `setValue` and `getValues`
+ * are the form's.
  */
 export function PledgesEditor<T extends FieldValues>({
   control,
   setValue,
+  getValues,
   current,
 }: {
   control: Control<T>;
   setValue: UseFormSetValue<T>;
+  getValues: UseFormGetValues<T>;
   current: readonly { representativeId: number }[];
 }) {
   // not saved: unticked on every page load
   const [applyToAll, setApplyToAll] = useState(false);
+  const history = useRef<SpreadHistory>(emptySpreadHistory);
+  // the box being typed in while ticked: its step is open until it blurs
+  const openStep = useRef<{
+    key: string;
+    field: SpreadField;
+    before: Record<string, string>;
+  } | null>(null);
   // after a Kaydet, inputs re-check as they change; spread values do too
   const { isSubmitted } = useFormState({ control });
   const name = "pledges" as ArrayPath<T>;
@@ -69,25 +89,101 @@ export function PledgesEditor<T extends FieldValues>({
   const fieldName = (index: number, field: keyof PledgeFormRow) =>
     `pledges.${index}.${field}` as Path<T>;
 
-  /** Puts the row's new Adet or Tutar into every other row, when ticked */
-  function spread(index: number, field: "quantity" | "amount", value: string) {
-    if (!applyToAll) return;
-    rows.forEach((_, other) => {
-      if (other === index) return;
-      setValue(fieldName(other, field), value as PathValue<T, Path<T>>, {
-        shouldDirty: true,
-        shouldValidate: isSubmitted,
-      });
+  function setRowValue(index: number, field: SpreadField, value: string) {
+    setValue(fieldName(index, field), value as PathValue<T, Path<T>>, {
+      shouldDirty: true,
+      shouldValidate: isSubmitted,
     });
   }
 
+  /** Every row's current value of the field, by row id (read from the form,
+   * so a change made in this same event counts) */
+  function snapshot(field: SpreadField) {
+    const values = (getValues(name as Path<T>) ?? []) as PledgeFormRow[];
+    return Object.fromEntries(
+      fields.map((row, index) => [row.id, values[index]?.[field] ?? ""]),
+    );
+  }
+
+  /** Ends the open step, recording it for undo */
+  function closeStep() {
+    const step = openStep.current;
+    if (!step) return;
+    openStep.current = null;
+    history.current = recordSpread(history.current, {
+      field: step.field,
+      before: step.before,
+      after: snapshot(step.field),
+    });
+  }
+
+  /**
+   * Called before a row's Adet or Tutar changes: while ticked, starts a step
+   * for that box (one step until it loses focus)
+   */
+  function beginStep(index: number, field: SpreadField) {
+    if (!applyToAll) return;
+    const key = `${fields[index]?.id}:${field}`;
+    if (openStep.current?.key === key) return;
+    closeStep();
+    openStep.current = { key, field, before: snapshot(field) };
+  }
+
+  /** Puts the row's new Adet or Tutar into every other row, when ticked */
+  function spread(index: number, field: SpreadField, value: string) {
+    if (!applyToAll) return;
+    fields.forEach((_, other) => {
+      if (other !== index) setRowValue(other, field, value);
+    });
+  }
+
+  /** Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z and Ctrl+Y in an Adet or Tutar box */
+  function handleUndoKeys(event: React.KeyboardEvent<HTMLElement>) {
+    if (!applyToAll) return;
+    const target = event.target as HTMLElement;
+    if (!/^pledges-\d+-(quantity|amount)$/.test(target.id)) return;
+    const command = undoShortcut(event);
+    if (!command) return;
+    // the browser's undo would spread a wrong value: only ours, while ticked
+    event.preventDefault();
+    closeStep();
+    const result =
+      command === "undo"
+        ? undoSpread(history.current)
+        : redoSpread(history.current);
+    if (!result) return;
+    history.current = result.history;
+    fields.forEach((row, index) => {
+      const value = result.values[row.id];
+      if (value !== undefined) setRowValue(index, result.field, value);
+    });
+  }
+
+  // a reset (İptal, or the details page after Kaydet) gives every row a new
+  // id: the history no longer applies
+  useEffect(() => {
+    const ids = new Set(fields.map((row) => row.id));
+    const stale = history.current.past
+      .concat(history.current.future)
+      .some((step) => !Object.keys(step.before).some((id) => ids.has(id)));
+    if (stale) {
+      history.current = emptySpreadHistory;
+      openStep.current = null;
+    }
+  }, [fields]);
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" onKeyDownCapture={handleUndoKeys}>
       <Field orientation="horizontal" className="w-fit">
         <Checkbox
           id="pledges-apply-to-all"
           checked={applyToAll}
-          onCheckedChange={setApplyToAll}
+          onCheckedChange={(checked) => {
+            // unticked, each box has the browser's own undo again
+            closeStep();
+            history.current = emptySpreadHistory;
+            setApplyToAll(checked);
+          }}
         />
         <FieldLabel htmlFor="pledges-apply-to-all" className="font-normal">
           Adet ve tutarı tüm satırlara uygula
@@ -156,8 +252,13 @@ export function PledgesEditor<T extends FieldValues>({
                     aria-invalid={!!fieldState.error}
                     {...field}
                     onChange={(event) => {
+                      beginStep(index, "quantity");
                       field.onChange(event);
                       spread(index, "quantity", event.target.value);
+                    }}
+                    onBlur={() => {
+                      field.onBlur();
+                      closeStep();
                     }}
                   />
                   <FieldError errors={[fieldState.error]} />
@@ -173,10 +274,14 @@ export function PledgesEditor<T extends FieldValues>({
                     id={`pledges-${index}-amount`}
                     value={field.value}
                     onChange={(value) => {
+                      beginStep(index, "amount");
                       field.onChange(value);
                       spread(index, "amount", value);
                     }}
-                    onBlur={field.onBlur}
+                    onBlur={() => {
+                      field.onBlur();
+                      closeStep();
+                    }}
                     aria-invalid={!!fieldState.error}
                   />
                   <FieldError errors={[fieldState.error]} />

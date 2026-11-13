@@ -29,3 +29,17 @@ go into every row, so they type it once.
 ## Left to the builder
 
 Layout of the checkbox; whether spread rows are re-validated.
+
+## Addition: undo (approved)
+
+While the checkbox is ticked, Cmd/Ctrl+Z in an Adet or Tutar box undoes the
+last apply-to-all step: every row gets back its own previous value.
+Cmd/Ctrl+Shift+Z (and Ctrl+Y) redoes. One step is everything typed in one
+box until it loses focus (Tutar tidying on blur included). Steps undo in
+order across boxes. Rows added meanwhile aren't touched; rows removed are
+skipped. History clears on Kaydet, İptal (the form re-keys its rows), leaving
+the page, and unticking; while unticked the browser's own per-box undo
+applies. While ticked with nothing to undo, Cmd/Ctrl+Z does nothing (the
+browser's undo would spread a wrong value). Steps are keyed by
+useFieldArray row ids, so removing a row doesn't shift them. The history
+logic is a pure module with tests; the editor only wires keys and focus.
