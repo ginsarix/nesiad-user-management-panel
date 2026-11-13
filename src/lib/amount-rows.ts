@@ -1,8 +1,8 @@
 /**
  * Totals of yetkili × Adet × Tutar rows (Taahhütler, Tahakkuk): each row's
- * Toplam and the Genel Toplam. They are
- * never stored; this computes them wherever they are shown, in whole kuruş
- * (BigInt), so no float ever rounds them. Client-safe.
+ * Toplam and the Genel Toplam. They are never stored; this computes them
+ * wherever they are shown, in whole kuruş (BigInt), so no float ever rounds
+ * them. Client-safe.
  */
 import { formatAmountText, parseAmountInput } from "./money";
 import { type AmountRowFormRow, MAX_QUANTITY } from "./zod-schemas/amount-rows";
