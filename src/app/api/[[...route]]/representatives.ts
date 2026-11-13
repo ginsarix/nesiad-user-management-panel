@@ -45,16 +45,23 @@ import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 const MISSING_MEMBER_ERROR = "Seçilen üye bulunamadı";
 
-/** The tahsilatlar, taahhütler and tahakkuk rows of a yetkili */
+/**
+ * The tahsilatlar, taahhütler and tahakkuk rows of a yetkili. One query at
+ * a time: inside a transaction they share one connection.
+ */
 async function recordCounts(executor: Executor, id: number) {
-  const [collections, pledges, accruals] = await Promise.all([
-    executor.$count(collectionTable, eq(collectionTable.representativeId, id)),
-    executor.$count(
-      projectPledgeTable,
-      eq(projectPledgeTable.representativeId, id),
-    ),
-    executor.$count(accrualTable, eq(accrualTable.representativeId, id)),
-  ]);
+  const collections = await executor.$count(
+    collectionTable,
+    eq(collectionTable.representativeId, id),
+  );
+  const pledges = await executor.$count(
+    projectPledgeTable,
+    eq(projectPledgeTable.representativeId, id),
+  );
+  const accruals = await executor.$count(
+    accrualTable,
+    eq(accrualTable.representativeId, id),
+  );
   return { collections, pledges, accruals };
 }
 

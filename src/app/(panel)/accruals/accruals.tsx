@@ -93,10 +93,12 @@ function AccrualsForm({ list }: { list: AccrualList }) {
       // yetkili pages count tahakkuk rows (the delete check)
       void queryClient.invalidateQueries({ queryKey: ["representatives"] });
     },
-    // e.g. "Pasif yetkili eklenemez" under that row's Yetkili
     onError: (error) => {
+      // e.g. "Pasif yetkili eklenemez" under that row's Yetkili
       const field = rowField(error);
       if (field) form.setError(field, { message: error.message });
+      // e.g. someone saved first: have their list ready for İptal
+      else void queryClient.invalidateQueries({ queryKey: ["accruals"] });
     },
   });
 
@@ -126,8 +128,12 @@ function AccrualsForm({ list }: { list: AccrualList }) {
         savedAt={savedAt}
         savedText="Tahakkuk kaydedildi"
         onDiscard={() => {
-          form.reset();
+          // back to the latest saved list, which may be someone else's newer
+          // one that came in while this page had edits
+          form.reset({ rows: amountRowsToForm(list.rows) });
+          setVersion(list.version);
           reset();
+          void queryClient.invalidateQueries({ queryKey: ["accruals"] });
         }}
       />
     </form>
