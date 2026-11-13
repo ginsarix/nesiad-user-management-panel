@@ -1,6 +1,6 @@
 import type { ClientRequestOptions } from "hono/client";
 import { rpcClient } from "../rpc-client";
-import type { AmountRowInput } from "../zod-schemas/amount-rows";
+import type { AccrualRowInput } from "../zod-schemas/accrual";
 import { throwResponseError } from "./errors";
 
 /** The Tahakkuk list in order, and the version a save must start from */
@@ -16,7 +16,7 @@ export async function getAccruals(options?: ClientRequestOptions) {
  * Replaces the list; resolves to its new version. Throws an ApiError whose
  * `field` names a row's input, or a conflict when someone saved first.
  */
-export async function saveAccruals(rows: AmountRowInput[], version: string) {
+export async function saveAccruals(rows: AccrualRowInput[], version: string) {
   const res = await rpcClient.api.accruals.$put({ json: { rows, version } });
 
   if (!res.ok) await throwResponseError(res, "Tahakkuk kaydedilemedi");

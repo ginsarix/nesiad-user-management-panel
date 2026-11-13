@@ -4,6 +4,7 @@ import {
   formatAmount,
   formatAmountText,
   parseAmountInput,
+  sumAmounts,
 } from "./money";
 
 describe("parseAmountInput", () => {
@@ -54,5 +55,22 @@ describe("amountToInput", () => {
   it("formats for the amount input, without the symbol", () => {
     expect(amountToInput("1250.50")).toBe("1.250,50");
     expect(amountToInput("7.00")).toBe("7,00");
+  });
+});
+
+describe("sumAmounts", () => {
+  it("adds amounts in kuruş", () => {
+    expect(sumAmounts(["1000.00", "50.25"])).toBe("1050.25");
+    expect(sumAmounts(["0.10", "0.20"])).toBe("0.30");
+  });
+
+  it("is zero without amounts", () => {
+    expect(sumAmounts([])).toBe("0.00");
+  });
+
+  it("stays exact past what a float can hold", () => {
+    expect(sumAmounts(["9999999999.99", "9999999999.99"])).toBe(
+      "19999999999.98",
+    );
   });
 });

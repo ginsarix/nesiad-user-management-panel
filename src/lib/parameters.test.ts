@@ -8,6 +8,10 @@ describe("parameterUsageNouns", () => {
       genitivePlural: "ödemelerin",
     });
     expect(parameterUsageNouns("collection_category")).toEqual({
+      locative: "tahsilat veya tahakkuk kaydında",
+      genitivePlural: "kayıtların",
+    });
+    expect(parameterUsageNouns("collection_method")).toEqual({
       locative: "tahsilatta",
       genitivePlural: "tahsilatların",
     });

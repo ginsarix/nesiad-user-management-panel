@@ -1,5 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getAccruals } from "@/lib/fetches/accrual";
+import { getParameters } from "@/lib/fetches/parameter";
 import { getRepresentatives } from "@/lib/fetches/representative";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
@@ -10,7 +11,7 @@ export default async function AccrualsPage() {
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // prefetch the list and the yetkililer its rows pick from
+  // prefetch the list and what its rows pick from: yetkililer, Aidatlar
   await Promise.all([
     queryClient
       .query({ queryKey: ["accruals"], queryFn: () => getAccruals(options) })
@@ -19,6 +20,12 @@ export default async function AccrualsPage() {
       .query({
         queryKey: ["representatives"],
         queryFn: () => getRepresentatives(options),
+      })
+      .catch(console.error),
+    queryClient
+      .query({
+        queryKey: ["parameters"],
+        queryFn: () => getParameters(options),
       })
       .catch(console.error),
   ]);

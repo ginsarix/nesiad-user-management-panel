@@ -4,19 +4,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { type Path, useForm } from "react-hook-form";
-import { AmountRowsEditor } from "@/components/amount-rows-editor";
+import { PledgesEditor } from "@/components/pledges-editor";
 import { SaveBar } from "@/components/save-bar";
 import { ApiError } from "@/lib/fetches/errors";
 import { type Project, savePledges } from "@/lib/fetches/project";
-import { PLEDGE_LABELS } from "@/lib/projects";
-import {
-  amountRowsToApi,
-  amountRowsToForm,
-} from "@/lib/zod-schemas/amount-rows";
 import {
   type PledgesFormInput,
   type PledgesFormValues,
   pledgesFormSchema,
+  pledgesToApi,
+  pledgesToForm,
 } from "@/lib/zod-schemas/project";
 
 const PLEDGE_FIELD = /^pledges\.\d+\.(representativeId|quantity|amount)$/;
@@ -41,17 +38,17 @@ export function ProjectPledges({ project }: { project: Project }) {
 
   const form = useForm({
     resolver: zodResolver(pledgesFormSchema),
-    defaultValues: { pledges: amountRowsToForm(project.pledges) },
+    defaultValues: { pledges: pledgesToForm(project.pledges) },
   });
 
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: (values: PledgesFormValues) =>
-      savePledges(project.id, amountRowsToApi(values.pledges)),
+      savePledges(project.id, pledgesToApi(values.pledges)),
     onSuccess: (_, values) => {
       // what was sent is what the server stored: the form's new starting
       // point, without waiting for (or depending on) the refetch below
       form.reset({
-        pledges: amountRowsToForm(amountRowsToApi(values.pledges)),
+        pledges: pledgesToForm(pledgesToApi(values.pledges)),
       });
       setSavedAt(Date.now());
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -71,12 +68,7 @@ export function ProjectPledges({ project }: { project: Project }) {
         <h3 className="border-b px-4 py-2.5 text-sm font-medium">Taahhütler</h3>
         {/* nothing typed while saving, so the reset after it loses nothing */}
         <fieldset disabled={isPending} className="p-4">
-          <AmountRowsEditor
-            control={form.control}
-            name="pledges"
-            labels={PLEDGE_LABELS}
-            current={project.pledges}
-          />
+          <PledgesEditor control={form.control} current={project.pledges} />
         </fieldset>
       </section>
 

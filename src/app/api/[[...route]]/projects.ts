@@ -3,7 +3,6 @@ import { count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db, type Transaction } from "@/db";
 import { collectionTable, projectTable } from "@/db/schema";
-import { amountRowsAuditText } from "@/lib/amount-rows";
 import { type AuditActor, recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
@@ -12,10 +11,11 @@ import {
   diffFields,
   formatAudit,
 } from "@/lib/audit-diff";
+import { pledgesAuditText } from "@/lib/pledges";
 import { projectNumberKey } from "@/lib/projects";
 import { compareTr, compareTrNumeric } from "@/lib/turkish";
-import type { AmountRowInput } from "@/lib/zod-schemas/amount-rows";
 import {
+  type PledgeInput,
   type ProjectFields,
   pledgesBodySchema,
   projectSchema,
@@ -80,7 +80,7 @@ function saveError(error: unknown) {
     return {
       body: {
         error: error.message,
-        field: `pledges.${error.index}.representativeId`,
+        field: `pledges.${error.index}.${error.field}`,
       },
       status: 400 as const,
     };
@@ -103,7 +103,7 @@ function saveError(error: unknown) {
 async function savePledges(
   tx: Transaction,
   projectId: number,
-  pledges: readonly AmountRowInput[],
+  pledges: readonly PledgeInput[],
 ) {
   const before = await loadPledges(tx, projectId);
   await assertUsableRepresentatives(
@@ -114,7 +114,7 @@ async function savePledges(
   await replacePledges(tx, projectId, pledges);
   return change(
     "Taahhütler",
-    amountRowsAuditText(before),
+    pledgesAuditText(before),
     await pledgesText(tx, projectId),
   );
 }
@@ -129,7 +129,7 @@ export async function insertProject(
   tx: Transaction,
   values: ProjectFields,
   actor: AuditActor,
-  pledges: readonly AmountRowInput[] = [],
+  pledges: readonly PledgeInput[] = [],
 ) {
   await assertUsableRepresentatives(tx, pledges, new Set());
   const [project] = await tx

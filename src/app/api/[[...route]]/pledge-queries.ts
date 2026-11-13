@@ -1,8 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import type { Executor, Transaction } from "@/db";
 import { authorizedRepresentativeTable, projectPledgeTable } from "@/db/schema";
-import { amountRowsAuditText } from "@/lib/amount-rows";
-import type { AmountRowInput } from "@/lib/zod-schemas/amount-rows";
+import { pledgesAuditText } from "@/lib/pledges";
+import type { PledgeInput } from "@/lib/zod-schemas/project";
 
 /** A proje's taahhütler in the order entered, with their yetkili */
 export function loadPledges(executor: Executor, projectId: number) {
@@ -27,14 +27,14 @@ export function loadPledges(executor: Executor, projectId: number) {
 
 /** The "Taahhütler" audit value of a proje's saved rows */
 export async function pledgesText(executor: Executor, projectId: number) {
-  return amountRowsAuditText(await loadPledges(executor, projectId));
+  return pledgesAuditText(await loadPledges(executor, projectId));
 }
 
 /** Replaces all of the proje's taahhütler, keeping the given order */
 export async function replacePledges(
   tx: Transaction,
   projectId: number,
-  pledges: readonly AmountRowInput[],
+  pledges: readonly PledgeInput[],
 ) {
   await tx
     .delete(projectPledgeTable)

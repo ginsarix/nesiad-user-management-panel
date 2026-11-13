@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { type Path, useForm } from "react-hook-form";
-import { AmountRowsEditor } from "@/components/amount-rows-editor";
 import { SaveBar } from "@/components/save-bar";
 import {
   type Accruals as AccrualList,
@@ -16,19 +15,12 @@ import {
   type AccrualFormInput,
   type AccrualFormValues,
   accrualFormSchema,
+  accrualsToApi,
+  accrualsToForm,
 } from "@/lib/zod-schemas/accrual";
-import {
-  amountRowsToApi,
-  amountRowsToForm,
-} from "@/lib/zod-schemas/amount-rows";
+import { AccrualRowsEditor } from "./accrual-rows-editor";
 
-const LABELS = {
-  empty: "Henüz tahakkuk eklenmemiş.",
-  add: "Tahakkuk ekle",
-  remove: "Tahakkuku kaldır",
-};
-
-const ROW_FIELD = /^rows\.\d+\.(representativeId|quantity|amount)$/;
+const ROW_FIELD = /^rows\.\d+\.(representativeId|categoryId|amount)$/;
 
 /** The row input an API error is about, if any */
 function rowField(error: unknown) {
@@ -65,7 +57,7 @@ function AccrualsForm({ list }: { list: AccrualList }) {
 
   const form = useForm({
     resolver: zodResolver(accrualFormSchema),
-    defaultValues: { rows: amountRowsToForm(list.rows) },
+    defaultValues: { rows: accrualsToForm(list.rows) },
   });
   const { isDirty } = form.formState;
 
@@ -77,16 +69,16 @@ function AccrualsForm({ list }: { list: AccrualList }) {
     if (list.version === seenListVersion.current) return;
     seenListVersion.current = list.version;
     if (list.version === version || form.formState.isDirty) return;
-    form.reset({ rows: amountRowsToForm(list.rows) });
+    form.reset({ rows: accrualsToForm(list.rows) });
     setVersion(list.version);
   }, [list, version, form]);
 
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: (values: AccrualFormValues) =>
-      saveAccruals(amountRowsToApi(values.rows), version),
+      saveAccruals(accrualsToApi(values.rows), version),
     onSuccess: (newVersion, values) => {
       // what was sent is what the server stored
-      form.reset({ rows: amountRowsToForm(amountRowsToApi(values.rows)) });
+      form.reset({ rows: accrualsToForm(accrualsToApi(values.rows)) });
       setVersion(newVersion);
       setSavedAt(Date.now());
       void queryClient.invalidateQueries({ queryKey: ["accruals"] });
@@ -112,12 +104,7 @@ function AccrualsForm({ list }: { list: AccrualList }) {
         <h2 className="border-b px-4 py-2.5 text-sm font-medium">Tahakkuk</h2>
         {/* nothing typed while saving, so the reset after it loses nothing */}
         <fieldset disabled={isPending} className="p-4">
-          <AmountRowsEditor
-            control={form.control}
-            name="rows"
-            labels={LABELS}
-            current={list.rows}
-          />
+          <AccrualRowsEditor control={form.control} current={list.rows} />
         </fieldset>
       </section>
 
@@ -130,7 +117,7 @@ function AccrualsForm({ list }: { list: AccrualList }) {
         onDiscard={() => {
           // back to the latest saved list, which may be someone else's newer
           // one that came in while this page had edits
-          form.reset({ rows: amountRowsToForm(list.rows) });
+          form.reset({ rows: accrualsToForm(list.rows) });
           setVersion(list.version);
           reset();
           void queryClient.invalidateQueries({ queryKey: ["accruals"] });

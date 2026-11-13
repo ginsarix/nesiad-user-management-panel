@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type Path, useForm } from "react-hook-form";
-import { AmountRowsEditor } from "@/components/amount-rows-editor";
+import { PledgesEditor } from "@/components/pledges-editor";
 import { ProjectFields } from "@/components/project-fields";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
@@ -17,15 +17,12 @@ import {
   updateProject,
 } from "@/lib/fetches/project";
 import { listHref } from "@/lib/list-href";
-import { PLEDGE_LABELS } from "@/lib/projects";
 import {
-  type AmountRowInput,
-  amountRowsToApi,
-  amountRowsToForm,
-} from "@/lib/zod-schemas/amount-rows";
-import {
+  type PledgeInput,
   type ProjectFormInput,
   type ProjectFormValues,
+  pledgesToApi,
+  pledgesToForm,
   projectFormSchema,
 } from "@/lib/zod-schemas/project";
 
@@ -34,8 +31,8 @@ const PLEDGE_FIELD = /^pledges\.\d+\.(representativeId|quantity|amount)$/;
 
 /** Whether the rows read the same as the saved ones they started from */
 function samePledges(
-  rows: readonly AmountRowInput[],
-  saved: readonly AmountRowInput[],
+  rows: readonly PledgeInput[],
+  saved: readonly PledgeInput[],
 ) {
   return (
     rows.length === saved.length &&
@@ -67,13 +64,13 @@ export function ProjectForm({ project }: { project?: Project }) {
       name: project?.name ?? "",
       number: project?.number ?? "",
       active: project?.active ?? true,
-      pledges: amountRowsToForm(project?.pledges ?? []),
+      pledges: pledgesToForm(project?.pledges ?? []),
     },
   });
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
-      const pledges = amountRowsToApi(values.pledges);
+      const pledges = pledgesToApi(values.pledges);
       if (!project) return await createProject({ ...values, pledges });
       // untouched taahhütler aren't sent, so this page doesn't undo rows
       // saved on the details page while it was open
@@ -133,10 +130,8 @@ export function ProjectForm({ project }: { project?: Project }) {
             Taahhütler
           </h2>
           <div className="p-4">
-            <AmountRowsEditor
+            <PledgesEditor
               control={form.control}
-              name="pledges"
-              labels={PLEDGE_LABELS}
               current={project?.pledges ?? []}
             />
           </div>

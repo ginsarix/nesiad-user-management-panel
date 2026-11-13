@@ -49,3 +49,22 @@ export function formatAmountText(amount: string | number) {
 export function amountToInput(amount: string) {
   return inputFormat.format(Number(amount));
 }
+
+/** "1250.50" → 125050n: whole kuruş, so sums never pass through a float */
+export function toKurus(amount: string): bigint {
+  const [integer, decimals = ""] = amount.split(".");
+  return BigInt(integer + decimals.padEnd(2, "0").slice(0, 2));
+}
+
+/** 125050n → "1250.50" */
+export function fromKurus(kurus: bigint): string {
+  const text = kurus.toString().padStart(3, "0");
+  return `${text.slice(0, -2)}.${text.slice(-2)}`;
+}
+
+/** ["1000.00", "50.25"] → "1050.25"; "0.00" without amounts */
+export function sumAmounts(amounts: readonly string[]): string {
+  return fromKurus(
+    amounts.reduce((sum, amount) => sum + toKurus(amount), BigInt(0)),
+  );
+}

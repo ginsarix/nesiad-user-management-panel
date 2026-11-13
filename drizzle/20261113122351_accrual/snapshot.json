@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "775834e9-ae68-4ed0-a7a3-2449a139f963",
+  "id": "d35f74b7-8451-4e68-ab8d-783a366d2ac3",
   "prevIds": [
     "ff8d4222-92b7-42e0-af12-8e53a035c933"
   ],
@@ -67,6 +67,26 @@
       ]
     },
     {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "accrual",
+        "accrual_category_idx"
+      ],
+      "writes": [
+        "s|idx|public.accrual_category_idx",
+        "n|idx|public.accrual_category_idx",
+        "e|idx|public.accrual_category_idx",
+        "n|rel|public.accrual_category_idx"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "n|col|public.accrual.category_id"
+      ]
+    },
+    {
       "statementType": "create_fk",
       "statementTarget": [
         "table",
@@ -87,6 +107,29 @@
         "n|col|public.accrual.representative_id",
         "n|col|public.authorized_representative.id",
         "e|uniqueness|public.authorized_representative.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "accrual"
+      ],
+      "writes": [
+        "s|fk|public.accrual.accrual_category_id_parameter_id_fkey",
+        "n|fk|public.accrual.accrual_category_id_parameter_id_fkey",
+        "e|fk|public.accrual.accrual_category_id_parameter_id_fkey",
+        "n|con|public.accrual.accrual_category_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.accrual.category_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
       ]
     }
   ],
@@ -146,7 +189,7 @@
       "row": {
         "schema": "public",
         "table": "accrual",
-        "name": "quantity",
+        "name": "category_id",
         "type": "integer",
         "typeSchema": null,
         "notNull": true,
@@ -274,6 +317,30 @@
       "row": {
         "schema": "public",
         "table": "accrual",
+        "name": "accrual_category_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "category_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
         "name": "accrual_representative_id_authorized_representative_id_fkey",
         "nameExplicit": false,
         "columns": [
@@ -294,12 +361,19 @@
       "row": {
         "schema": "public",
         "table": "accrual",
-        "name": "accrual_pkey",
+        "name": "accrual_category_id_parameter_id_fkey",
+        "nameExplicit": false,
         "columns": [
+          "category_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
           "id"
         ],
-        "nameExplicit": false,
-        "entityType": "pks"
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
       }
     },
     {
@@ -307,9 +381,12 @@
       "row": {
         "schema": "public",
         "table": "accrual",
-        "name": "accrual_quantity_positive",
-        "value": "\"quantity\" >= 1",
-        "entityType": "checks"
+        "name": "accrual_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
       }
     },
     {

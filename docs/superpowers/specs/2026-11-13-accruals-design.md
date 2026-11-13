@@ -64,3 +64,21 @@ and delete the audit entries they caused.
 ## Left to the builder
 
 Generic names, file layout, the hash function, the lock mode.
+
+## Change: Aidat replaces Adet (staff request, before merge)
+
+Rows are **Yetkili | Aidat | Tutar**. Aidat is required and picked from the
+Tahsilat Türü list (`collection_category` parameters); Tutar is typed. No
+Toplam column (it would repeat Tutar); Genel Toplam is the sum of Tutar.
+Audit text: "Ali Veli: 2027 Aidatı 1.000,00 TL". The version hash covers
+yetkili, Aidat and Tutar per row.
+
+- A Tahsilat Türü used by a tahakkuk row can't be deleted (counted in its
+  usage like tahsilatlar; message "tahsilat veya tahakkuk kaydında"); renaming
+  is fine.
+- Tahakkuk gets its own editor; the Taahhüt pieces go back to their taahhüt
+  names (as on `main`). Still shared: the yetkili Aktif/Pasif check
+  (`representative-rows.ts`), `SaveBar`, the version guard, and kuruş math
+  (moved into `src/lib/money.ts`).
+- The branch's unmerged `accrual` migration is replaced, not followed by a
+  second one: production only sees the final table.

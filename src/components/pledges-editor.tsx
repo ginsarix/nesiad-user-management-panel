@@ -1,8 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
-import { useMemo } from "react";
 import {
   type ArrayPath,
   type Control,
@@ -18,19 +16,14 @@ import { SearchCombobox } from "@/components/search-combobox";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { typedGrandTotal, typedRowTotal } from "@/lib/amount-rows";
-import {
-  getRepresentatives,
-  type RepresentativeListItem,
-} from "@/lib/fetches/representative";
+import { useRepresentativeItems } from "@/components/use-representative-items";
 import { formatAmount } from "@/lib/money";
-import { compareTr } from "@/lib/turkish";
-import type { AmountRowFormRow } from "@/lib/zod-schemas/amount-rows";
+import { typedPledgeGrandTotal, typedPledgeTotal } from "@/lib/pledges";
+import type { PledgeFormRow } from "@/lib/zod-schemas/project";
 
-const emptyRepresentatives: RepresentativeListItem[] = [];
-const emptyRows: AmountRowFormRow[] = [];
+const emptyRows: PledgeFormRow[] = [];
 
-const NEW_ROW: AmountRowFormRow = {
+const NEW_ROW: PledgeFormRow = {
   representativeId: null,
   quantity: "1",
   amount: "",
@@ -40,64 +33,37 @@ const NEW_ROW: AmountRowFormRow = {
 const COLUMNS =
   "sm:grid-cols-[minmax(0,1fr)_5.5rem_9.5rem_9rem_2.25rem] sm:gap-x-3";
 
-/** What the rows are, in the editor's texts */
-export type AmountRowsLabels = {
-  /** "Henüz taahhüt eklenmemiş." */
-  empty: string;
-  /** "Taahhüt ekle" */
-  add: string;
-  /** "Taahhüdü kaldır" */
-  remove: string;
-};
-
 /**
- * Rows of a form's array field `name` (Taahhütler, Tahakkuk): Yetkili,
- * Adet, Tutar and the Toplam of each row, with the Genel Toplam under them,
- * all updated as the user types. `current` are the saved rows: their Pasif
- * yetkililer stay pickable.
+ * The Taahhütler rows of a form holding `pledges`: Yetkili, Adet, Tutar and
+ * the Toplam of each row, with the Genel Toplam under them, all updated as
+ * the user types. `current` are the saved rows: their Pasif yetkililer
+ * stay pickable.
  */
-export function AmountRowsEditor<T extends FieldValues>({
+export function PledgesEditor<T extends FieldValues>({
   control,
-  name: fieldArrayName,
   current,
-  labels,
 }: {
   control: Control<T>;
-  name: "pledges" | "rows";
   current: readonly { representativeId: number }[];
-  labels: AmountRowsLabels;
 }) {
-  const name = fieldArrayName as ArrayPath<T>;
+  const name = "pledges" as ArrayPath<T>;
   const { fields, append, remove } = useFieldArray({ control, name });
   const rows =
     (useWatch({ control, name: name as Path<T> }) as
-      | AmountRowFormRow[]
+      | PledgeFormRow[]
       | undefined) ?? emptyRows;
 
-  const { data: representatives = emptyRepresentatives } = useQuery({
-    queryKey: ["representatives"],
-    queryFn: () => getRepresentatives(),
-  });
+  const representativeItems = useRepresentativeItems(current);
 
-  // Aktif yetkililer, plus Pasif ones already saved here: they stay
-  const representativeItems = useMemo(() => {
-    const currentIds = new Set(current.map((p) => p.representativeId));
-    return representatives
-      .filter((r) => r.active || currentIds.has(r.id))
-      .map((r) => ({
-        value: r.id,
-        label: r.active ? r.name : `${r.name} (Pasif)`,
-      }))
-      .toSorted((a, b) => compareTr(a.label, b.label));
-  }, [representatives, current]);
-
-  const fieldName = (index: number, field: keyof AmountRowFormRow) =>
-    `${fieldArrayName}.${index}.${field}` as Path<T>;
+  const fieldName = (index: number, field: keyof PledgeFormRow) =>
+    `pledges.${index}.${field}` as Path<T>;
 
   return (
     <div className="flex flex-col gap-3">
       {fields.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{labels.empty}</p>
+        <p className="text-sm text-muted-foreground">
+          Henüz taahhüt eklenmemiş.
+        </p>
       ) : (
         <div
           className={`hidden text-sm font-medium sm:grid ${COLUMNS}`}
@@ -112,7 +78,7 @@ export function AmountRowsEditor<T extends FieldValues>({
       )}
 
       {fields.map((field, index) => {
-        const total = rows[index] ? typedRowTotal(rows[index]) : null;
+        const total = rows[index] ? typedPledgeTotal(rows[index]) : null;
         return (
           <div
             key={field.id}
@@ -127,7 +93,7 @@ export function AmountRowsEditor<T extends FieldValues>({
                   className="col-span-2 sm:col-span-1"
                 >
                   <SearchCombobox
-                    id={`${fieldArrayName}-${index}-representative`}
+                    id={`pledges-${index}-representative`}
                     items={representativeItems}
                     value={field.value}
                     onChange={field.onChange}
@@ -147,7 +113,7 @@ export function AmountRowsEditor<T extends FieldValues>({
               render={({ field, fieldState }) => (
                 <Field data-invalid={!!fieldState.error}>
                   <Input
-                    id={`${fieldArrayName}-${index}-quantity`}
+                    id={`pledges-${index}-quantity`}
                     aria-label="Adet"
                     placeholder="Adet"
                     inputMode="numeric"
@@ -166,7 +132,7 @@ export function AmountRowsEditor<T extends FieldValues>({
               render={({ field, fieldState }) => (
                 <Field data-invalid={!!fieldState.error}>
                   <AmountInput
-                    id={`${fieldArrayName}-${index}-amount`}
+                    id={`pledges-${index}-amount`}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
@@ -188,7 +154,7 @@ export function AmountRowsEditor<T extends FieldValues>({
               type="button"
               variant="ghost"
               size="icon"
-              aria-label={labels.remove}
+              aria-label="Taahhüdü kaldır"
               className="justify-self-end text-muted-foreground"
               onClick={() => remove(index)}
             >
@@ -204,7 +170,7 @@ export function AmountRowsEditor<T extends FieldValues>({
         >
           <span className="sm:col-span-3">Genel Toplam</span>
           <span className="tabular-nums sm:text-right">
-            {formatAmount(typedGrandTotal(rows))}
+            {formatAmount(typedPledgeGrandTotal(rows))}
           </span>
         </div>
       )}
@@ -217,7 +183,7 @@ export function AmountRowsEditor<T extends FieldValues>({
         onClick={() => append(NEW_ROW as FieldArray<T, ArrayPath<T>>)}
       >
         <Plus />
-        {labels.add}
+        Taahhüt ekle
       </Button>
     </div>
   );

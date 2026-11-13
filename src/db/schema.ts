@@ -146,7 +146,7 @@ export const projectPledgeTable = pgTable(
 );
 
 /**
- * Tahakkuk: one association-wide list of yetkili × Adet × Tutar rows,
+ * Tahakkuk: one association-wide list of yetkili × Aidat × Tutar rows,
  * edited in place on its page. Totals are computed where shown, never stored.
  */
 export const accrualTable = pgTable(
@@ -159,9 +159,12 @@ export const accrualTable = pgTable(
       .references(() => authorizedRepresentativeTable.id, {
         onDelete: "restrict",
       }),
-    // Adet
-    quantity: integer().notNull(),
-    // Tutar, per unit; TL as a string ("1250.50") like every amount
+    // Aidat: a collection_category parameter (Tahsilat Türü); one in use
+    // can't be deleted
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => parameterTable.id, { onDelete: "restrict" }),
+    // Tutar; TL as a string ("1250.50") like every amount
     amount: numeric({ precision: 12, scale: 2, mode: "string" }).notNull(),
     // the order staff entered the rows in
     position: integer().notNull(),
@@ -175,10 +178,10 @@ export const accrualTable = pgTable(
       .notNull(),
   },
   (table) => [
-    check("accrual_quantity_positive", sql`${table.quantity} >= 1`),
     check("accrual_amount_positive", sql`${table.amount} > 0`),
     index("accrual_position_idx").on(table.position),
     index("accrual_representative_idx").on(table.representativeId),
+    index("accrual_category_idx").on(table.categoryId),
   ],
 );
 

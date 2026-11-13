@@ -34,6 +34,13 @@ export function parameterUsageNouns(kind: ParameterKind) {
       genitivePlural: "organizasyon kayıtlarının",
     };
   }
+  if (kind === "collection_category") {
+    // a Tahsilat Türü is also a tahakkuk row's Aidat
+    return {
+      locative: "tahsilat veya tahakkuk kaydında",
+      genitivePlural: "kayıtların",
+    };
+  }
   return kind.startsWith("payment_")
     ? { locative: "ödemede", genitivePlural: "ödemelerin" }
     : { locative: "tahsilatta", genitivePlural: "tahsilatların" };

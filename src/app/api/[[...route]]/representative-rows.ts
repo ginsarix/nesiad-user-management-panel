@@ -1,13 +1,16 @@
 import { inArray } from "drizzle-orm";
 import type { Transaction } from "@/db";
 import { authorizedRepresentativeTable } from "@/db/schema";
-import type { AmountRowInput } from "@/lib/zod-schemas/amount-rows";
 
-/** A refused row; `index` is its place in the submitted list */
+/**
+ * A refused row: `index` is its place in the submitted list, `field` the
+ * input it is about
+ */
 export class InvalidRowError extends Error {
   constructor(
     message: string,
     readonly index: number,
+    readonly field = "representativeId",
   ) {
     super(message);
   }
@@ -20,7 +23,7 @@ export class InvalidRowError extends Error {
  */
 export async function assertUsableRepresentatives(
   tx: Transaction,
-  rows: readonly AmountRowInput[],
+  rows: readonly { representativeId: number }[],
   currentIds: ReadonlySet<number>,
 ) {
   if (rows.length === 0) return;

@@ -2,7 +2,12 @@ import { zValidator } from "@hono/zod-validator";
 import { eq, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { db, type Executor } from "@/db";
-import { collectionTable, parameterTable, paymentTable } from "@/db/schema";
+import {
+  accrualTable,
+  collectionTable,
+  parameterTable,
+  paymentTable,
+} from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
 import {
@@ -47,14 +52,23 @@ function collectionsUsing(id: typeof parameterTable.id | number) {
   );
 }
 
-/** How many payments, tahsilatlar and Organizasyon rows use the entry */
+/**
+ * How many payments, tahsilatlar, tahakkuk rows (Aidat) and Organizasyon
+ * rows use the entry. One query at a time: inside a transaction they share
+ * one connection.
+ */
 async function usageOf(executor: Executor, id: number) {
-  const [payments, collections, organizationRows] = await Promise.all([
-    executor.$count(paymentTable, paymentsUsing(id)),
-    executor.$count(collectionTable, collectionsUsing(id)),
-    countOrganizationRoleUsage(executor, id),
-  ]);
-  return payments + collections + organizationRows;
+  const payments = await executor.$count(paymentTable, paymentsUsing(id));
+  const collections = await executor.$count(
+    collectionTable,
+    collectionsUsing(id),
+  );
+  const accruals = await executor.$count(
+    accrualTable,
+    eq(accrualTable.categoryId, id),
+  );
+  const organizationRows = await countOrganizationRoleUsage(executor, id);
+  return payments + collections + accruals + organizationRows;
 }
 
 /** null when a concurrent record made the count unknown */
@@ -81,6 +95,7 @@ export const parametersRoute = new Hono<AppEnv>()
         usageCount: sql<number>`(
           (select count(*) from ${paymentTable} where ${paymentsUsing(parameterTable.id)})
           + (select count(*) from ${collectionTable} where ${collectionsUsing(parameterTable.id)})
+          + (select count(*) from ${accrualTable} where ${eq(accrualTable.categoryId, parameterTable.id)})
           + ${organizationRoleUsageSql(parameterTable.id)}
         )::int`,
       })
