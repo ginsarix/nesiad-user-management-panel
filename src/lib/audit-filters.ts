@@ -15,6 +15,7 @@ export const AUDIT_ENTITY_TYPES = [
   "payment",
   "project",
   "collection",
+  "accrual",
   "panel_user",
   "sms",
   "auth",

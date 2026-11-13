@@ -23,7 +23,10 @@ import {
 } from "@/lib/fetches/representative";
 import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
-import { representativeRecordsText } from "@/lib/representative-records";
+import {
+  hasRepresentativeRecords,
+  representativeRecordsText,
+} from "@/lib/representative-records";
 
 export function DeleteRepresentativeButton({
   representative,
@@ -32,6 +35,11 @@ export function DeleteRepresentativeButton({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const counts = {
+    collections: representative.collectionCount,
+    pledges: representative.pledgeCount,
+    accruals: representative.accrualCount,
+  };
   const [open, setOpen] = useState(false);
 
   const { mutate, isPending, error, reset } = useMutation({
@@ -70,18 +78,14 @@ export function DeleteRepresentativeButton({
         }
       />
       <AlertDialogContent>
-        {representative.collectionCount > 0 ||
-        representative.pledgeCount > 0 ? (
+        {hasRepresentativeRecords(counts) ? (
           <>
             <AlertDialogHeader>
               <AlertDialogTitle>Bu yetkili silinemez</AlertDialogTitle>
               <AlertDialogDescription>
                 “{representative.name}” adlı yetkiliye ait{" "}
-                {representativeRecordsText(
-                  representative.collectionCount,
-                  representative.pledgeCount,
-                )}{" "}
-                var. Silmek yerine yetkiliyi pasif yapabilirsiniz.
+                {representativeRecordsText(counts)} var. Silmek yerine yetkiliyi
+                pasif yapabilirsiniz.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

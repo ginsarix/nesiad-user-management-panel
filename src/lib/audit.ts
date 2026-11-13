@@ -16,6 +16,7 @@ export type AuditEntityType =
   | "payment"
   | "project"
   | "collection"
+  | "accrual"
   | "panel_user"
   | "sms"
   | "auth";

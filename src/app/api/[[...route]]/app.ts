@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { auth } from "@/lib/auth";
+import { accrualsRoute } from "./accruals";
 import { applicationsRoute } from "./applications";
 import { auditLogsRoute } from "./audit-logs";
 import { collectionsRoute } from "./collections";
@@ -51,6 +52,7 @@ export const app = new Hono<AppEnv>()
   .route("/counterparties", counterpartiesRoute)
   .route("/payments", paymentsRoute)
   .route("/projects", projectsRoute)
+  .route("/accruals", accrualsRoute)
   .route("/collections", collectionsRoute)
   .route("/representatives", representativesRoute)
   .route("/organizations", organizationsRoute)

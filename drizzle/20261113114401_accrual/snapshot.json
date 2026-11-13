@@ -1,0 +1,326 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "775834e9-ae68-4ed0-a7a3-2449a139f963",
+  "prevIds": [
+    "ff8d4222-92b7-42e0-af12-8e53a035c933"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "accrual"
+      ],
+      "writes": [
+        "s|tbl|public.accrual",
+        "n|tbl|public.accrual",
+        "e|tbl|public.accrual",
+        "n|rel|public.accrual",
+        "n|type|public.accrual",
+        "n|rel|public.accrual_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "accrual",
+        "accrual_position_idx"
+      ],
+      "writes": [
+        "s|idx|public.accrual_position_idx",
+        "n|idx|public.accrual_position_idx",
+        "e|idx|public.accrual_position_idx",
+        "n|rel|public.accrual_position_idx"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "n|col|public.accrual.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "accrual",
+        "accrual_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.accrual_representative_idx",
+        "n|idx|public.accrual_representative_idx",
+        "e|idx|public.accrual_representative_idx",
+        "n|rel|public.accrual_representative_idx"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "n|col|public.accrual.representative_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "accrual"
+      ],
+      "writes": [
+        "s|fk|public.accrual.accrual_representative_id_authorized_representative_id_fkey",
+        "n|fk|public.accrual.accrual_representative_id_authorized_representative_id_fkey",
+        "e|fk|public.accrual.accrual_representative_id_authorized_representative_id_fkey",
+        "n|con|public.accrual.accrual_representative_id_authorized_representative_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "n|tbl|public.authorized_representative",
+        "n|sch|public",
+        "n|col|public.accrual.representative_id",
+        "n|col|public.authorized_representative.id",
+        "e|uniqueness|public.authorized_representative.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "accrual",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "accrual_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "representative_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "quantity",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "amount",
+        "type": "numeric(12,2)",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "accrual_position_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "position",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "accrual_representative_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "representative_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "accrual_representative_id_authorized_representative_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "representative_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "authorized_representative",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "accrual_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "accrual_quantity_positive",
+        "value": "\"quantity\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "accrual_amount_positive",
+        "value": "\"amount\" > 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

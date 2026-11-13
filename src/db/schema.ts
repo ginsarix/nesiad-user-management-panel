@@ -145,6 +145,43 @@ export const projectPledgeTable = pgTable(
   ],
 );
 
+/**
+ * Tahakkuk: one association-wide list of yetkili × Adet × Tutar rows,
+ * edited in place on its page. Totals are computed where shown, never stored.
+ */
+export const accrualTable = pgTable(
+  "accrual",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    // a yetkili with tahakkuk rows can't be deleted
+    representativeId: integer("representative_id")
+      .notNull()
+      .references(() => authorizedRepresentativeTable.id, {
+        onDelete: "restrict",
+      }),
+    // Adet
+    quantity: integer().notNull(),
+    // Tutar, per unit; TL as a string ("1250.50") like every amount
+    amount: numeric({ precision: 12, scale: 2, mode: "string" }).notNull(),
+    // the order staff entered the rows in
+    position: integer().notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("accrual_quantity_positive", sql`${table.quantity} >= 1`),
+    check("accrual_amount_positive", sql`${table.amount} > 0`),
+    index("accrual_position_idx").on(table.position),
+    index("accrual_representative_idx").on(table.representativeId),
+  ],
+);
+
 /** Tahsilatlar: what the association collected from a yetkili */
 export const collectionTable = pgTable(
   "collection",

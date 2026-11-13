@@ -13,6 +13,7 @@ export const ENTITY_TYPE_LABELS: Record<AuditEntityTypeFilter, string> = {
   payment: "Ödemeler",
   project: "Projeler",
   collection: "Tahsilatlar",
+  accrual: "Tahakkuk",
   panel_user: "Panel kullanıcıları",
   sms: "SMS",
   auth: "Oturum açma",
@@ -84,6 +85,9 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     update: "Tahsilat güncellendi",
     delete: "Tahsilat silindi",
     collection_notice: "Tahsilat bildirimi gönderildi",
+  },
+  accrual: {
+    update: "Tahakkuk güncellendi",
   },
   panel_user: {
     create: "Panel kullanıcısı eklendi",

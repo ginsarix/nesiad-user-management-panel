@@ -5,6 +5,7 @@ import { bodyLimit } from "hono/body-limit";
 import { createMiddleware } from "hono/factory";
 import { db, type Executor, type Transaction } from "@/db";
 import {
+  accrualTable,
   authorizedRepresentativeTable,
   collectionTable,
   membersRepresentativesTable,
@@ -21,7 +22,11 @@ import {
 } from "@/lib/audit-diff";
 import { deleteFiles } from "@/lib/file-storage";
 import { isEstablished } from "@/lib/member-status";
-import { representativeRecordsText } from "@/lib/representative-records";
+import {
+  hasRepresentativeRecords,
+  type RepresentativeRecordCounts,
+  representativeRecordsText,
+} from "@/lib/representative-records";
 import { compareTr } from "@/lib/turkish";
 import { PHOTO_MIME_TYPES, storeUpload } from "@/lib/uploads";
 import {
@@ -40,12 +45,22 @@ import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 const MISSING_MEMBER_ERROR = "Seçilen üye bulunamadı";
 
-/** null counts when a tahsilat or taahhüt added during the delete stopped it */
-function hasRecordsError(
-  collectionCount: number | null,
-  pledgeCount: number | null,
-) {
-  return `Bu yetkiliye ait ${representativeRecordsText(collectionCount, pledgeCount)} var. Silmek yerine pasif yapabilirsiniz.`;
+/** The tahsilatlar, taahhütler and tahakkuk rows of a yetkili */
+async function recordCounts(executor: Executor, id: number) {
+  const [collections, pledges, accruals] = await Promise.all([
+    executor.$count(collectionTable, eq(collectionTable.representativeId, id)),
+    executor.$count(
+      projectPledgeTable,
+      eq(projectPledgeTable.representativeId, id),
+    ),
+    executor.$count(accrualTable, eq(accrualTable.representativeId, id)),
+  ]);
+  return { collections, pledges, accruals };
+}
+
+/** null counts when a record added during the delete stopped it */
+function hasRecordsError(counts: RepresentativeRecordCounts) {
+  return `Bu yetkiliye ait ${representativeRecordsText(counts)} var. Silmek yerine pasif yapabilirsiniz.`;
 }
 
 /** Members joined to their yetkili, optionally for a single yetkili */
@@ -227,18 +242,12 @@ export const representativesRoute = new Hono<AppEnv>()
 
       if (!representative) return c.json({ error: "Yetkili bulunamadı" }, 404);
 
-      const [links, organizations, collectionCount, pledgeCount] =
-        await Promise.all([
-          selectLinkedMembers(id),
-          selectRepresentativeOrganizations(id),
-          // a yetkili with tahsilatlar or taahhütler can't be deleted; the
-          // page says so
-          db.$count(collectionTable, eq(collectionTable.representativeId, id)),
-          db.$count(
-            projectPledgeTable,
-            eq(projectPledgeTable.representativeId, id),
-          ),
-        ]);
+      const [links, organizations, counts] = await Promise.all([
+        selectLinkedMembers(id),
+        selectRepresentativeOrganizations(id),
+        // a yetkili with any of these can't be deleted; the page says so
+        recordCounts(db, id),
+      ]);
       const members = links
         .map(({ representativeId: _, ...member }) => member)
         .sort(byTitle);
@@ -248,8 +257,9 @@ export const representativesRoute = new Hono<AppEnv>()
           ...representative,
           members,
           organizations,
-          collectionCount,
-          pledgeCount,
+          collectionCount: counts.collections,
+          pledgeCount: counts.pledges,
+          accrualCount: counts.accruals,
         },
         200,
       );
@@ -410,19 +420,10 @@ export const representativesRoute = new Hono<AppEnv>()
 
       const result = await db
         .transaction(async (tx) => {
-          // tahsilatlar and taahhütler keep their yetkili: refuse while it
-          // has any
-          const collectionCount = await tx.$count(
-            collectionTable,
-            eq(collectionTable.representativeId, id),
-          );
-          const pledgeCount = await tx.$count(
-            projectPledgeTable,
-            eq(projectPledgeTable.representativeId, id),
-          );
-          if (collectionCount > 0 || pledgeCount > 0) {
-            return { refused: { collectionCount, pledgeCount } };
-          }
+          // tahsilatlar, taahhütler and tahakkuk rows keep their yetkili:
+          // refuse while it has any
+          const counts = await recordCounts(tx, id);
+          if (hasRepresentativeRecords(counts)) return { refused: counts };
 
           const [representative] = await tx
             .select()
@@ -459,18 +460,14 @@ export const representativesRoute = new Hono<AppEnv>()
         .catch((error) => {
           // a tahsilat or taahhüt added between the count and the delete
           if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
-            return { refused: { collectionCount: null, pledgeCount: null } };
+            return { refused: null };
           }
           throw error;
         });
 
       if (!result) return c.json({ error: "Yetkili bulunamadı" }, 404);
-      if (result.refused) {
-        const { collectionCount, pledgeCount } = result.refused;
-        return c.json(
-          { error: hasRecordsError(collectionCount, pledgeCount) },
-          409,
-        );
+      if ("refused" in result) {
+        return c.json({ error: hasRecordsError(result.refused ?? null) }, 409);
       }
       // only now: a refused delete keeps the photo
       await deleteFiles([result.deleted.photo]);
