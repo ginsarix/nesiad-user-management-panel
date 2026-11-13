@@ -19,6 +19,13 @@ import { deliverLoginCode } from "./login-code";
 import { sendEmail } from "./mail";
 import { SESSION_IDLE_SECONDS, SESSION_REFRESH_SECONDS } from "./session-idle";
 
+/** FAKE_2FA: every login code is 000000 and none is sent; never in production */
+const FAKE_LOGIN_CODE =
+  env.FAKE_2FA && process.env.NODE_ENV !== "production" ? "000000" : null;
+if (FAKE_LOGIN_CODE) {
+  console.warn(`FAKE_2FA is on: every login code is ${FAKE_LOGIN_CODE}`);
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -127,6 +134,10 @@ export const auth = betterAuth({
         sendOTP: async ({ user, otp }, ctx) => {
           // "E-postayla gönder" on the code step asks for ?channel=email
           const emailOnly = ctx?.query?.channel === "email";
+          if (FAKE_LOGIN_CODE) {
+            if (ctx) rememberLoginCodeChannel(ctx, emailOnly ? "email" : "sms");
+            return;
+          }
           const channel = await deliverLoginCode({
             user: {
               name: user.name,
@@ -142,7 +153,14 @@ export const auth = betterAuth({
         period: 5, // minutes
         digits: 6,
         allowedAttempts: 5,
-        storeOTP: "hashed",
+        // FAKE_2FA stores 000000 in place of the generated code; the
+        // "encrypt" form compares the decrypted value to the typed one
+        storeOTP: FAKE_LOGIN_CODE
+          ? {
+              encrypt: async () => FAKE_LOGIN_CODE,
+              decrypt: async (stored) => stored,
+            }
+          : "hashed",
       },
     }),
     // the twoFactor and admin endpoints this panel must not expose, the
