@@ -331,6 +331,26 @@ describe("PATCH /api/representatives/:id", () => {
     expect(representative.members).toHaveLength(1);
   });
 
+  it("refuses a JSON body from a page loaded before the switch to multipart", async () => {
+    const { body } = await createRepresentative({
+      name: "__test__ Eski Sayfa",
+    });
+    const res = await representativesRoute.request(`/${body.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "__test__ Eski Sayfa 2", active: false }),
+    });
+    expect(res.status).toBe(415);
+    expect((await res.json()).error).toBe(
+      "Panel güncellendi. Sayfayı yenileyip tekrar deneyin.",
+    );
+    const { body: representative } = await getRepresentative(body.id);
+    expect(representative).toMatchObject({
+      name: "__test__ Eski Sayfa",
+      active: true,
+    });
+  });
+
   it("returns 404 for an unknown yetkili", async () => {
     const res = await patch(2147483000, { name: "__test__ Yok" });
     expect(res.status).toBe(404);

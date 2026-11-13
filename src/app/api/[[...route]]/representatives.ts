@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { createMiddleware } from "hono/factory";
 import { db, type Executor, type Transaction } from "@/db";
 import {
   authorizedRepresentativeTable,
@@ -101,6 +102,22 @@ const requestBodyLimit = bodyLimit({
   // the photo plus room for the text fields
   maxSize: MAX_PHOTO_SIZE + 1024 * 1024,
   onError: (c) => c.json({ error: PHOTO_TOO_LARGE_MESSAGE }, 413),
+});
+
+/**
+ * The form validator reads a non-multipart body as `{}`, which an update
+ * accepts: a page loaded before the switch from JSON would see its save
+ * succeed with nothing changed. Refuse it so the user reloads instead.
+ */
+const requireMultipart = createMiddleware<AppEnv>(async (c, next) => {
+  const type = c.req.header("Content-Type") ?? "";
+  if (!type.startsWith("multipart/form-data")) {
+    return c.json(
+      { error: "Panel güncellendi. Sayfayı yenileyip tekrar deneyin." },
+      415,
+    );
+  }
+  await next();
 });
 
 /** Stores an uploaded photo; null when its contents aren't JPEG or PNG */
@@ -212,6 +229,7 @@ export const representativesRoute = new Hono<AppEnv>()
   )
   .post(
     "/",
+    requireMultipart,
     requestBodyLimit,
     zValidator("form", createRepresentativeSchema, respondWithFirstIssue),
     async (c) => {
@@ -264,6 +282,7 @@ export const representativesRoute = new Hono<AppEnv>()
   )
   .patch(
     "/:id",
+    requireMultipart,
     requestBodyLimit,
     zValidator("param", idParamSchema, respondWithFirstIssue),
     zValidator("form", updateRepresentativeSchema, respondWithFirstIssue),
