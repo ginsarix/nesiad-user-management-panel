@@ -28,7 +28,7 @@ describe("navigation", () => {
     expect(isNavParentActive(organization, path)).toBe(true);
   });
 
-  it("puts Ödemeler, Cariler, Tahsilatlar and Projeler under Finans", () => {
+  it("puts Ödemeler, Cariler, Tahsilatlar, Projeler and Tahakkuk under Finans", () => {
     const finans = navGroups
       .flatMap((group) => group.items)
       .find((item) => item.title === "Finans");
@@ -37,7 +37,7 @@ describe("navigation", () => {
       finans && isNavParent(finans)
         ? finans.children.map((child) => child.title)
         : [],
-    ).toEqual(["Ödemeler", "Cariler", "Tahsilatlar", "Projeler"]);
+    ).toEqual(["Ödemeler", "Cariler", "Tahsilatlar", "Projeler", "Tahakkuk"]);
   });
 
   it("keeps Otomatik Tahsilatlar at the top level, apart from Tahsilatlar", () => {
@@ -57,6 +57,7 @@ describe("navigation", () => {
     expect(findActiveNavItem("/counterparties")?.title).toBe("Cariler");
     expect(findActiveNavItem("/collections/new")?.title).toBe("Tahsilatlar");
     expect(findActiveNavItem("/projects/4")?.title).toBe("Projeler");
+    expect(findActiveNavItem("/accruals")?.title).toBe("Tahakkuk");
     expect(findActiveNavItem("/members/1")?.title).toBe("Üyeler");
   });
 

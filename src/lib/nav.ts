@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   MessageSquareText,
   Network,
+  ReceiptText,
   Scale,
   ScrollText,
   Settings,
@@ -88,6 +89,7 @@ export const navGroups: NavGroup[] = [
           { title: "Cariler", href: "/counterparties", icon: BookUser },
           { title: "Tahsilatlar", href: "/collections", icon: Coins },
           { title: "Projeler", href: "/projects", icon: FolderKanban },
+          { title: "Tahakkuk", href: "/accruals", icon: ReceiptText },
         ],
       },
       {
