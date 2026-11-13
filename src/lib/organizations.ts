@@ -30,10 +30,10 @@ type OrganizationInfo = {
 export const ORGANIZATION_INFO = {
   management_board: {
     slug: "management-boards",
-    title: "Yönetimler",
+    title: "Yönetim",
     singular: "Yönetim",
     noun: "yönetim",
-    backLabel: "Yönetimlere dön",
+    backLabel: "Yönetim listesine dön",
   },
   committee: {
     slug: "committees",

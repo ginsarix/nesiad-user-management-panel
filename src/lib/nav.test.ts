@@ -17,7 +17,7 @@ describe("navigation", () => {
       throw new Error("Organizasyon is not a parent item");
     }
     expect(organization.children.map((child) => child.title)).toEqual([
-      "Yönetimler",
+      "Yönetim",
       "Komiteler",
       "Disiplin Kurulu",
       "Denetim Kurulu",
