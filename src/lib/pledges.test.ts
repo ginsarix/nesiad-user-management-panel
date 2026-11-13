@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  newPledgeRow,
   pledgeGrandTotal,
   pledgeRowTotal,
   pledgesAuditText,
@@ -101,5 +102,28 @@ describe("pledgesAuditText", () => {
 
   it("is a dash without rows", () => {
     expect(pledgesAuditText([])).toBe("—");
+  });
+});
+
+describe("newPledgeRow", () => {
+  const filled = {
+    representativeId: 4,
+    quantity: "3",
+    amount: "50,00",
+  };
+
+  it("starts at Adet 1 with no Tutar", () => {
+    const blank = { representativeId: null, quantity: "1", amount: "" };
+    expect(newPledgeRow([], false)).toEqual(blank);
+    expect(newPledgeRow([filled], false)).toEqual(blank);
+    expect(newPledgeRow([], true)).toEqual(blank);
+  });
+
+  it("copies the last row's Adet and Tutar while applying to all", () => {
+    expect(newPledgeRow([{ ...filled, quantity: "9" }, filled], true)).toEqual({
+      representativeId: null,
+      quantity: "3",
+      amount: "50,00",
+    });
   });
 });

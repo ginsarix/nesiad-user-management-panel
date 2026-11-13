@@ -132,6 +132,7 @@ export function ProjectForm({ project }: { project?: Project }) {
           <div className="p-4">
             <PledgesEditor
               control={form.control}
+              setValue={form.setValue}
               current={project?.pledges ?? []}
             />
           </div>

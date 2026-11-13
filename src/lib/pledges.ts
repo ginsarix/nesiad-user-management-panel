@@ -76,3 +76,17 @@ export function pledgesAuditText(
       .join(", ") || "—"
   );
 }
+
+/**
+ * The row "Taahhüt ekle" adds: Adet 1 and no Tutar, or, while "Adet ve
+ * tutarı tüm satırlara uygula" is ticked, the last row's Adet and Tutar
+ */
+export function newPledgeRow(
+  rows: readonly PledgeFormRow[],
+  applyToAll: boolean,
+): PledgeFormRow {
+  const last = rows.at(-1);
+  return applyToAll && last
+    ? { representativeId: null, quantity: last.quantity, amount: last.amount }
+    : { representativeId: null, quantity: "1", amount: "" };
+}

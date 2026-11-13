@@ -40,8 +40,10 @@ export function AmountInput({
         aria-invalid={ariaInvalid}
         onChange={(event) => onChange(event.target.value)}
         onBlur={() => {
+          // only a real change: passing through a field changes nothing
           const amount = parseAmountInput(value);
-          if (amount !== null) onChange(amountToInput(amount));
+          const tidied = amount === null ? value : amountToInput(amount);
+          if (tidied !== value) onChange(tidied);
           onBlur?.();
         }}
       />

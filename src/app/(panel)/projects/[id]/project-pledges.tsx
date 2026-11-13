@@ -68,7 +68,11 @@ export function ProjectPledges({ project }: { project: Project }) {
         <h3 className="border-b px-4 py-2.5 text-sm font-medium">Taahhütler</h3>
         {/* nothing typed while saving, so the reset after it loses nothing */}
         <fieldset disabled={isPending} className="p-4">
-          <PledgesEditor control={form.control} current={project.pledges} />
+          <PledgesEditor
+            control={form.control}
+            setValue={form.setValue}
+            current={project.pledges}
+          />
         </fieldset>
       </section>
 

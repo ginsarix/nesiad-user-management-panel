@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, X } from "lucide-react";
+import { useState } from "react";
 import {
   type ArrayPath,
   type Control,
@@ -8,26 +9,28 @@ import {
   type FieldArray,
   type FieldValues,
   type Path,
+  type PathValue,
+  type UseFormSetValue,
   useFieldArray,
+  useFormState,
   useWatch,
 } from "react-hook-form";
 import { AmountInput } from "@/components/amount-input";
 import { SearchCombobox } from "@/components/search-combobox";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useRepresentativeItems } from "@/components/use-representative-items";
 import { formatAmount } from "@/lib/money";
-import { typedPledgeGrandTotal, typedPledgeTotal } from "@/lib/pledges";
+import {
+  newPledgeRow,
+  typedPledgeGrandTotal,
+  typedPledgeTotal,
+} from "@/lib/pledges";
 import type { PledgeFormRow } from "@/lib/zod-schemas/project";
 
 const emptyRows: PledgeFormRow[] = [];
-
-const NEW_ROW: PledgeFormRow = {
-  representativeId: null,
-  quantity: "1",
-  amount: "",
-};
 
 // Yetkili | Adet | Tutar | Toplam | remove
 const COLUMNS =
@@ -37,15 +40,23 @@ const COLUMNS =
  * The Taahhütler rows of a form holding `pledges`: Yetkili, Adet, Tutar and
  * the Toplam of each row, with the Genel Toplam under them, all updated as
  * the user types. `current` are the saved rows: their Pasif yetkililer
- * stay pickable.
+ * stay pickable. While "Adet ve tutarı tüm satırlara uygula" is ticked, an
+ * Adet or Tutar typed in one row goes into every row (`setValue` is the
+ * form's).
  */
 export function PledgesEditor<T extends FieldValues>({
   control,
+  setValue,
   current,
 }: {
   control: Control<T>;
+  setValue: UseFormSetValue<T>;
   current: readonly { representativeId: number }[];
 }) {
+  // not saved: unticked on every page load
+  const [applyToAll, setApplyToAll] = useState(false);
+  // after a Kaydet, inputs re-check as they change; spread values do too
+  const { isSubmitted } = useFormState({ control });
   const name = "pledges" as ArrayPath<T>;
   const { fields, append, remove } = useFieldArray({ control, name });
   const rows =
@@ -58,8 +69,31 @@ export function PledgesEditor<T extends FieldValues>({
   const fieldName = (index: number, field: keyof PledgeFormRow) =>
     `pledges.${index}.${field}` as Path<T>;
 
+  /** Puts the row's new Adet or Tutar into every other row, when ticked */
+  function spread(index: number, field: "quantity" | "amount", value: string) {
+    if (!applyToAll) return;
+    rows.forEach((_, other) => {
+      if (other === index) return;
+      setValue(fieldName(other, field), value as PathValue<T, Path<T>>, {
+        shouldDirty: true,
+        shouldValidate: isSubmitted,
+      });
+    });
+  }
+
   return (
     <div className="flex flex-col gap-3">
+      <Field orientation="horizontal" className="w-fit">
+        <Checkbox
+          id="pledges-apply-to-all"
+          checked={applyToAll}
+          onCheckedChange={setApplyToAll}
+        />
+        <FieldLabel htmlFor="pledges-apply-to-all" className="font-normal">
+          Adet ve tutarı tüm satırlara uygula
+        </FieldLabel>
+      </Field>
+
       {fields.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Henüz taahhüt eklenmemiş.
@@ -121,6 +155,10 @@ export function PledgesEditor<T extends FieldValues>({
                     className="text-right tabular-nums"
                     aria-invalid={!!fieldState.error}
                     {...field}
+                    onChange={(event) => {
+                      field.onChange(event);
+                      spread(index, "quantity", event.target.value);
+                    }}
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>
@@ -134,7 +172,10 @@ export function PledgesEditor<T extends FieldValues>({
                   <AmountInput
                     id={`pledges-${index}-amount`}
                     value={field.value}
-                    onChange={field.onChange}
+                    onChange={(value) => {
+                      field.onChange(value);
+                      spread(index, "amount", value);
+                    }}
                     onBlur={field.onBlur}
                     aria-invalid={!!fieldState.error}
                   />
@@ -180,7 +221,9 @@ export function PledgesEditor<T extends FieldValues>({
         variant="outline"
         size="sm"
         className="w-fit"
-        onClick={() => append(NEW_ROW as FieldArray<T, ArrayPath<T>>)}
+        onClick={() =>
+          append(newPledgeRow(rows, applyToAll) as FieldArray<T, ArrayPath<T>>)
+        }
       >
         <Plus />
         Taahhüt ekle
