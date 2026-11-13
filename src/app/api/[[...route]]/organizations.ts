@@ -65,6 +65,7 @@ async function loadGroup(
       id: person.id,
       representativeId: person.representativeId,
       representativeName: authorizedRepresentativeTable.name,
+      representativePhoto: authorizedRepresentativeTable.photo,
       representativeActive: authorizedRepresentativeTable.active,
       roleId: person.roleId,
       roleName: parameterTable.name,

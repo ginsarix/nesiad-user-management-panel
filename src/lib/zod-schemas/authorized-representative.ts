@@ -6,6 +6,16 @@ import {
   optionalTextSchema,
 } from "./shared";
 
+export const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MiB
+
+export const PHOTO_TOO_LARGE_MESSAGE = "Fotoğraf 5 MB'dan küçük olmalıdır";
+
+/** A yetkili photo as the API receives it; contents are checked when stored */
+export const photoFileSchema = z
+  .instanceof(File)
+  .refine((f) => f.size > 0, "Dosya boş olamaz")
+  .refine((f) => f.size <= MAX_PHOTO_SIZE, PHOTO_TOO_LARGE_MESSAGE);
+
 const nameSchema = z.string().trim().min(1, "Ad soyad boş olamaz");
 
 const DUPLICATE_MEMBER_MESSAGE = "Aynı üye birden fazla seçilemez";
@@ -53,10 +63,17 @@ export const createRepresentativeSchema = z.object({
 
   /** The members this yetkili represents, each with their görev there */
   members: memberLinksTextSchema.optional(),
+
+  photo: photoFileSchema.optional(),
 });
 
 /** Fields left out are kept; `members`, when sent, replaces all links */
-export const updateRepresentativeSchema = createRepresentativeSchema.partial();
+export const updateRepresentativeSchema = createRepresentativeSchema
+  .partial()
+  .extend({
+    /** Clears the current photo when no new one is uploaded */
+    removePhoto: z.stringbool().optional(),
+  });
 
 /** Client-side form values (dates as gg.aa.yyyy) */
 export const representativeFormSchema = z.object({

@@ -2,6 +2,8 @@ import { fileTypeFromBuffer } from "file-type";
 import { createFile } from "./file-storage";
 
 export const LOGO_MIME_TYPES = ["image/png", "image/jpeg"] as const;
+/** The panel always sends a JPEG; PNG is accepted for anything else */
+export const PHOTO_MIME_TYPES = ["image/jpeg", "image/png"] as const;
 export const DOCUMENT_MIME_TYPES = [
   "application/pdf",
   "image/png",
@@ -17,7 +19,7 @@ export const DOCUMENT_MIME_TYPES = [
 export async function storeUpload(
   file: File,
   allowed: readonly string[],
-  baseName: "logo" | "document",
+  baseName: "logo" | "document" | "photo",
 ): Promise<string | null> {
   const buffer = await file.arrayBuffer();
   const fileType = await fileTypeFromBuffer(buffer);

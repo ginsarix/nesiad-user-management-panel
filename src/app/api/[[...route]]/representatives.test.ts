@@ -1,3 +1,4 @@
+import { readdir } from "node:fs/promises";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
@@ -10,6 +11,7 @@ import {
   parameterTable,
   supervisoryBoardTable,
 } from "@/db/schema";
+import { deleteFile, getFilePath, readStoredFile } from "@/lib/file-storage";
 import type { MemberStatus } from "@/lib/member-status";
 import { membersRoute } from "./members";
 import { organizationsRoute } from "./organizations";
@@ -20,6 +22,7 @@ const createdMemberIds: number[] = [];
 const committeeIds: number[] = [];
 const supervisoryBoardIds: number[] = [];
 const parameterIds: number[] = [];
+const createdFiles: string[] = [];
 
 // group and parameter names are unique; keep them apart from parallel runs
 const suffix = crypto.randomUUID().slice(0, 8);
@@ -52,6 +55,7 @@ afterAll(async () => {
       .delete(parameterTable)
       .where(inArray(parameterTable.id, parameterIds));
   }
+  await Promise.all(createdFiles.map(deleteFile));
 });
 
 async function createRole(name: string) {
@@ -192,6 +196,7 @@ describe("POST /api/representatives", () => {
       {
         id: body.id,
         name: "__test__ Mehmet Kaya",
+        photo: null,
         phone: "0532 123 45 67",
         active: true,
         role: "Genel Müdür",
@@ -439,5 +444,174 @@ describe("yetkili and Organizasyon", () => {
       label: "Organizasyonlar",
       value: `Komiteler › ${groupName}: ${role.name}`,
     });
+  });
+});
+
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+function photoFile(name = "photo.jpg") {
+  return new File([PNG], name, { type: "image/jpeg" });
+}
+
+async function lastEntry(action: string, id: number) {
+  const [entry] = await db
+    .select()
+    .from(auditLogTable)
+    .where(
+      and(
+        eq(auditLogTable.entityType, "representative"),
+        eq(auditLogTable.action, action),
+        eq(auditLogTable.entityId, String(id)),
+      ),
+    )
+    .orderBy(desc(auditLogTable.id))
+    .limit(1);
+  return entry;
+}
+
+/** Creates a yetkili with a photo; resolves to its id and stored filename */
+async function createWithPhoto(name: string) {
+  const { res, body } = await createRepresentative({
+    name,
+    photo: photoFile(),
+  });
+  expect(res.status).toBe(201);
+  const { body: representative } = await getRepresentative(body.id);
+  createdFiles.push(representative.photo);
+  return { id: body.id as number, photo: representative.photo as string };
+}
+
+const storedPhotos = async () =>
+  (await readdir(getFilePath(""))).filter((name) => name.startsWith("photo_"));
+
+describe("yetkili photo", () => {
+  it("stores a photo and records Fotoğraf: Var", async () => {
+    const { id, photo } = await createWithPhoto("__test__ Fotoğraflı");
+    expect(photo).toMatch(/^photo_.+\.png$/);
+    expect(await readStoredFile(photo)).not.toBeNull();
+    expect((await lastEntry("create", id)).details).toContainEqual({
+      label: "Fotoğraf",
+      value: "Var",
+    });
+  });
+
+  it("rejects a photo that isn't an image", async () => {
+    const name = `__test__ Sahte Fotoğraf ${suffix}`;
+    const fake = new File(["<html></html>"], "photo.jpg", {
+      type: "image/jpeg",
+    });
+    const { res, body } = await createRepresentative({ name, photo: fake });
+    expect(res.status).toBe(415);
+    expect(body).toEqual({
+      error: "Sadece JPG veya PNG fotoğraflar kabul edilir",
+    });
+    const rows = await db
+      .select()
+      .from(authorizedRepresentativeTable)
+      .where(eq(authorizedRepresentativeTable.name, name));
+    expect(rows).toEqual([]);
+  });
+
+  it("replaces the photo and deletes the old file", async () => {
+    const { id, photo: old } = await createWithPhoto("__test__ Değişen");
+    expect((await patch(id, { photo: photoFile() })).status).toBe(200);
+
+    const { body } = await getRepresentative(id);
+    createdFiles.push(body.photo);
+    expect(body.photo).toMatch(/^photo_/);
+    expect(body.photo).not.toBe(old);
+    expect(await readStoredFile(old)).toBeNull();
+    expect((await lastEntry("update", id)).changes).toContainEqual({
+      label: "Fotoğraf",
+      from: "Eski fotoğraf",
+      to: "Yeni fotoğraf",
+    });
+  });
+
+  it("removes the photo", async () => {
+    const { id, photo } = await createWithPhoto("__test__ Silinen Fotoğraf");
+    expect((await patch(id, { removePhoto: "true" })).status).toBe(200);
+
+    const { body } = await getRepresentative(id);
+    expect(body.photo).toBeNull();
+    expect(await readStoredFile(photo)).toBeNull();
+    expect((await lastEntry("update", id)).changes).toContainEqual({
+      label: "Fotoğraf",
+      from: "Eski fotoğraf",
+      to: "—",
+    });
+  });
+
+  it("keeps the photo when the form is saved without one", async () => {
+    const { id, photo } = await createWithPhoto("__test__ Kalan Fotoğraf");
+    await patch(id, { name: "__test__ Kalan Fotoğraf 2" });
+    await patch(id, { active: false });
+
+    const { body } = await getRepresentative(id);
+    expect(body.photo).toBe(photo);
+    expect(await readStoredFile(photo)).not.toBeNull();
+    const update = await lastEntry("update", id);
+    expect(update.changes).not.toContainEqual(
+      expect.objectContaining({ label: "Fotoğraf" }),
+    );
+  });
+
+  it("stores no photo when the save fails", async () => {
+    const memberId = await createMember("__test__ Aday Fotoğraf", "candidate");
+    const before = await storedPhotos();
+    const { res } = await createRepresentative({
+      name: "__test__ Başarısız Fotoğraf",
+      photo: photoFile(),
+      members: [{ memberId, role: null }],
+    });
+    expect(res.status).toBe(400);
+    const added = (await storedPhotos()).filter((f) => !before.includes(f));
+    // another test in this file may store one meanwhile; none may be orphaned
+    for (const file of added) {
+      const owners = await db
+        .select({ id: authorizedRepresentativeTable.id })
+        .from(authorizedRepresentativeTable)
+        .where(eq(authorizedRepresentativeTable.photo, file));
+      expect(owners).not.toEqual([]);
+    }
+  });
+
+  it("deletes the photo file with the yetkili", async () => {
+    const { id, photo } = await createWithPhoto("__test__ Silinen Yetkili");
+    const res = await representativesRoute.request(`/${id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(200);
+    expect(await readStoredFile(photo)).toBeNull();
+    expect((await lastEntry("delete", id)).details).toContainEqual({
+      label: "Fotoğraf",
+      value: "Var",
+    });
+  });
+
+  it("includes the photo where the yetkili is listed", async () => {
+    const memberId = await createMember("__test__ Fotoğraflı Üye");
+    const { id, photo } = await createWithPhoto("__test__ Görünen Fotoğraf");
+    await patch(id, { members: [{ memberId, role: null }] });
+    const role = await createRole(`__test__ Fotoğraf Görevi ${suffix}`);
+    const groupId = await createGroup(
+      "committees",
+      `__test__ Fotoğraf Komitesi ${suffix}`,
+      [{ representativeId: id, roleId: role.id }],
+    );
+
+    const all = await (await representativesRoute.request("/")).json();
+    expect(all.find((r: { id: number }) => r.id === id).photo).toBe(photo);
+
+    const member = await (await membersRoute.request(`/${memberId}`)).json();
+    expect(member.representatives[0].photo).toBe(photo);
+
+    const group = await (
+      await organizationsRoute.request(`/committees/${groupId}`)
+    ).json();
+    expect(group.people[0].representativePhoto).toBe(photo);
   });
 });

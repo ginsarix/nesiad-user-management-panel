@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { db, type Executor, type Transaction } from "@/db";
 import {
   authorizedRepresentativeTable,
@@ -15,10 +16,14 @@ import {
   diffFields,
   formatAudit,
 } from "@/lib/audit-diff";
+import { deleteFiles } from "@/lib/file-storage";
 import { isEstablished } from "@/lib/member-status";
 import { compareTr } from "@/lib/turkish";
+import { PHOTO_MIME_TYPES, storeUpload } from "@/lib/uploads";
 import {
   createRepresentativeSchema,
+  MAX_PHOTO_SIZE,
+  PHOTO_TOO_LARGE_MESSAGE,
   updateRepresentativeSchema,
 } from "@/lib/zod-schemas/authorized-representative";
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
@@ -89,6 +94,22 @@ async function linkedMembersText(executor: Executor, representativeId: number) {
       .join(", ") || "—"
   );
 }
+
+const NOT_A_PHOTO_ERROR = "Sadece JPG veya PNG fotoğraflar kabul edilir";
+
+const requestBodyLimit = bodyLimit({
+  // the photo plus room for the text fields
+  maxSize: MAX_PHOTO_SIZE + 1024 * 1024,
+  onError: (c) => c.json({ error: PHOTO_TOO_LARGE_MESSAGE }, 413),
+});
+
+/** Stores an uploaded photo; null when its contents aren't JPEG or PNG */
+function storePhoto(photo: File) {
+  return storeUpload(photo, PHOTO_MIME_TYPES, "photo");
+}
+
+/** How a photo shows in create and delete entries; never the filename */
+const photoAuditValue = (photo: string | null) => (photo ? "Var" : "—");
 
 const UNLINKABLE_MEMBER_ERROR =
   "Aday veya reddedilmiş üyeye yetkili bağlanamaz";
@@ -191,15 +212,21 @@ export const representativesRoute = new Hono<AppEnv>()
   )
   .post(
     "/",
+    requestBodyLimit,
     zValidator("form", createRepresentativeSchema, respondWithFirstIssue),
     async (c) => {
-      const { members = [], ...fields } = c.req.valid("form");
+      const { members = [], photo, ...fields } = c.req.valid("form");
+
+      const storedPhoto = photo ? await storePhoto(photo) : null;
+      if (photo && !storedPhoto) {
+        return c.json({ error: NOT_A_PHOTO_ERROR }, 415);
+      }
 
       try {
         const id = await db.transaction(async (tx) => {
           const [representative] = await tx
             .insert(authorizedRepresentativeTable)
-            .values(fields)
+            .values({ ...fields, photo: storedPhoto })
             .returning();
 
           await assertLinkable(tx, members);
@@ -212,6 +239,7 @@ export const representativesRoute = new Hono<AppEnv>()
             entityLabel: representative.name,
             details: [
               ...describeFields(representativeAuditSpec, representative),
+              { label: "Fotoğraf", value: photoAuditValue(storedPhoto) },
               {
                 label: "Bağlı Üyeler",
                 value: await linkedMembersText(tx, representative.id),
@@ -223,6 +251,7 @@ export const representativesRoute = new Hono<AppEnv>()
 
         return c.json({ id, message: "Yetkili kaydedildi" }, 201);
       } catch (error) {
+        await deleteFiles([storedPhoto]);
         if (error instanceof UnlinkableMemberError) {
           return c.json({ error: UNLINKABLE_MEMBER_ERROR }, 400);
         }
@@ -235,25 +264,39 @@ export const representativesRoute = new Hono<AppEnv>()
   )
   .patch(
     "/:id",
+    requestBodyLimit,
     zValidator("param", idParamSchema, respondWithFirstIssue),
     zValidator("form", updateRepresentativeSchema, respondWithFirstIssue),
     async (c) => {
       const { id } = c.req.valid("param");
-      const { members, ...fields } = c.req.valid("form");
+      const { members, photo, removePhoto, ...fields } = c.req.valid("form");
+
+      // undefined keeps the current photo, null removes it
+      let newPhoto: string | null | undefined;
+      if (photo) {
+        newPhoto = await storePhoto(photo);
+        if (!newPhoto) return c.json({ error: NOT_A_PHOTO_ERROR }, 415);
+      } else if (removePhoto) {
+        newPhoto = null;
+      }
 
       try {
-        const found = await db.transaction(async (tx) => {
+        const existing = await db.transaction(async (tx) => {
           const [existing] = await tx
             .select()
             .from(authorizedRepresentativeTable)
             .where(eq(authorizedRepresentativeTable.id, id));
-          if (!existing) return false;
+          if (!existing) return null;
 
+          const update = {
+            ...fields,
+            ...(newPhoto !== undefined && { photo: newPhoto }),
+          };
           // drizzle rejects an update with nothing to set
-          if (Object.keys(fields).length > 0) {
+          if (Object.keys(update).length > 0) {
             await tx
               .update(authorizedRepresentativeTable)
-              .set(fields)
+              .set(update)
               .where(eq(authorizedRepresentativeTable.id, id));
           }
 
@@ -271,6 +314,13 @@ export const representativesRoute = new Hono<AppEnv>()
 
           const changes = [
             ...diffFields(representativeAuditSpec, existing, fields),
+            ...(newPhoto !== undefined
+              ? change(
+                  "Fotoğraf",
+                  existing.photo && "Eski fotoğraf",
+                  newPhoto && "Yeni fotoğraf",
+                )
+              : []),
             ...linkChanges,
           ];
           if (changes.length > 0) {
@@ -283,13 +333,18 @@ export const representativesRoute = new Hono<AppEnv>()
               changes,
             });
           }
-          return true;
+          return existing;
         });
 
-        if (!found) return c.json({ error: "Yetkili bulunamadı" }, 404);
+        if (!existing) {
+          await deleteFiles([newPhoto]);
+          return c.json({ error: "Yetkili bulunamadı" }, 404);
+        }
+        if (newPhoto !== undefined) await deleteFiles([existing.photo]);
 
         return c.json({ id, message: "Yetkili güncellendi" }, 200);
       } catch (error) {
+        await deleteFiles([newPhoto]);
         if (error instanceof UnlinkableMemberError) {
           return c.json({ error: UNLINKABLE_MEMBER_ERROR }, 400);
         }
@@ -329,6 +384,7 @@ export const representativesRoute = new Hono<AppEnv>()
           entityLabel: representative.name,
           details: [
             ...describeFields(representativeAuditSpec, representative),
+            { label: "Fotoğraf", value: photoAuditValue(representative.photo) },
             { label: "Bağlı Üyeler", value: members },
             { label: "Organizasyonlar", value: organizations },
           ],
@@ -337,6 +393,7 @@ export const representativesRoute = new Hono<AppEnv>()
       });
 
       if (!deleted) return c.json({ error: "Yetkili bulunamadı" }, 404);
+      await deleteFiles([deleted.photo]);
 
       return c.json({ message: "Yetkili silindi" }, 200);
     },

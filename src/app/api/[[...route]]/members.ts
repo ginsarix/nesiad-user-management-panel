@@ -77,6 +77,7 @@ function selectRepresentatives(memberId?: number, executor: Executor = db) {
       memberId: membersRepresentativesTable.memberId,
       id: authorizedRepresentativeTable.id,
       name: authorizedRepresentativeTable.name,
+      photo: authorizedRepresentativeTable.photo,
       phone: authorizedRepresentativeTable.phone,
       active: authorizedRepresentativeTable.active,
       role: membersRepresentativesTable.role,
