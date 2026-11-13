@@ -6,15 +6,20 @@ import { collectionTable, projectTable } from "@/db/schema";
 import { type AuditActor, recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
+  change,
   describeFields,
   diffFields,
   formatAudit,
 } from "@/lib/audit-diff";
+import { pledgesAuditText } from "@/lib/pledges";
 import { projectNumberKey } from "@/lib/projects";
 import { compareTr, compareTrNumeric } from "@/lib/turkish";
 import {
+  type PledgeInput,
   type ProjectFields,
-  projectFieldsSchema,
+  pledgesBodySchema,
+  projectSchema,
+  projectUpdateSchema,
 } from "@/lib/zod-schemas/project";
 import { sumOfCollected } from "./collection-queries";
 import {
@@ -23,6 +28,13 @@ import {
   UNIQUE_VIOLATION,
 } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import {
+  assertValidPledges,
+  InvalidPledgeError,
+  loadPledges,
+  pledgesText,
+  replacePledges,
+} from "./pledge-queries";
 import {
   idParamSchema,
   respondWithFirstField,
@@ -58,20 +70,75 @@ export function isDuplicateNumber(error: unknown) {
   return pgErrorCode(error) === UNIQUE_VIOLATION;
 }
 
+/** Maps a refused save to its response; anything else is rethrown */
+function saveError(error: unknown) {
+  if (isDuplicateNumber(error)) {
+    return {
+      body: { error: DUPLICATE_NUMBER_ERROR, field: "number" },
+      status: 409 as const,
+    };
+  }
+  if (error instanceof InvalidPledgeError) {
+    return {
+      body: {
+        error: error.message,
+        field: `pledges.${error.index}.representativeId`,
+      },
+      status: 400 as const,
+    };
+  }
+  // a yetkili deleted while the form was open
+  if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+    return {
+      body: { error: "Seçilen yetkili bulunamadı" },
+      status: 400 as const,
+    };
+  }
+  throw error;
+}
+
 /**
- * Creates a proje and audits it inside the caller's transaction. Used by
- * the Projeler page and by a tahsilat that creates its proje. Throws on a
- * duplicate number (see isDuplicateNumber).
+ * Replaces the proje's taahhütler; returns the "Taahhütler" audit change,
+ * empty when the rows read the same. Pasif yetkililer already among the
+ * saved rows may stay.
+ */
+async function savePledges(
+  tx: Transaction,
+  projectId: number,
+  pledges: readonly PledgeInput[],
+) {
+  const before = await loadPledges(tx, projectId);
+  await assertValidPledges(
+    tx,
+    pledges,
+    new Set(before.map((p) => p.representativeId)),
+  );
+  await replacePledges(tx, projectId, pledges);
+  return change(
+    "Taahhütler",
+    pledgesAuditText(before),
+    await pledgesText(tx, projectId),
+  );
+}
+
+/**
+ * Creates a proje with its taahhütler and audits it inside the caller's
+ * transaction. Used by the Projeler page and by a tahsilat that creates its
+ * proje. Throws on a duplicate number (see isDuplicateNumber) and on a
+ * refused taahhüt (InvalidPledgeError).
  */
 export async function insertProject(
   tx: Transaction,
   values: ProjectFields,
   actor: AuditActor,
+  pledges: readonly PledgeInput[] = [],
 ) {
+  await assertValidPledges(tx, pledges, new Set());
   const [project] = await tx
     .insert(projectTable)
     .values(withNumberKey(values))
     .returning();
+  await replacePledges(tx, project.id, pledges);
 
   await recordAudit(tx, {
     actor,
@@ -79,7 +146,10 @@ export async function insertProject(
     entityType: "project",
     entityId: project.id,
     entityLabel: project.name,
-    details: describeFields(projectAuditSpec, project),
+    details: [
+      ...describeFields(projectAuditSpec, project),
+      { label: "Taahhütler", value: await pledgesText(tx, project.id) },
+    ],
   });
   return { id: project.id, name: project.name, number: project.number };
 }
@@ -114,40 +184,36 @@ export const projectsRoute = new Hono<AppEnv>()
 
       if (!project) return c.json({ error: NOT_FOUND_ERROR }, 404);
 
-      const collectionCount = await db.$count(
-        collectionTable,
-        eq(collectionTable.projectId, id),
-      );
-      return c.json({ ...project, collectionCount }, 200);
+      const [collectionCount, pledges] = await Promise.all([
+        db.$count(collectionTable, eq(collectionTable.projectId, id)),
+        loadPledges(db, id),
+      ]);
+      return c.json({ ...project, collectionCount, pledges }, 200);
     },
   )
   .post(
     "/",
-    zValidator("json", projectFieldsSchema, respondWithFirstField),
+    zValidator("json", projectSchema, respondWithFirstField),
     async (c) => {
+      const { pledges, ...fields } = c.req.valid("json");
       try {
         const project = await db.transaction((tx) =>
-          insertProject(tx, c.req.valid("json"), actorOf(c)),
+          insertProject(tx, fields, actorOf(c), pledges),
         );
         return c.json({ id: project.id, message: "Proje kaydedildi" }, 201);
       } catch (error) {
-        if (isDuplicateNumber(error)) {
-          return c.json(
-            { error: DUPLICATE_NUMBER_ERROR, field: "number" },
-            409,
-          );
-        }
-        throw error;
+        const { body, status } = saveError(error);
+        return c.json(body, status);
       }
     },
   )
   .patch(
     "/:id",
     zValidator("param", idParamSchema, respondWithFirstIssue),
-    zValidator("json", projectFieldsSchema, respondWithFirstField),
+    zValidator("json", projectUpdateSchema, respondWithFirstField),
     async (c) => {
       const { id } = c.req.valid("param");
-      const fields = c.req.valid("json");
+      const { pledges, ...fields } = c.req.valid("json");
 
       try {
         const found = await db.transaction(async (tx) => {
@@ -162,7 +228,11 @@ export const projectsRoute = new Hono<AppEnv>()
             .set(withNumberKey(fields))
             .where(eq(projectTable.id, id));
 
-          const changes = diffFields(projectAuditSpec, existing, fields);
+          const changes = [
+            ...diffFields(projectAuditSpec, existing, fields),
+            // without `pledges` (e.g. the Aktif/Pasif button) they stay
+            ...(pledges ? await savePledges(tx, id, pledges) : []),
+          ];
           if (changes.length > 0) {
             await recordAudit(tx, {
               actor: actorOf(c),
@@ -180,13 +250,49 @@ export const projectsRoute = new Hono<AppEnv>()
 
         return c.json({ id, message: "Proje güncellendi" }, 200);
       } catch (error) {
-        if (isDuplicateNumber(error)) {
-          return c.json(
-            { error: DUPLICATE_NUMBER_ERROR, field: "number" },
-            409,
-          );
-        }
-        throw error;
+        const { body, status } = saveError(error);
+        return c.json(body, status);
+      }
+    },
+  )
+  .put(
+    "/:id/pledges",
+    zValidator("param", idParamSchema, respondWithFirstIssue),
+    zValidator("json", pledgesBodySchema, respondWithFirstField),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const { pledges } = c.req.valid("json");
+
+      try {
+        const found = await db.transaction(async (tx) => {
+          const [project] = await tx
+            .select({ name: projectTable.name })
+            .from(projectTable)
+            .where(eq(projectTable.id, id))
+            // a concurrent delete waits, so the rows aren't orphaned
+            .for("update");
+          if (!project) return false;
+
+          const changes = await savePledges(tx, id, pledges);
+          if (changes.length > 0) {
+            await recordAudit(tx, {
+              actor: actorOf(c),
+              action: "update",
+              entityType: "project",
+              entityId: id,
+              entityLabel: project.name,
+              changes,
+            });
+          }
+          return true;
+        });
+
+        if (!found) return c.json({ error: NOT_FOUND_ERROR }, 404);
+
+        return c.json({ id, message: "Taahhütler kaydedildi" }, 200);
+      } catch (error) {
+        const { body, status } = saveError(error);
+        return c.json(body, status);
       }
     },
   )
@@ -205,6 +311,8 @@ export const projectsRoute = new Hono<AppEnv>()
           );
           if (collectionCount > 0) return { collectionCount };
 
+          // the taahhütler go with the proje, so name them now
+          const pledges = await pledgesText(tx, id);
           const [project] = await tx
             .delete(projectTable)
             .where(eq(projectTable.id, id))
@@ -217,7 +325,10 @@ export const projectsRoute = new Hono<AppEnv>()
             entityType: "project",
             entityId: id,
             entityLabel: project.name,
-            details: describeFields(projectAuditSpec, project),
+            details: [
+              ...describeFields(projectAuditSpec, project),
+              { label: "Taahhütler", value: pledges },
+            ],
           });
           return { collectionCount: 0 };
         })

@@ -46,9 +46,9 @@ export const pledgesSchema = z
 
 export type PledgeInput = z.output<typeof pledgeSchema>;
 
-/** POST /api/projects */
+/** POST /api/projects; a page loaded before taahhütler existed sends none */
 export const projectSchema = projectFieldsSchema.extend({
-  pledges: pledgesSchema,
+  pledges: pledgesSchema.default([]),
 });
 /** PATCH /api/projects/:id: without `pledges` the taahhütler stay as they are */
 export const projectUpdateSchema = projectFieldsSchema.extend({

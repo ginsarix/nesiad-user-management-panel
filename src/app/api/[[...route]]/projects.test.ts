@@ -6,6 +6,7 @@ import {
   authorizedRepresentativeTable,
   collectionTable,
   parameterTable,
+  projectPledgeTable,
   projectTable,
 } from "@/db/schema";
 import { projectsRoute } from "./projects";
@@ -20,12 +21,15 @@ afterAll(async () => {
     await db
       .delete(collectionTable)
       .where(inArray(collectionTable.representativeId, representativeIds));
+  }
+  // before the yetkililer: their taahhütler go with the projeler
+  if (createdIds.length) {
+    await db.delete(projectTable).where(inArray(projectTable.id, createdIds));
+  }
+  if (representativeIds.length) {
     await db
       .delete(authorizedRepresentativeTable)
       .where(inArray(authorizedRepresentativeTable.id, representativeIds));
-  }
-  if (createdIds.length) {
-    await db.delete(projectTable).where(inArray(projectTable.id, createdIds));
   }
   if (parameterIds.length) {
     await db
@@ -33,6 +37,19 @@ afterAll(async () => {
       .where(inArray(parameterTable.id, parameterIds));
   }
 });
+
+/** A __test__ yetkili, inserted directly */
+async function addRepresentative(name: string, active = true) {
+  const [representative] = await db
+    .insert(authorizedRepresentativeTable)
+    .values({ name: `__test__ ${name} ${suffix}`, active })
+    .returning({
+      id: authorizedRepresentativeTable.id,
+      name: authorizedRepresentativeTable.name,
+    });
+  representativeIds.push(representative.id);
+  return representative;
+}
 
 /** Two tahsilatlar (100.00 and 50.25) for the project, inserted directly */
 async function addCollections(projectId: number) {
@@ -120,11 +137,13 @@ describe("POST /api/projects", () => {
       number: `PR-${suffix}`,
       active: true,
       collectionCount: 0,
+      pledges: [],
     });
     expect((await lastEntry("create", body.id)).details).toEqual([
       { label: "Ad", value: "__test__ Kreş" },
       { label: "Proje Numarası", value: `PR-${suffix}` },
       { label: "Durum", value: "Aktif" },
+      { label: "Taahhütler", value: "—" },
     ]);
   });
 
@@ -323,5 +342,227 @@ describe("unknown project", () => {
       method: "DELETE",
     });
     expect(del.status).toBe(404);
+  });
+});
+
+describe("taahhütler", () => {
+  async function getPledges(id: number) {
+    const body = await (await projectsRoute.request(`/${id}`)).json();
+    return body.pledges as {
+      representativeId: number;
+      representativeName: string;
+      representativeActive: boolean;
+      quantity: number;
+      amount: string;
+    }[];
+  }
+
+  function putPledges(id: number, pledges: unknown[]) {
+    return projectsRoute.request(`/${id}/pledges`, json("PUT", { pledges }));
+  }
+
+  it("saves them with a new proje, in order, and records them", async () => {
+    const ali = await addRepresentative("Ali");
+    const ayse = await addRepresentative("Ayşe");
+    const { res, body } = await createProject({
+      name: "__test__ Taahhüt",
+      number: `TA-${suffix}`,
+      pledges: [
+        { representativeId: ali.id, quantity: 2, amount: "1000.00" },
+        { representativeId: ayse.id, quantity: 1, amount: "50.25" },
+      ],
+    });
+    expect(res.status).toBe(201);
+
+    expect(await getPledges(body.id)).toMatchObject([
+      {
+        representativeId: ali.id,
+        representativeName: ali.name,
+        representativeActive: true,
+        quantity: 2,
+        amount: "1000.00",
+      },
+      { representativeId: ayse.id, quantity: 1, amount: "50.25" },
+    ]);
+    expect((await lastEntry("create", body.id)).details).toContainEqual({
+      label: "Taahhütler",
+      value: `${ali.name}: 2 × 1.000,00 TL, ${ayse.name}: 1 × 50,25 TL`,
+    });
+  });
+
+  it("refuses a Pasif or unknown yetkili on a new row", async () => {
+    const pasif = await addRepresentative("Pasif", false);
+    const passive = await createProject({
+      name: "__test__ Pasifli",
+      number: `TP-${suffix}`,
+      pledges: [{ representativeId: pasif.id, quantity: 1, amount: "10.00" }],
+    });
+    expect(passive.res.status).toBe(400);
+    expect(passive.body).toEqual({
+      error: "Pasif yetkili eklenemez",
+      field: "pledges.0.representativeId",
+    });
+
+    const aktif = await addRepresentative("Aktif");
+    const unknown = await createProject({
+      name: "__test__ Bilinmeyen",
+      number: `TU-${suffix}`,
+      pledges: [
+        { representativeId: aktif.id, quantity: 1, amount: "10.00" },
+        { representativeId: 2147483000, quantity: 1, amount: "10.00" },
+      ],
+    });
+    expect(unknown.res.status).toBe(400);
+    expect(unknown.body).toEqual({
+      error: "Seçilen yetkili bulunamadı",
+      field: "pledges.1.representativeId",
+    });
+  });
+
+  it("keeps them on a PATCH without pledges", async () => {
+    const ali = await addRepresentative("Patch Ali");
+    const fields = { name: "__test__ Yama", number: `TY-${suffix}` };
+    const { body } = await createProject({
+      ...fields,
+      pledges: [{ representativeId: ali.id, quantity: 3, amount: "5.00" }],
+    });
+
+    const res = await projectsRoute.request(
+      `/${body.id}`,
+      json("PATCH", { ...fields, active: false }),
+    );
+    expect(res.status).toBe(200);
+    expect(await getPledges(body.id)).toHaveLength(1);
+    expect((await lastEntry("update", body.id)).changes).toEqual([
+      { label: "Durum", from: "Aktif", to: "Pasif" },
+    ]);
+  });
+
+  it("replaces them on a PATCH with pledges and records the change", async () => {
+    const ali = await addRepresentative("Değişen Ali");
+    const fields = {
+      name: "__test__ Değişen",
+      number: `TD-${suffix}`,
+      active: true,
+    };
+    const { body } = await createProject({
+      ...fields,
+      pledges: [{ representativeId: ali.id, quantity: 1, amount: "5.00" }],
+    });
+
+    const res = await projectsRoute.request(
+      `/${body.id}`,
+      json("PATCH", {
+        ...fields,
+        pledges: [{ representativeId: ali.id, quantity: 2, amount: "5.00" }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await lastEntry("update", body.id)).changes).toEqual([
+      {
+        label: "Taahhütler",
+        from: `${ali.name}: 1 × 5,00 TL`,
+        to: `${ali.name}: 2 × 5,00 TL`,
+      },
+    ]);
+  });
+
+  it("keeps a yetkili that became Pasif after being saved", async () => {
+    const ali = await addRepresentative("Sonra Pasif");
+    const fields = {
+      name: "__test__ Sonra Pasif",
+      number: `TS-${suffix}`,
+      active: true,
+    };
+    const pledges = [{ representativeId: ali.id, quantity: 1, amount: "5.00" }];
+    const { body } = await createProject({ ...fields, pledges });
+    await db
+      .update(authorizedRepresentativeTable)
+      .set({ active: false })
+      .where(eq(authorizedRepresentativeTable.id, ali.id));
+
+    const patch = await projectsRoute.request(
+      `/${body.id}`,
+      json("PATCH", { ...fields, pledges }),
+    );
+    expect(patch.status).toBe(200);
+    expect((await putPledges(body.id, pledges)).status).toBe(200);
+    expect(await getPledges(body.id)).toMatchObject([
+      { representativeId: ali.id, representativeActive: false },
+    ]);
+  });
+
+  it("PUT replaces only the taahhütler and records changes once", async () => {
+    const ali = await addRepresentative("Put Ali");
+    const { body } = await createProject({
+      name: "__test__ Put",
+      number: `TQ-${suffix}`,
+    });
+    const pledges = [
+      { representativeId: ali.id, quantity: 4, amount: "12.50" },
+      { representativeId: ali.id, quantity: 1, amount: "1.00" },
+    ];
+
+    const res = await putPledges(body.id, pledges);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      id: body.id,
+      message: "Taahhütler kaydedildi",
+    });
+    expect(await getPledges(body.id)).toMatchObject(pledges);
+    const entry = await lastEntry("update", body.id);
+    expect(entry.changes).toEqual([
+      {
+        label: "Taahhütler",
+        from: "—",
+        to: `${ali.name}: 4 × 12,50 TL, ${ali.name}: 1 × 1,00 TL`,
+      },
+    ]);
+
+    // the same rows again: nothing to record
+    expect((await putPledges(body.id, pledges)).status).toBe(200);
+    expect((await lastEntry("update", body.id)).id).toBe(entry.id);
+  });
+
+  it("PUT refuses bad rows and an unknown proje", async () => {
+    const ali = await addRepresentative("Kötü Ali");
+    const { body } = await createProject({
+      name: "__test__ Kötü",
+      number: `TK-${suffix}`,
+    });
+    const zero = await putPledges(body.id, [
+      { representativeId: ali.id, quantity: 0, amount: "1.00" },
+    ]);
+    expect(zero.status).toBe(400);
+    expect(await zero.json()).toEqual({
+      error: "Adet en az 1 olmalı",
+      field: "pledges.0.quantity",
+    });
+
+    expect((await putPledges(2147483000, [])).status).toBe(404);
+  });
+
+  it("go with a deleted proje, named in its audit entry", async () => {
+    const ali = await addRepresentative("Silinen Ali");
+    const { body } = await createProject({
+      name: "__test__ Silinen Taahhüt",
+      number: `TX-${suffix}`,
+      pledges: [{ representativeId: ali.id, quantity: 1, amount: "7.00" }],
+    });
+
+    const res = await projectsRoute.request(`/${body.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(200);
+    expect(
+      await db.$count(
+        projectPledgeTable,
+        eq(projectPledgeTable.projectId, body.id),
+      ),
+    ).toBe(0);
+    expect((await lastEntry("delete", body.id)).details).toContainEqual({
+      label: "Taahhütler",
+      value: `${ali.name}: 1 × 7,00 TL`,
+    });
   });
 });
