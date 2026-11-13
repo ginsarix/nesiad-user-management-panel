@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   emptySpreadHistory,
+  pruneSpread,
   recordSpread,
   redoSpread,
   type SpreadStep,
@@ -40,6 +41,41 @@ describe("spread history", () => {
   it("ignores a step that changed nothing", () => {
     const history = recordSpread(emptySpreadHistory, step("4", "4"));
     expect(history).toBe(emptySpreadHistory);
+  });
+});
+
+describe("pruneSpread", () => {
+  const onRows = (ids: string[], before: string, after: string) => ({
+    field: "amount" as const,
+    before: Object.fromEntries(ids.map((id) => [id, before])),
+    after: Object.fromEntries(ids.map((id) => [id, after])),
+  });
+
+  it("drops only the steps whose rows are all gone", () => {
+    // row a typed alone, then rows b and c added and changed with it
+    let history = recordSpread(emptySpreadHistory, onRows(["a"], "", "1000"));
+    history = recordSpread(history, onRows(["a", "b", "c"], "1000", "750"));
+
+    const pruned = pruneSpread(history, new Set(["b", "c"]));
+    expect(pruned.past).toHaveLength(1);
+    expect(undoSpread(pruned)?.values).toEqual({
+      a: "1000",
+      b: "1000",
+      c: "1000",
+    });
+  });
+
+  it("drops everything after a reset gives every row a new id", () => {
+    let history = recordSpread(emptySpreadHistory, onRows(["a"], "1", "2"));
+    history = undoSpread(history)?.history ?? history;
+    expect(pruneSpread(history, new Set(["x", "y"]))).toEqual(
+      emptySpreadHistory,
+    );
+  });
+
+  it("keeps the same history when nothing is gone", () => {
+    const history = recordSpread(emptySpreadHistory, onRows(["a"], "1", "2"));
+    expect(pruneSpread(history, new Set(["a", "b"]))).toBe(history);
   });
 });
 

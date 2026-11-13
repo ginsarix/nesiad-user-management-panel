@@ -66,6 +66,28 @@ export function redoSpread(history: SpreadHistory) {
   };
 }
 
+/**
+ * Drops the steps none of whose rows are left (`liveIds` are the rows' ids
+ * now). Removing one row keeps the steps of the others; a reset gives every
+ * row a new id, so everything goes.
+ */
+export function pruneSpread(
+  history: SpreadHistory,
+  liveIds: ReadonlySet<string>,
+): SpreadHistory {
+  const alive = (step: SpreadStep) =>
+    Object.keys(step.before).some((id) => liveIds.has(id));
+  const past = history.past.filter(alive);
+  const future = history.future.filter(alive);
+  if (
+    past.length === history.past.length &&
+    future.length === history.future.length
+  ) {
+    return history;
+  }
+  return past.length || future.length ? { past, future } : emptySpreadHistory;
+}
+
 /** Cmd/Ctrl+Z → undo; Cmd/Ctrl+Shift+Z and Ctrl+Y → redo */
 export function undoShortcut(event: {
   key: string;

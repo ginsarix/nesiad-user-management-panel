@@ -31,6 +31,7 @@ import {
 } from "@/lib/pledges";
 import {
   emptySpreadHistory,
+  pruneSpread,
   recordSpread,
   redoSpread,
   type SpreadField,
@@ -71,7 +72,7 @@ export function PledgesEditor<T extends FieldValues>({
   const history = useRef<SpreadHistory>(emptySpreadHistory);
   // the box being typed in while ticked: its step is open until it blurs
   const openStep = useRef<{
-    key: string;
+    rowId: string;
     field: SpreadField;
     before: Record<string, string>;
   } | null>(null);
@@ -123,10 +124,12 @@ export function PledgesEditor<T extends FieldValues>({
    */
   function beginStep(index: number, field: SpreadField) {
     if (!applyToAll) return;
-    const key = `${fields[index]?.id}:${field}`;
-    if (openStep.current?.key === key) return;
+    const rowId = fields[index]?.id;
+    if (rowId === undefined) return;
+    const open = openStep.current;
+    if (open?.rowId === rowId && open.field === field) return;
     closeStep();
-    openStep.current = { key, field, before: snapshot(field) };
+    openStep.current = { rowId, field, before: snapshot(field) };
   }
 
   /** Puts the row's new Adet or Tutar into every other row, when ticked */
@@ -159,15 +162,13 @@ export function PledgesEditor<T extends FieldValues>({
     });
   }
 
-  // a reset (İptal, or the details page after Kaydet) gives every row a new
-  // id: the history no longer applies
+  // a removed row's steps go when none of their rows are left; a reset
+  // (İptal, or the details page after Kaydet) gives every row a new id, so
+  // all of them go, along with a step still open in a re-keyed row
   useEffect(() => {
     const ids = new Set(fields.map((row) => row.id));
-    const stale = history.current.past
-      .concat(history.current.future)
-      .some((step) => !Object.keys(step.before).some((id) => ids.has(id)));
-    if (stale) {
-      history.current = emptySpreadHistory;
+    history.current = pruneSpread(history.current, ids);
+    if (openStep.current && !ids.has(openStep.current.rowId)) {
       openStep.current = null;
     }
   }, [fields]);
