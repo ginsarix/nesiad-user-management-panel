@@ -82,6 +82,25 @@ export async function setRepresentativeActive(id: number, active: boolean) {
   if (!res.ok) await throwResponseError(res, "Yetkili durumu değiştirilemedi");
 }
 
+/** Replaces the photo (already shrunk); the API deletes the old file */
+export async function setRepresentativePhoto(id: number, photo: File) {
+  const res = await rpcClient.api.representatives[":id"].$patch({
+    param: { id: String(id) },
+    form: { photo },
+  });
+
+  if (!res.ok) await throwResponseError(res, "Fotoğraf kaydedilemedi");
+}
+
+export async function removeRepresentativePhoto(id: number) {
+  const res = await rpcClient.api.representatives[":id"].$patch({
+    param: { id: String(id) },
+    form: { removePhoto: "true" },
+  });
+
+  if (!res.ok) await throwResponseError(res, "Fotoğraf silinemedi");
+}
+
 export async function deleteRepresentative(id: number) {
   const res = await rpcClient.api.representatives[":id"].$delete({
     param: { id: String(id) },

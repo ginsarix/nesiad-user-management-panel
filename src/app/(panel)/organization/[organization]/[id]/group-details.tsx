@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
 import { PassiveTag } from "@/components/info-fields";
+import { RepresentativeAvatar } from "@/components/representative-avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { getOrganizationGroup } from "@/lib/fetches/organization";
 import { listHref } from "@/lib/list-href";
@@ -80,6 +81,10 @@ export function GroupDetails({
                     <tr key={person.id}>
                       <td className="px-4 py-2">
                         <span className="flex flex-wrap items-center gap-2">
+                          <RepresentativeAvatar
+                            name={person.representativeName}
+                            photo={person.representativePhoto}
+                          />
                           <Link
                             href={`/representatives/${person.representativeId}`}
                             className="text-primary hover:underline"

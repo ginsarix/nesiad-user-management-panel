@@ -18,6 +18,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ColumnToggle } from "@/components/column-toggle";
 import { formatDate, orDash, PassiveTag } from "@/components/info-fields";
+import { RepresentativeAvatar } from "@/components/representative-avatar";
 import { SortableTableHeader } from "@/components/sortable-table-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,10 @@ const columns = helper.columns([
     sortFn: sortByName,
     cell: ({ row }) => (
       <span className="flex items-center gap-2">
+        <RepresentativeAvatar
+          name={row.original.name}
+          photo={row.original.photo}
+        />
         <Link
           href={`/representatives/${row.original.id}`}
           className="font-medium text-primary hover:underline"

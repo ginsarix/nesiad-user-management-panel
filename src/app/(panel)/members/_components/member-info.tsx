@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { orDash, PassiveTag } from "@/components/info-fields";
+import { RepresentativeAvatar } from "@/components/representative-avatar";
 import { seniorityBadge } from "@/lib/dates";
 import { logoUrl, type MemberListItem } from "@/lib/fetches/member";
 import { initialsTr } from "@/lib/turkish";
@@ -87,6 +88,10 @@ export function RepresentativeList({
           className="flex items-center justify-between gap-6 py-1.5 first:pt-0 last:pb-0"
         >
           <span className="flex flex-wrap items-center gap-x-2">
+            <RepresentativeAvatar
+              name={representative.name}
+              photo={representative.photo}
+            />
             <Link
               href={`/representatives/${representative.id}`}
               // rows of the members list toggle on click

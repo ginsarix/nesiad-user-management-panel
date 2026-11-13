@@ -15,6 +15,7 @@ import { listHref } from "@/lib/list-href";
 import { ORGANIZATION_INFO, organizationHref } from "@/lib/organizations";
 import { MemberAvatar } from "../../members/_components/member-info";
 import { DeleteRepresentativeButton } from "./delete-representative-button";
+import { RepresentativePhoto } from "./representative-photo";
 import { ToggleActiveButton } from "./toggle-active-button";
 
 export function RepresentativeDetails({ id }: { id: number }) {
@@ -42,6 +43,7 @@ export function RepresentativeDetails({ id }: { id: number }) {
       {representative && (
         <>
           <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-card p-4">
+            <RepresentativePhoto representative={representative} />
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-medium">{representative.name}</h2>
               {!representative.active && <PassiveTag />}
