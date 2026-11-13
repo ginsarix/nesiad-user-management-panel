@@ -200,7 +200,8 @@ export const parametersRoute = new Hono<AppEnv>()
 
       const result = await db
         .transaction(async (tx) => {
-          // payments, tahsilatlar and Organizasyon rows keep their entry:
+          // payments, tahsilatlar, tahakkuk rows and Organizasyon rows keep
+          // their entry:
           // refuse while any uses it
           const usageCount = await usageOf(tx, id);
           if (usageCount > 0) return { usageCount };

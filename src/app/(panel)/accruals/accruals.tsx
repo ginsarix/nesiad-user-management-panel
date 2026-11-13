@@ -84,6 +84,8 @@ function AccrualsForm({ list }: { list: AccrualList }) {
       void queryClient.invalidateQueries({ queryKey: ["accruals"] });
       // yetkili pages count tahakkuk rows (the delete check)
       void queryClient.invalidateQueries({ queryKey: ["representatives"] });
+      // a Tahsilat Türü used as an Aidat can't be deleted (Parametreler)
+      void queryClient.invalidateQueries({ queryKey: ["parameters"] });
     },
     onError: (error) => {
       // e.g. "Pasif yetkili eklenemez" under that row's Yetkili

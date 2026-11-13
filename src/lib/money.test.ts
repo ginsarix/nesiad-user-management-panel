@@ -68,7 +68,7 @@ describe("sumAmounts", () => {
     expect(sumAmounts([])).toBe("0.00");
   });
 
-  it("stays exact past what a float can hold", () => {
+  it("handles the largest amounts without rounding", () => {
     expect(sumAmounts(["9999999999.99", "9999999999.99"])).toBe(
       "19999999999.98",
     );

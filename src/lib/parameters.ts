@@ -25,13 +25,16 @@ export const PARAMETER_KIND_LABELS: Record<ParameterKind, string> = {
 
 /**
  * What a list's entries are used by, for "Bu kayıt 3 ödemede kullanılıyor"
- * and "bu ödemelerin … alanını değiştirin". Each kind is used by one feature.
+ * and "bu ödemelerin Ödeme Tipi alanını değiştirin": the users, and the
+ * field to change there.
  */
 export function parameterUsageNouns(kind: ParameterKind) {
+  const field = PARAMETER_KIND_LABELS[kind];
   if (kind === "association_role") {
     return {
       locative: "organizasyon kaydında",
       genitivePlural: "organizasyon kayıtlarının",
+      field,
     };
   }
   if (kind === "collection_category") {
@@ -39,9 +42,10 @@ export function parameterUsageNouns(kind: ParameterKind) {
     return {
       locative: "tahsilat veya tahakkuk kaydında",
       genitivePlural: "kayıtların",
+      field: `${field} / Aidat`,
     };
   }
   return kind.startsWith("payment_")
-    ? { locative: "ödemede", genitivePlural: "ödemelerin" }
-    : { locative: "tahsilatta", genitivePlural: "tahsilatların" };
+    ? { locative: "ödemede", genitivePlural: "ödemelerin", field }
+    : { locative: "tahsilatta", genitivePlural: "tahsilatların", field };
 }

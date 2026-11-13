@@ -60,8 +60,8 @@ export function DeleteParameterButton({ parameter }: { parameter: Parameter }) {
               <AlertDialogTitle>“{parameter.name}” silinemez</AlertDialogTitle>
               <AlertDialogDescription>
                 Bu kayıt {parameter.usageCount} {usedBy.locative} kullanılıyor.
-                Silmek için önce bu {usedBy.genitivePlural} {label} alanını
-                değiştirin.
+                Silmek için önce bu {usedBy.genitivePlural} {usedBy.field}{" "}
+                alanını değiştirin.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
