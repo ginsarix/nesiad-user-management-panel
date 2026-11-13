@@ -9,6 +9,7 @@ import {
   collectionTable,
   membersRepresentativesTable,
   memberTable,
+  projectPledgeTable,
 } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import {
@@ -20,6 +21,7 @@ import {
 } from "@/lib/audit-diff";
 import { deleteFiles } from "@/lib/file-storage";
 import { isEstablished } from "@/lib/member-status";
+import { representativeRecordsText } from "@/lib/representative-records";
 import { compareTr } from "@/lib/turkish";
 import { PHOTO_MIME_TYPES, storeUpload } from "@/lib/uploads";
 import {
@@ -38,9 +40,12 @@ import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 const MISSING_MEMBER_ERROR = "Seçilen üye bulunamadı";
 
-/** null when a concurrent tahsilat made the count unknown */
-function hasCollectionsError(collectionCount: number | null) {
-  return `Bu yetkiliye ait ${collectionCount ? `${collectionCount} ` : ""}tahsilat var. Silmek yerine pasif yapabilirsiniz.`;
+/** null counts when a tahsilat or taahhüt added during the delete stopped it */
+function hasRecordsError(
+  collectionCount: number | null,
+  pledgeCount: number | null,
+) {
+  return `Bu yetkiliye ait ${representativeRecordsText(collectionCount, pledgeCount)} var. Silmek yerine pasif yapabilirsiniz.`;
 }
 
 /** Members joined to their yetkili, optionally for a single yetkili */
@@ -222,18 +227,30 @@ export const representativesRoute = new Hono<AppEnv>()
 
       if (!representative) return c.json({ error: "Yetkili bulunamadı" }, 404);
 
-      const [links, organizations, collectionCount] = await Promise.all([
-        selectLinkedMembers(id),
-        selectRepresentativeOrganizations(id),
-        // a yetkili with tahsilatlar can't be deleted; the page says so
-        db.$count(collectionTable, eq(collectionTable.representativeId, id)),
-      ]);
+      const [links, organizations, collectionCount, pledgeCount] =
+        await Promise.all([
+          selectLinkedMembers(id),
+          selectRepresentativeOrganizations(id),
+          // a yetkili with tahsilatlar or taahhütler can't be deleted; the
+          // page says so
+          db.$count(collectionTable, eq(collectionTable.representativeId, id)),
+          db.$count(
+            projectPledgeTable,
+            eq(projectPledgeTable.representativeId, id),
+          ),
+        ]);
       const members = links
         .map(({ representativeId: _, ...member }) => member)
         .sort(byTitle);
 
       return c.json(
-        { ...representative, members, organizations, collectionCount },
+        {
+          ...representative,
+          members,
+          organizations,
+          collectionCount,
+          pledgeCount,
+        },
         200,
       );
     },
@@ -393,12 +410,19 @@ export const representativesRoute = new Hono<AppEnv>()
 
       const result = await db
         .transaction(async (tx) => {
-          // tahsilatlar keep their yetkili: refuse while it has any
+          // tahsilatlar and taahhütler keep their yetkili: refuse while it
+          // has any
           const collectionCount = await tx.$count(
             collectionTable,
             eq(collectionTable.representativeId, id),
           );
-          if (collectionCount > 0) return { refused: collectionCount };
+          const pledgeCount = await tx.$count(
+            projectPledgeTable,
+            eq(projectPledgeTable.representativeId, id),
+          );
+          if (collectionCount > 0 || pledgeCount > 0) {
+            return { refused: { collectionCount, pledgeCount } };
+          }
 
           const [representative] = await tx
             .select()
@@ -433,17 +457,18 @@ export const representativesRoute = new Hono<AppEnv>()
           return { deleted: representative };
         })
         .catch((error) => {
-          // a tahsilat added between the count and the delete
+          // a tahsilat or taahhüt added between the count and the delete
           if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
-            return { refused: null };
+            return { refused: { collectionCount: null, pledgeCount: null } };
           }
           throw error;
         });
 
       if (!result) return c.json({ error: "Yetkili bulunamadı" }, 404);
-      if ("refused" in result) {
+      if (result.refused) {
+        const { collectionCount, pledgeCount } = result.refused;
         return c.json(
-          { error: hasCollectionsError(result.refused ?? null) },
+          { error: hasRecordsError(collectionCount, pledgeCount) },
           409,
         );
       }

@@ -10,6 +10,8 @@ import {
   committeeTable,
   memberTable,
   parameterTable,
+  projectPledgeTable,
+  projectTable,
   supervisoryBoardTable,
 } from "@/db/schema";
 import { deleteFile, getFilePath, readStoredFile } from "@/lib/file-storage";
@@ -23,6 +25,7 @@ const createdMemberIds: number[] = [];
 const committeeIds: number[] = [];
 const supervisoryBoardIds: number[] = [];
 const parameterIds: number[] = [];
+const projectIds: number[] = [];
 const createdFiles: string[] = [];
 
 // group and parameter names are unique; keep them apart from parallel runs
@@ -38,6 +41,10 @@ afterAll(async () => {
     await db
       .delete(supervisoryBoardTable)
       .where(inArray(supervisoryBoardTable.id, supervisoryBoardIds));
+  }
+  // their taahhütler hold on to the yetkililer
+  if (projectIds.length) {
+    await db.delete(projectTable).where(inArray(projectTable.id, projectIds));
   }
   if (createdRepresentativeIds.length) {
     await db
@@ -441,6 +448,70 @@ describe("yetkililer with tahsilatlar", () => {
     );
     expect((await getRepresentative(id)).res.status).toBe(200);
     expect(await readStoredFile(photo)).not.toBeNull();
+  });
+});
+
+/** A __test__ proje with one taahhüt of the yetkili, inserted directly */
+async function addPledge(representativeId: number) {
+  const key = `${suffix}-${representativeId}`;
+  const [project] = await db
+    .insert(projectTable)
+    .values({
+      name: `__test__ Proje ${key}`,
+      number: `__test__ ${key}`,
+      numberKey: `__test__ ${key}`,
+    })
+    .returning({ id: projectTable.id });
+  projectIds.push(project.id);
+  await db.insert(projectPledgeTable).values({
+    projectId: project.id,
+    representativeId,
+    quantity: 1,
+    amount: "10.00",
+    position: 0,
+  });
+}
+
+describe("yetkililer with taahhütler", () => {
+  it("includes pledgeCount in the yetkili detail", async () => {
+    const { body } = await createRepresentative({
+      name: "__test__ Taahhütlü",
+    });
+    expect((await getRepresentative(body.id)).body.pledgeCount).toBe(0);
+    await addPledge(body.id);
+    expect((await getRepresentative(body.id)).body.pledgeCount).toBe(1);
+  });
+
+  it("refuses to delete a yetkili with only taahhütler", async () => {
+    const { body } = await createRepresentative({
+      name: "__test__ Taahhütlü Silinemez",
+    });
+    await addPledge(body.id);
+
+    const res = await representativesRoute.request(`/${body.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu yetkiliye ait 1 taahhüt var. Silmek yerine pasif yapabilirsiniz.",
+    );
+    expect((await getRepresentative(body.id)).res.status).toBe(200);
+  });
+
+  it("names both when there are tahsilatlar and taahhütler", async () => {
+    const { body } = await createRepresentative({
+      name: "__test__ İkisi de",
+    });
+    await addCollection(body.id);
+    await addPledge(body.id);
+
+    const res = await representativesRoute.request(`/${body.id}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu yetkiliye ait 1 tahsilat ve 1 taahhüt var. Silmek yerine pasif yapabilirsiniz.",
+    );
   });
 });
 
