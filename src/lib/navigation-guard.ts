@@ -89,3 +89,19 @@ export function useNavigationGuard(active: boolean, onBlocked: () => void) {
     };
   }, [active]);
 }
+
+/** A light side-to-side shake for a save bar when leaving is stopped */
+const SHAKE: Keyframe[] = [
+  { transform: "translateX(0)" },
+  { transform: "translateX(-6px)" },
+  { transform: "translateX(6px)" },
+  { transform: "translateX(-4px)" },
+  { transform: "translateX(4px)" },
+  { transform: "translateX(0)" },
+];
+
+/** Shakes the element to point it out, unless motion is reduced */
+export function shakeElement(element: HTMLElement | null) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  element?.animate(SHAKE, { duration: 400, easing: "ease-in-out" });
+}

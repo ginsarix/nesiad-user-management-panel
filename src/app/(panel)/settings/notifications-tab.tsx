@@ -24,7 +24,7 @@ import {
   updateNoticeSettings,
   updateSmsSettings,
 } from "@/lib/fetches/sms";
-import { useNavigationGuard } from "@/lib/navigation-guard";
+import { shakeElement, useNavigationGuard } from "@/lib/navigation-guard";
 import { cn } from "@/lib/utils";
 import { noticeSettingsSchema } from "@/lib/zod-schemas/application-notices";
 import { collectionNoticeSettingsSchema } from "@/lib/zod-schemas/collection-notices";
@@ -238,12 +238,7 @@ function NotificationsEditor({
     setLeaveAttempted(true);
     onReveal();
     // after the tab and bar are shown, or there is nothing to shake
-    requestAnimationFrame(() => {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        return;
-      }
-      bar.current?.animate(SHAKE, { duration: 400, easing: "ease-in-out" });
-    });
+    requestAnimationFrame(() => shakeElement(bar.current));
   });
   const pointOutBar = leaveAttempted && hasChanges;
 
@@ -529,16 +524,6 @@ function NotificationsEditor({
     </form>
   );
 }
-
-/** A light side-to-side shake for the bar when leaving is stopped */
-const SHAKE: Keyframe[] = [
-  { transform: "translateX(0)" },
-  { transform: "translateX(-6px)" },
-  { transform: "translateX(6px)" },
-  { transform: "translateX(-4px)" },
-  { transform: "translateX(4px)" },
-  { transform: "translateX(0)" },
-];
 
 /** The three forms differ only in field types; this is what saving needs */
 type AnyForm = UseFormReturn<FieldValues>;

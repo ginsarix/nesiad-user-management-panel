@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { getProject } from "@/lib/fetches/project";
 import { listHref } from "@/lib/list-href";
 import { DeleteProjectButton } from "./delete-project-button";
+import { ProjectPledges } from "./project-pledges";
 import { ToggleActiveButton } from "./toggle-active-button";
 
 export function ProjectDetails({ id }: { id: number }) {
@@ -77,6 +78,8 @@ export function ProjectDetails({ id }: { id: number }) {
               canAdd={project.active}
             />
           </div>
+
+          <ProjectPledges key={project.id} project={project} />
         </>
       )}
     </div>
