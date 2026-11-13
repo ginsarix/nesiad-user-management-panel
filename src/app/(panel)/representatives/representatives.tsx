@@ -88,12 +88,19 @@ const columns = helper.columns([
       row.original.members.length === 0 ? (
         "—"
       ) : (
-        <ul className="flex flex-col gap-0.5">
+        // long company names are cut off (same width as the members table's
+        // Ünvan); the görev stays visible and the full name shows on hover
+        <ul className="flex max-w-80 flex-col gap-0.5">
           {row.original.members.map((member) => (
-            <li key={member.id}>
-              {member.title}
+            <li key={member.id} className="flex">
+              <span title={member.title} className="truncate">
+                {member.title}
+              </span>
               {member.role && (
-                <span className="text-muted-foreground"> · {member.role}</span>
+                <span className="shrink-0 whitespace-pre text-muted-foreground">
+                  {" · "}
+                  {member.role}
+                </span>
               )}
             </li>
           ))}
