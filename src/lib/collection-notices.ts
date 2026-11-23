@@ -20,7 +20,7 @@ export type NoticeCollection = {
   amount: string;
   date: string;
   categoryName: string;
-  methodName: string;
+  cashAccountName: string;
   projectName: string | null;
   projectNumber: string | null;
 };
@@ -75,7 +75,7 @@ export async function sendCollectionNotices(
     tutar: formatAmountText(collection.amount),
     tarih: isoToDisplay(collection.date),
     tur: collection.categoryName,
-    tip: collection.methodName,
+    kasa: collection.cashAccountName,
     proje:
       collection.projectName && collection.projectNumber
         ? projectLabel({

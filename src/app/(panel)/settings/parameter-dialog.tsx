@@ -81,8 +81,9 @@ function ParameterForm({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
-        // payments show the tür and tip names
+        // payments and tahsilatlar show the tür names
         queryClient.invalidateQueries({ queryKey: ["payments"] }),
+        queryClient.invalidateQueries({ queryKey: ["collections"] }),
         // Organizasyon and yetkili pages show the Dernek Görevi names
         queryClient.invalidateQueries({ queryKey: ["organizations"] }),
         queryClient.invalidateQueries({ queryKey: ["representatives"] }),

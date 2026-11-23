@@ -4,14 +4,23 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
+  cashAccountTable,
   counterpartyTable,
   parameterTable,
   paymentTable,
 } from "@/db/schema";
 import { todayInIstanbul } from "@/lib/dates";
 import { sumAmounts } from "@/lib/money";
+import {
+  deleteTestCashAccounts,
+  insertTestCashAccount,
+} from "@/test/cash-accounts";
+import { cashAccountsRoute } from "./cash-accounts";
 import { counterpartiesRoute } from "./counterparties";
 import { paymentsRoute } from "./payments";
+
+// Kasa - Banka fixtures, deleted after the records using them
+const cashAccountIds: number[] = [];
 
 const suffix = crypto.randomUUID().slice(0, 8);
 const paymentIds: number[] = [];
@@ -52,8 +61,9 @@ let cari: number;
 let otherCari: number;
 let cicek: number;
 let yemek: number;
-let kart: number;
-let nakit: number;
+let kasa: number;
+let banka: number;
+let pasifKasa: number;
 let tahsilat: number;
 
 beforeAll(async () => {
@@ -61,8 +71,16 @@ beforeAll(async () => {
   otherCari = await insertCounterparty(`__test__ Lokanta ${suffix}`);
   cicek = await insertParameter("payment_category", `__test__ Çiçek ${suffix}`);
   yemek = await insertParameter("payment_category", `__test__ Yemek ${suffix}`);
-  kart = await insertParameter("payment_method", `__test__ Kart ${suffix}`);
-  nakit = await insertParameter("payment_method", `__test__ Nakit ${suffix}`);
+  kasa = await insertTestCashAccount(`__test__ Kasa ${suffix}`, cashAccountIds);
+  banka = await insertTestCashAccount(
+    `__test__ Banka ${suffix}`,
+    cashAccountIds,
+  );
+  pasifKasa = await insertTestCashAccount(
+    `__test__ Pasif Kasa ${suffix}`,
+    cashAccountIds,
+    { active: false },
+  );
   tahsilat = await insertParameter(
     "collection_category",
     `__test__ Aidat ${suffix}`,
@@ -83,6 +101,7 @@ afterAll(async () => {
       .delete(parameterTable)
       .where(inArray(parameterTable.id, parameterIds));
   }
+  await deleteTestCashAccounts(cashAccountIds);
 });
 
 function validPayment(overrides: Record<string, unknown> = {}) {
@@ -91,7 +110,7 @@ function validPayment(overrides: Record<string, unknown> = {}) {
     amount: "1250.50",
     date: "2026-11-01",
     categoryId: cicek,
-    methodId: kart,
+    cashAccountId: kasa,
     note: "",
     ...overrides,
   };
@@ -105,6 +124,11 @@ async function createPayment(overrides: Record<string, unknown> = {}) {
   const body = await res.json();
   if (res.status === 201) paymentIds.push(body.id);
   return { res, body };
+}
+
+async function balanceOf(cashAccountId: number) {
+  const res = await cashAccountsRoute.request(`/${cashAccountId}`);
+  return ((await res.json()) as { balance: string }).balance;
 }
 
 async function list(query: string) {
@@ -156,8 +180,8 @@ describe("POST /api/payments", () => {
       counterpartyTitle: `__test__ Çiçekçi ${suffix}`,
       categoryId: cicek,
       categoryName: `__test__ Çiçek ${suffix}`,
-      methodId: kart,
-      methodName: `__test__ Kart ${suffix}`,
+      cashAccountId: kasa,
+      cashAccountName: `__test__ Kasa ${suffix}`,
     });
 
     const entry = await lastEntry("create", body.id);
@@ -169,12 +193,12 @@ describe("POST /api/payments", () => {
       "Tutar",
       "Tarih",
       "Ödeme Türü",
-      "Ödeme Tipi",
+      "Kasa - Banka",
       "Not",
     ]);
   });
 
-  it.each(["counterpartyId", "amount", "date", "categoryId", "methodId"])(
+  it.each(["counterpartyId", "amount", "date", "categoryId", "cashAccountId"])(
     "requires %s",
     async (field) => {
       const { res } = await createPayment({ [field]: undefined });
@@ -198,13 +222,27 @@ describe("POST /api/payments", () => {
   });
 
   it("rejects a parameter from the wrong list", async () => {
-    const category = await createPayment({ categoryId: kart });
+    const category = await createPayment({ categoryId: tahsilat });
     expect(category.res.status).toBe(400);
-    expect(category.body.error).toBe("Geçerli bir ödeme türü seçin");
+    expect(category.body).toEqual({
+      error: "Geçerli bir ödeme türü seçin",
+      field: "categoryId",
+    });
+  });
 
-    const method = await createPayment({ methodId: tahsilat });
-    expect(method.res.status).toBe(400);
-    expect(method.body.error).toBe("Geçerli bir ödeme tipi seçin");
+  it("needs an Aktif Kasa - Banka", async () => {
+    const pasif = await createPayment({ cashAccountId: pasifKasa });
+    expect(pasif.res.status).toBe(400);
+    expect(pasif.body).toEqual({
+      error: "Seçilen Kasa - Banka aktif değil",
+      field: "cashAccountId",
+    });
+    const unknown = await createPayment({ cashAccountId: 2147483000 });
+    expect(unknown.res.status).toBe(400);
+    expect(unknown.body).toEqual({
+      error: "Seçilen Kasa - Banka bulunamadı",
+      field: "cashAccountId",
+    });
   });
 
   it("rejects an unknown cari", async () => {
@@ -226,6 +264,7 @@ describe("GET /api/payments", () => {
       amount: "0.20",
       date: "2026-10-15",
       categoryId: yemek,
+      cashAccountId: banka,
     });
     const third = await createPayment({
       counterpartyId: otherCari,
@@ -254,8 +293,10 @@ describe("GET /api/payments", () => {
     );
     expect(byCategory.payments.map((p) => p.id)).toEqual([second.body.id]);
 
-    const byMethod = await list(`counterparty=${otherCari}&method=${nakit}`);
-    expect(byMethod).toEqual({ payments: [], count: 0 });
+    const byAccount = await list(
+      `counterparty=${otherCari}&cashAccount=${banka}`,
+    );
+    expect(byAccount.payments.map((p) => p.id)).toEqual([second.body.id]);
   });
 
   it("shows the current cari title", async () => {
@@ -276,16 +317,16 @@ describe("PATCH /api/payments/:id", () => {
     const { body } = await createPayment();
     const res = await paymentsRoute.request(
       `/${body.id}`,
-      json("PATCH", validPayment({ amount: "99.00", methodId: nakit })),
+      json("PATCH", validPayment({ amount: "99.00", cashAccountId: banka })),
     );
     expect(res.status).toBe(200);
 
     expect((await lastEntry("update", body.id)).changes).toEqual([
       { label: "Tutar", from: "₺1.250,50", to: "₺99,00" },
       {
-        label: "Ödeme Tipi",
-        from: `__test__ Kart ${suffix}`,
-        to: `__test__ Nakit ${suffix}`,
+        label: "Kasa - Banka",
+        from: `__test__ Kasa ${suffix}`,
+        to: `__test__ Banka ${suffix}`,
       },
     ]);
   });
@@ -296,11 +337,81 @@ describe("PATCH /api/payments/:id", () => {
     expect(await lastEntry("update", body.id)).toBeUndefined();
   });
 
+  it("keeps a Kasa - Banka that became Pasif, refuses another", async () => {
+    const closing = await insertTestCashAccount(
+      `__test__ Kapanan ${suffix}`,
+      cashAccountIds,
+    );
+    const { body } = await createPayment({ cashAccountId: closing });
+    await db
+      .update(cashAccountTable)
+      .set({ active: false })
+      .where(eq(cashAccountTable.id, closing));
+
+    const keep = await paymentsRoute.request(
+      `/${body.id}`,
+      json("PATCH", validPayment({ cashAccountId: closing, amount: "5.00" })),
+    );
+    expect(keep.status).toBe(200);
+    const other = await paymentsRoute.request(
+      `/${body.id}`,
+      json("PATCH", validPayment({ cashAccountId: pasifKasa })),
+    );
+    expect(other.status).toBe(400);
+  });
+
+  it("subtracts from the Bakiye, following edits and deletes", async () => {
+    const account = await insertTestCashAccount(
+      `__test__ Bakiye ${suffix}`,
+      cashAccountIds,
+      { openingBalance: "1000.00" },
+    );
+    const { body } = await createPayment({
+      cashAccountId: account,
+      amount: "250.00",
+    });
+    expect(await balanceOf(account)).toBe("750.00");
+
+    await paymentsRoute.request(
+      `/${body.id}`,
+      json("PATCH", validPayment({ cashAccountId: account, amount: "300.00" })),
+    );
+    expect(await balanceOf(account)).toBe("700.00");
+
+    await paymentsRoute.request(`/${body.id}`, { method: "DELETE" });
+    expect(await balanceOf(account)).toBe("1000.00");
+  });
+
+  it("moving a payment moves its amount", async () => {
+    const from = await insertTestCashAccount(
+      `__test__ Eski Hesap ${suffix}`,
+      cashAccountIds,
+      { openingBalance: "100.00" },
+    );
+    const to = await insertTestCashAccount(
+      `__test__ Yeni Hesap ${suffix}`,
+      cashAccountIds,
+      { openingBalance: "100.00" },
+    );
+    const { body } = await createPayment({
+      cashAccountId: from,
+      amount: "40.00",
+    });
+    expect(await balanceOf(from)).toBe("60.00");
+
+    await paymentsRoute.request(
+      `/${body.id}`,
+      json("PATCH", validPayment({ cashAccountId: to, amount: "40.00" })),
+    );
+    expect(await balanceOf(from)).toBe("100.00");
+    expect(await balanceOf(to)).toBe("60.00");
+  });
+
   it("validates like create", async () => {
     const { body } = await createPayment();
     const res = await paymentsRoute.request(
       `/${body.id}`,
-      json("PATCH", validPayment({ categoryId: nakit })),
+      json("PATCH", validPayment({ categoryId: tahsilat })),
     );
     expect(res.status).toBe(400);
   });
@@ -356,9 +467,10 @@ describe("GET /api/payments/export", () => {
       "Cari",
       "Tutar",
       "Ödeme Türü",
-      "Ödeme Tipi",
+      "Kasa - Banka",
       "Not",
     ]);
+    expect(rows[1][4]).toBe(`__test__ Kasa ${suffix}`);
     expect(rows[1][0]).toEqual(new Date("2026-10-15T00:00:00Z"));
     expect(rows[1][1]).toBe(`__test__ Excel ${suffix}`);
     expect(rows[1][2]).toBe(0.2);

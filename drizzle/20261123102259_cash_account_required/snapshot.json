@@ -1,0 +1,178 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "94f91d85-6899-439d-b597-ead94a0cee3c",
+  "prevIds": [
+    "ba210b7c-c6eb-4041-9f06-49b79624cf50"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment"
+      ],
+      "writes": [
+        "s|fk|public.payment.payment_method_id_parameter_id_fkey",
+        "n|fk|public.payment.payment_method_id_parameter_id_fkey",
+        "e|fk|public.payment.payment_method_id_parameter_id_fkey",
+        "n|con|public.payment.payment_method_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment",
+        "n|sch|public",
+        "e|col|public.payment.method_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_method_id_parameter_id_fkey",
+        "n|fk|public.collection.collection_method_id_parameter_id_fkey",
+        "e|fk|public.collection.collection_method_id_parameter_id_fkey",
+        "n|con|public.collection.collection_method_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "e|col|public.collection.method_id"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment",
+        "method_id"
+      ],
+      "writes": [
+        "s|col|public.payment.method_id",
+        "n|col|public.payment.method_id",
+        "e|col|public.payment.method_id"
+      ],
+      "reads": [
+        "n|tbl|public.payment",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection",
+        "method_id"
+      ],
+      "writes": [
+        "s|col|public.collection.method_id",
+        "n|col|public.collection.method_id",
+        "e|col|public.collection.method_id"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection",
+        "cash_account_id"
+      ],
+      "writes": [
+        "s|colprop|public.collection.cash_account_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|col|public.collection.cash_account_id"
+      ],
+      "sqlHash": "ce9e4b081103a181"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment",
+        "cash_account_id"
+      ],
+      "writes": [
+        "s|colprop|public.payment.cash_account_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.payment",
+        "n|sch|public",
+        "n|col|public.payment.cash_account_id"
+      ],
+      "sqlHash": "41cd6e1f33a28729"
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "parameter"
+      ],
+      "writes": [
+        "s|ck|public.parameter.parameter_kind_valid"
+      ],
+      "reads": [
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.parameter.kind",
+        "e|col|public.parameter.kind"
+      ],
+      "sqlHash": "05b52ed0e4819d27"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"payment\",\"method_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"collection\",\"method_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"payment\",\"payment_method_id_parameter_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"collection\",\"collection_method_id_parameter_id_fkey\"]"
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"collection\",\"cash_account_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"payment\",\"cash_account_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"parameter\",\"parameter_kind_valid\"]",
+      "set": {
+        "value": "\"kind\" IN ('collection_category','payment_category','association_role')"
+      }
+    }
+  ]
+}

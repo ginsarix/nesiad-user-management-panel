@@ -2,7 +2,7 @@ import { z } from "zod";
 import { COLLECTION_NOTICE_PLACEHOLDERS } from "../sms/templates";
 import { TEMPLATE_MAX_LENGTH, templateText } from "./sms";
 
-const ALLOWED = "{yetkili}, {tutar}, {tarih}, {tur}, {tip}, {proje}";
+const ALLOWED = "{yetkili}, {tutar}, {tarih}, {tur}, {kasa}, {proje}";
 const sms = () =>
   templateText(
     { name: "Mesaj", max: TEMPLATE_MAX_LENGTH, sms: true },

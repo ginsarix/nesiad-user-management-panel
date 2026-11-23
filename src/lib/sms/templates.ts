@@ -44,7 +44,7 @@ export const COLLECTION_NOTICE_PLACEHOLDERS = {
   tutar: "tutar, ör. 1.250,00 TL",
   tarih: "tahsilat tarihi",
   tur: "tahsilat türü",
-  tip: "tahsilat tipi",
+  kasa: "kasa - banka hesabı",
   proje: "proje (yoksa -)",
 } as const;
 
@@ -54,12 +54,12 @@ export const DEFAULT_COLLECTION_NOTICE_TEMPLATES = {
     "Sayın {yetkili}, {tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz. NESİAD",
   representativeEmailSubject: "NESİAD ödemeniz alındı",
   representativeEmailBody:
-    "Sayın {yetkili},\n\n{tarih} tarihli {tutar} tutarındaki {tur} ödemeniz ({tip}) alınmıştır. Teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
+    "Sayın {yetkili},\n\n{tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
   staffSms:
-    "Yeni tahsilat: {yetkili}, {tutar} ({tur}, {tip}), {tarih}. Proje: {proje}",
+    "Yeni tahsilat: {yetkili}, {tutar} ({tur}, {kasa}), {tarih}. Proje: {proje}",
   staffEmailSubject: "Yeni tahsilat: {yetkili}, {tutar}",
   staffEmailBody:
-    "Panele yeni bir tahsilat kaydedildi.\n\nYetkili: {yetkili}\nTutar: {tutar}\nTarih: {tarih}\nTahsilat Türü: {tur}\nTahsilat Tipi: {tip}\nProje: {proje}",
+    "Panele yeni bir tahsilat kaydedildi.\n\nYetkili: {yetkili}\nTutar: {tutar}\nTarih: {tarih}\nTahsilat Türü: {tur}\nKasa - Banka: {kasa}\nProje: {proje}",
 } as const;
 
 const PLACEHOLDER = /\{([^{}]*)\}/g;

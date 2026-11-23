@@ -7,18 +7,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, type FieldPath, useForm } from "react-hook-form";
 import { AmountInput } from "@/components/amount-input";
+import { CashAccountSection } from "@/components/cash-account-section";
 import { SearchCombobox } from "@/components/search-combobox";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { initialCashAccountId } from "@/lib/cash-account-items";
 import { isoToDisplay, todayInIstanbul } from "@/lib/dates";
+import {
+  type CashAccountListItem,
+  getCashAccounts,
+} from "@/lib/fetches/cash-account";
 import {
   type CounterpartyListItem,
   getCounterparties,
 } from "@/lib/fetches/counterparty";
+import { ApiError } from "@/lib/fetches/errors";
 import { getParameters, type Parameter } from "@/lib/fetches/parameter";
 import {
   createPayment,
@@ -29,6 +36,7 @@ import { listHref } from "@/lib/list-href";
 import { amountToInput } from "@/lib/money";
 import type { ParameterKind } from "@/lib/parameters";
 import {
+  type PaymentFormInput,
   type PaymentFormValues,
   paymentFormSchema,
 } from "@/lib/zod-schemas/payment";
@@ -37,6 +45,17 @@ import { MissingPrerequisitesNotice } from "./missing-prerequisites-notice";
 
 const emptyCounterparties: CounterpartyListItem[] = [];
 const emptyParameters: Parameter[] = [];
+const emptyCashAccounts: CashAccountListItem[] = [];
+
+// API field names the form can show an error under
+const FIELDS = new Set([
+  "counterpartyId",
+  "categoryId",
+  "cashAccountId",
+  "amount",
+  "date",
+  "note",
+]);
 
 function itemsOf(parameters: Parameter[], kind: ParameterKind) {
   // the API sorts them by name
@@ -68,6 +87,11 @@ export function PaymentForm({
     queryKey: ["parameters"],
     queryFn: () => getParameters(),
   });
+  const { data: loadedCashAccounts } = useQuery({
+    queryKey: ["cash-accounts"],
+    queryFn: () => getCashAccounts(),
+  });
+  const cashAccounts = loadedCashAccounts ?? emptyCashAccounts;
   const counterparties = loadedCounterparties ?? emptyCounterparties;
   const parameters = loadedParameters ?? emptyParameters;
   const counterpartyItems = useMemo(
@@ -76,10 +100,6 @@ export function PaymentForm({
   );
   const categoryItems = useMemo(
     () => itemsOf(parameters, "payment_category"),
-    [parameters],
-  );
-  const methodItems = useMemo(
-    () => itemsOf(parameters, "payment_method"),
     [parameters],
   );
 
@@ -95,7 +115,11 @@ export function PaymentForm({
       amount: payment ? amountToInput(payment.amount) : "",
       date: isoToDisplay(payment?.date ?? todayInIstanbul()),
       categoryId: payment?.categoryId ?? null,
-      methodId: payment?.methodId ?? null,
+      cashAccountId: initialCashAccountId(
+        cashAccounts,
+        payment?.cashAccountId,
+        undefined,
+      ),
       note: payment?.note ?? "",
     },
   });
@@ -115,10 +139,25 @@ export function PaymentForm({
         // cariler show their total, parameters their payment count
         queryClient.invalidateQueries({ queryKey: ["counterparties"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
+        // the account's Bakiye moves
+        queryClient.invalidateQueries({ queryKey: ["cash-accounts"] }),
       ]);
       router.push(backHref);
     },
+    // e.g. "Seçilen Kasa - Banka aktif değil" under the account picker
+    onError: (error) => {
+      if (error instanceof ApiError && error.field && FIELDS.has(error.field)) {
+        form.setError(error.field as FieldPath<PaymentFormInput>, {
+          message: error.message,
+        });
+      }
+    },
   });
+  const formError =
+    error &&
+    !(error instanceof ApiError && error.field && FIELDS.has(error.field))
+      ? error
+      : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -133,6 +172,7 @@ export function PaymentForm({
       <MissingPrerequisitesNotice
         counterparties={loadedCounterparties}
         parameters={loadedParameters}
+        cashAccounts={loadedCashAccounts}
       />
 
       <form
@@ -233,28 +273,6 @@ export function PaymentForm({
               )}
             />
 
-            <Controller
-              control={form.control}
-              name="methodId"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={!!fieldState.error}>
-                  <Required htmlFor="methodId">Ödeme Tipi</Required>
-                  <SearchCombobox
-                    id="methodId"
-                    items={methodItems}
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    invalid={!!fieldState.error}
-                    placeholder="Ödeme tipi seçin"
-                    noItemsText="Ayarlar'da ödeme tipi yok."
-                    noMatchText="Aramanızla eşleşen ödeme tipi yok."
-                  />
-                  <FieldError errors={[fieldState.error]} />
-                </Field>
-              )}
-            />
-
             <Field className="sm:col-span-2">
               <FieldLabel htmlFor="note">Not</FieldLabel>
               <Textarea id="note" rows={3} {...form.register("note")} />
@@ -262,13 +280,28 @@ export function PaymentForm({
           </div>
         </section>
 
+        <Controller
+          control={form.control}
+          name="cashAccountId"
+          render={({ field, fieldState }) => (
+            <CashAccountSection
+              accounts={cashAccounts}
+              currentId={payment?.cashAccountId ?? null}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error}
+            />
+          )}
+        />
+
         <div className="flex items-center justify-end gap-3">
           {payment && (
             <div className="mr-auto">
               <DeletePaymentButton payment={payment} backHref={backHref} />
             </div>
           )}
-          {error && <FieldError>{error.message}</FieldError>}
+          {formError && <FieldError>{formError.message}</FieldError>}
           <Link
             href={backHref}
             className={buttonVariants({ variant: "ghost" })}

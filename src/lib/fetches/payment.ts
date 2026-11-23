@@ -41,7 +41,7 @@ export async function getPayment(id: number, options?: ClientRequestOptions) {
 function toPaymentJson({
   counterpartyId,
   categoryId,
-  methodId,
+  cashAccountId,
   amount,
   date,
   note,
@@ -50,7 +50,7 @@ function toPaymentJson({
     // the form schema guarantees these are picked and the amount parses
     counterpartyId: counterpartyId as number,
     categoryId: categoryId as number,
-    methodId: methodId as number,
+    cashAccountId: cashAccountId as number,
     amount: parseAmountInput(amount) ?? "",
     date: displayToIso(date),
     note,

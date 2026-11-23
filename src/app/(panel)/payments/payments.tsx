@@ -25,7 +25,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
+import { cashAccountItems } from "@/lib/cash-account-items";
 import { dateFilterText, isoToDisplay } from "@/lib/dates";
+import { getCashAccounts } from "@/lib/fetches/cash-account";
 import {
   type CounterpartyListItem,
   getCounterparties,
@@ -111,8 +113,8 @@ const columns = helper.columns([
     header: "Ödeme Türü",
     sortFn: sortByText,
   }),
-  helper.accessor("methodName", {
-    header: "Ödeme Tipi",
+  helper.accessor("cashAccountName", {
+    header: "Kasa - Banka",
     sortFn: sortByText,
   }),
   helper.accessor("note", {
@@ -133,7 +135,7 @@ const SORTABLE_COLUMNS = [
   "counterpartyTitle",
   "amount",
   "categoryName",
-  "methodName",
+  "cashAccountName",
 ];
 const DEFAULT_SORTING: SortingState = [{ id: "date", desc: true }];
 
@@ -234,12 +236,13 @@ export function Payments({
         .map((p) => ({ value: p.id, label: p.name })),
     [parameters],
   );
-  const methodItems = useMemo(
-    () =>
-      parameters
-        .filter((p) => p.kind === "payment_method")
-        .map((p) => ({ value: p.id, label: p.name })),
-    [parameters],
+  const { data: loadedCashAccounts } = useQuery({
+    queryKey: ["cash-accounts"],
+    queryFn: () => getCashAccounts(),
+  });
+  const cashAccountFilterItems = useMemo(
+    () => cashAccountItems(loadedCashAccounts ?? [], "all"),
+    [loadedCashAccounts],
   );
 
   const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(
@@ -268,6 +271,7 @@ export function Payments({
       <MissingPrerequisitesNotice
         counterparties={loadedCounterparties}
         parameters={loadedParameters}
+        cashAccounts={loadedCashAccounts}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -316,13 +320,13 @@ export function Payments({
         </div>
         <div className="w-44 [&_input]:bg-card">
           <SearchCombobox
-            id="payments-method"
-            items={methodItems}
-            value={filters.method}
-            onChange={(method) => updateFilters({ method })}
-            placeholder="Tüm tipler"
-            noItemsText="Ödeme tipi yok."
-            noMatchText="Eşleşen ödeme tipi yok."
+            id="payments-cash-account"
+            items={cashAccountFilterItems}
+            value={filters.cashAccount}
+            onChange={(cashAccount) => updateFilters({ cashAccount })}
+            placeholder="Tüm hesaplar"
+            noItemsText="Kasa - Banka yok."
+            noMatchText="Eşleşen hesap yok."
           />
         </div>
         {hasFilters && (

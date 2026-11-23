@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import writeXlsxFile from "write-excel-file/node";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import { isoToDisplay } from "@/lib/dates";
 import { formatAmount, sumAmounts } from "@/lib/money";
 import { parsePaymentFilters } from "@/lib/payment-filters";
 import { paymentSchema } from "@/lib/zod-schemas/payment";
+import { usableCashAccount } from "./cash-account-queries";
 import { type AppEnv, actorOf } from "./env";
 import { amountCell, dateCell, header, xlsxResponse } from "./excel";
 import {
@@ -32,7 +33,7 @@ const paymentAuditSpec: AuditSpec = {
   amount: { label: "Tutar", format: formatAudit.text },
   date: { label: "Tarih", format: formatAudit.date },
   category: { label: "Ödeme Türü", format: formatAudit.text },
-  method: { label: "Ödeme Tipi", format: formatAudit.text },
+  cashAccount: { label: "Kasa - Banka", format: formatAudit.text },
   note: { label: "Not", format: formatAudit.text },
 };
 
@@ -41,7 +42,7 @@ type PaymentRecord = {
   amount: string;
   date: string;
   category: string;
-  method: string;
+  cashAccount: string;
   note: string | null;
 };
 
@@ -55,44 +56,65 @@ function auditLabel({ counterparty, amount, date }: PaymentRecord) {
   return `${counterparty} · ${formatAmount(amount)} · ${isoToDisplay(date)}`;
 }
 
-/** A cari or parameter the payment points at is missing or of the wrong list */
-class PaymentReferenceError extends Error {}
+/**
+ * A cari, Ödeme Türü or Kasa - Banka the payment points at is missing, of
+ * the wrong list or Pasif; `field` is the input it is about
+ */
+class PaymentReferenceError extends Error {
+  constructor(
+    message: string,
+    readonly field: string,
+  ) {
+    super(message);
+  }
+}
 
-/** Checks the cari and both parameters; returns their names */
+/**
+ * Checks the cari, Ödeme Türü and Kasa - Banka; returns their names. A new
+ * payment needs an Aktif Kasa - Banka; an edit may keep the one it has.
+ */
 async function resolveReferences(
   tx: Transaction,
   values: z.output<typeof paymentSchema>,
+  existing: PaymentRow | null,
 ): Promise<PaymentRecord> {
   const [counterparty] = await tx
     .select({ title: counterpartyTable.title })
     .from(counterpartyTable)
     .where(eq(counterpartyTable.id, values.counterpartyId));
-  if (!counterparty) throw new PaymentReferenceError("Seçilen cari bulunamadı");
+  if (!counterparty) {
+    throw new PaymentReferenceError(
+      "Seçilen cari bulunamadı",
+      "counterpartyId",
+    );
+  }
 
-  const parameters = await tx
-    .select({
-      id: parameterTable.id,
-      kind: parameterTable.kind,
-      name: parameterTable.name,
-    })
+  const [category] = await tx
+    .select({ kind: parameterTable.kind, name: parameterTable.name })
     .from(parameterTable)
-    .where(inArray(parameterTable.id, [values.categoryId, values.methodId]));
-  const category = parameters.find(
-    (p) => p.id === values.categoryId && p.kind === "payment_category",
+    .where(eq(parameterTable.id, values.categoryId));
+  if (category?.kind !== "payment_category") {
+    throw new PaymentReferenceError(
+      "Geçerli bir ödeme türü seçin",
+      "categoryId",
+    );
+  }
+
+  const cashAccount = await usableCashAccount(
+    tx,
+    values.cashAccountId,
+    existing?.cashAccountId ?? null,
   );
-  if (!category)
-    throw new PaymentReferenceError("Geçerli bir ödeme türü seçin");
-  const method = parameters.find(
-    (p) => p.id === values.methodId && p.kind === "payment_method",
-  );
-  if (!method) throw new PaymentReferenceError("Geçerli bir ödeme tipi seçin");
+  if ("error" in cashAccount) {
+    throw new PaymentReferenceError(cashAccount.error, "cashAccountId");
+  }
 
   return {
     counterparty: counterparty.title,
     amount: values.amount,
     date: values.date,
     category: category.name,
-    method: method.name,
+    cashAccount: cashAccount.name,
     note: values.note,
   };
 }
@@ -103,7 +125,7 @@ function recordOf(row: PaymentRow): PaymentRecord {
     amount: row.amount,
     date: row.date,
     category: row.categoryName,
-    method: row.methodName,
+    cashAccount: row.cashAccountName,
     note: row.note,
   };
 }
@@ -114,7 +136,7 @@ const filtersQuerySchema = z.object({
   to: z.string().optional(),
   counterparty: z.string().optional(),
   category: z.string().optional(),
-  method: z.string().optional(),
+  cashAccount: z.string().optional(),
 });
 
 const COLUMN_WIDTHS = [12, 32, 14, 20, 16, 40];
@@ -126,13 +148,15 @@ async function paymentsWorkbook({
   const total = sumAmounts(payments.map((payment) => payment.amount));
   return writeXlsxFile(
     [
-      ["Tarih", "Cari", "Tutar", "Ödeme Türü", "Ödeme Tipi", "Not"].map(header),
+      ["Tarih", "Cari", "Tutar", "Ödeme Türü", "Kasa - Banka", "Not"].map(
+        header,
+      ),
       ...payments.map((payment) => [
         dateCell(payment.date),
         payment.counterpartyTitle,
         amountCell(payment.amount),
         payment.categoryName,
-        payment.methodName,
+        payment.cashAccountName,
         payment.note,
       ]),
       [],
@@ -179,7 +203,7 @@ export const paymentsRoute = new Hono<AppEnv>()
       const values = c.req.valid("json");
       try {
         const id = await db.transaction(async (tx) => {
-          const record = await resolveReferences(tx, values);
+          const record = await resolveReferences(tx, values, null);
           const [payment] = await tx
             .insert(paymentTable)
             .values(values)
@@ -199,7 +223,7 @@ export const paymentsRoute = new Hono<AppEnv>()
         return c.json({ id, message: "Ödeme kaydedildi" }, 201);
       } catch (error) {
         if (error instanceof PaymentReferenceError) {
-          return c.json({ error: error.message }, 400);
+          return c.json({ error: error.message, field: error.field }, 400);
         }
         throw error;
       }
@@ -218,7 +242,7 @@ export const paymentsRoute = new Hono<AppEnv>()
           const existing = await selectPayment(id, tx);
           if (!existing) return false;
 
-          const record = await resolveReferences(tx, values);
+          const record = await resolveReferences(tx, values, existing);
           await tx
             .update(paymentTable)
             .set(values)
@@ -247,7 +271,7 @@ export const paymentsRoute = new Hono<AppEnv>()
         return c.json({ id, message: "Ödeme güncellendi" }, 200);
       } catch (error) {
         if (error instanceof PaymentReferenceError) {
-          return c.json({ error: error.message }, 400);
+          return c.json({ error: error.message, field: error.field }, 400);
         }
         throw error;
       }

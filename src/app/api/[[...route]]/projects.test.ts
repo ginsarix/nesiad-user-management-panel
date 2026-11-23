@@ -9,7 +9,14 @@ import {
   projectPledgeTable,
   projectTable,
 } from "@/db/schema";
+import {
+  deleteTestCashAccounts,
+  insertTestCashAccount,
+} from "@/test/cash-accounts";
 import { projectsRoute } from "./projects";
+
+// Kasa - Banka fixtures, deleted after the records using them
+const cashAccountIds: number[] = [];
 
 const createdIds: number[] = [];
 
@@ -36,6 +43,7 @@ afterAll(async () => {
       .delete(parameterTable)
       .where(inArray(parameterTable.id, parameterIds));
   }
+  await deleteTestCashAccounts(cashAccountIds);
 });
 
 /** A __test__ yetkili, inserted directly */
@@ -66,19 +74,18 @@ async function addCollections(projectId: number) {
         name: `__test__ Tür ${projectId}`,
         nameKey: `__test__ tür ${projectId}`,
       },
-      {
-        kind: "collection_method" as const,
-        name: `__test__ Tip ${projectId}`,
-        nameKey: `__test__ tip ${projectId}`,
-      },
     ])
     .returning({ id: parameterTable.id });
   parameterIds.push(...parameters.map((p) => p.id));
+  const cashAccountId = await insertTestCashAccount(
+    `__test__ Kasa ${projectId}`,
+    cashAccountIds,
+  );
   await db.insert(collectionTable).values(
     ["100.00", "50.25"].map((amount) => ({
       representativeId: representative.id,
       categoryId: parameters[0].id,
-      methodId: parameters[1].id,
+      cashAccountId,
       amount,
       date: "2026-11-01",
       projectId,

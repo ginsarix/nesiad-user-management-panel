@@ -5,13 +5,22 @@ import { db } from "@/db";
 import {
   auditLogTable,
   authorizedRepresentativeTable,
+  cashAccountTable,
   collectionTable,
   parameterTable,
   projectTable,
 } from "@/db/schema";
 import { todayInIstanbul } from "@/lib/dates";
 import { sumAmounts } from "@/lib/money";
+import {
+  deleteTestCashAccounts,
+  insertTestCashAccount,
+} from "@/test/cash-accounts";
+import { cashAccountsRoute } from "./cash-accounts";
 import { collectionsRoute } from "./collections";
+
+// Kasa - Banka fixtures, deleted after the records using them
+const cashAccountIds: number[] = [];
 
 // new tahsilatlar email every panel user; never for real in tests
 const mail = vi.hoisted(() => ({ sendEmail: vi.fn(async () => undefined) }));
@@ -68,9 +77,10 @@ let representative: number;
 let pasifRepresentative: number;
 let aidat: number;
 let bagis: number;
-let kart: number;
-let nakit: number;
-let odemeTipi: number;
+let kasa: number;
+let banka: number;
+let pasifKasa: number;
+let odemeTuru: number;
 let projectA: number;
 let pasifProject: number;
 
@@ -88,13 +98,18 @@ beforeAll(async () => {
     "collection_category",
     `__test__ Bağış ${suffix}`,
   );
-  kart = await insertParameter("collection_method", `__test__ Kart ${suffix}`);
-  nakit = await insertParameter(
-    "collection_method",
-    `__test__ Nakit ${suffix}`,
+  kasa = await insertTestCashAccount(`__test__ Kasa ${suffix}`, cashAccountIds);
+  banka = await insertTestCashAccount(
+    `__test__ Banka ${suffix}`,
+    cashAccountIds,
   );
-  odemeTipi = await insertParameter(
-    "payment_method",
+  pasifKasa = await insertTestCashAccount(
+    `__test__ Pasif Kasa ${suffix}`,
+    cashAccountIds,
+    { active: false },
+  );
+  odemeTuru = await insertParameter(
+    "payment_category",
     `__test__ Havale ${suffix}`,
   );
   projectA = await insertProject(`__test__A-${suffix}`);
@@ -126,13 +141,14 @@ afterAll(async () => {
       .delete(parameterTable)
       .where(inArray(parameterTable.id, parameterIds));
   }
+  await deleteTestCashAccounts(cashAccountIds);
 });
 
 function valid(overrides: Record<string, unknown> = {}) {
   return {
     representativeId: representative,
     categoryId: aidat,
-    methodId: kart,
+    cashAccountId: kasa,
     amount: "1250.50",
     date: "2026-11-01",
     note: "",
@@ -185,6 +201,11 @@ async function lastEntry(entityType: string, action: string, id: number) {
   return row;
 }
 
+async function balanceOf(cashAccountId: number) {
+  const res = await cashAccountsRoute.request(`/${cashAccountId}`);
+  return ((await res.json()) as { balance: string }).balance;
+}
+
 async function projectByNumber(number: string) {
   const [row] = await db
     .select()
@@ -208,8 +229,8 @@ describe("POST /api/collections", () => {
       representativeName: `__test__ Yetkili ${suffix}`,
       categoryId: aidat,
       categoryName: `__test__ Aidat ${suffix}`,
-      methodId: kart,
-      methodName: `__test__ Kart ${suffix}`,
+      cashAccountId: kasa,
+      cashAccountName: `__test__ Kasa ${suffix}`,
       projectId: null,
       projectName: null,
       projectNumber: null,
@@ -224,7 +245,7 @@ describe("POST /api/collections", () => {
       { label: "Tutar", value: "₺1.250,50" },
       { label: "Tarih", value: "01.11.2026" },
       { label: "Tahsilat Türü", value: `__test__ Aidat ${suffix}` },
-      { label: "Tahsilat Tipi", value: `__test__ Kart ${suffix}` },
+      { label: "Kasa - Banka", value: `__test__ Kasa ${suffix}` },
       { label: "Proje", value: "—" },
       { label: "Not", value: "Ekim aidatı" },
     ]);
@@ -276,7 +297,7 @@ describe("POST /api/collections", () => {
 
     const wrongList = `__test__W-${suffix}`;
     const badMethod = await create({
-      methodId: odemeTipi,
+      cashAccountId: pasifKasa,
       project: { mode: "new", name: "X", number: wrongList, active: true },
     });
     expect(badMethod.res.status).toBe(400);
@@ -312,13 +333,16 @@ describe("POST /api/collections", () => {
     });
   });
 
-  it.each(["representativeId", "categoryId", "methodId", "amount", "date"])(
-    "requires %s",
-    async (field) => {
-      const { res } = await create({ [field]: undefined });
-      expect(res.status).toBe(400);
-    },
-  );
+  it.each([
+    "representativeId",
+    "categoryId",
+    "cashAccountId",
+    "amount",
+    "date",
+  ])("requires %s", async (field) => {
+    const { res } = await create({ [field]: undefined });
+    expect(res.status).toBe(400);
+  });
 
   it.each(["0.00", "-1.00", "1,5"])("rejects the amount %s", async (amount) => {
     expect((await create({ amount })).res.status).toBe(400);
@@ -332,16 +356,26 @@ describe("POST /api/collections", () => {
   });
 
   it("rejects parameters from the wrong list", async () => {
-    const category = await create({ categoryId: kart });
+    const category = await create({ categoryId: odemeTuru });
     expect(category.res.status).toBe(400);
     expect(category.body).toEqual({
       error: "Geçerli bir tahsilat türü seçin",
       field: "categoryId",
     });
-    const method = await create({ methodId: odemeTipi });
-    expect(method.body).toEqual({
-      error: "Geçerli bir tahsilat tipi seçin",
-      field: "methodId",
+  });
+
+  it("needs an Aktif Kasa - Banka", async () => {
+    const pasif = await create({ cashAccountId: pasifKasa });
+    expect(pasif.res.status).toBe(400);
+    expect(pasif.body).toEqual({
+      error: "Seçilen Kasa - Banka aktif değil",
+      field: "cashAccountId",
+    });
+    const unknown = await create({ cashAccountId: 2147483000 });
+    expect(unknown.res.status).toBe(400);
+    expect(unknown.body).toEqual({
+      error: "Seçilen Kasa - Banka bulunamadı",
+      field: "cashAccountId",
     });
   });
 
@@ -365,6 +399,66 @@ describe("POST /api/collections", () => {
 });
 
 describe("PATCH /api/collections/:id", () => {
+  it("keeps a Kasa - Banka that became Pasif, refuses another", async () => {
+    const closing = await insertTestCashAccount(
+      `__test__ Kapanan ${suffix}`,
+      cashAccountIds,
+    );
+    const { body } = await create({ cashAccountId: closing });
+    await db
+      .update(cashAccountTable)
+      .set({ active: false })
+      .where(eq(cashAccountTable.id, closing));
+
+    const keep = await patch(body.id, {
+      cashAccountId: closing,
+      amount: "5.00",
+    });
+    expect(keep.status).toBe(200);
+    const other = await patch(body.id, { cashAccountId: pasifKasa });
+    expect(other.status).toBe(400);
+  });
+
+  it("adds to the Bakiye, following edits and deletes", async () => {
+    const account = await insertTestCashAccount(
+      `__test__ Bakiye ${suffix}`,
+      cashAccountIds,
+      { openingBalance: "1000.00" },
+    );
+    const { body } = await create({ cashAccountId: account, amount: "250.00" });
+    expect(await balanceOf(account)).toBe("1250.00");
+
+    await patch(body.id, { cashAccountId: account, amount: "300.00" });
+    expect(await balanceOf(account)).toBe("1300.00");
+
+    await collectionsRoute.request(`/${body.id}`, { method: "DELETE" });
+    expect(await balanceOf(account)).toBe("1000.00");
+  });
+
+  it("moves its amount when it moves to another Kasa - Banka", async () => {
+    const from = await insertTestCashAccount(
+      `__test__ Eski Hesap ${suffix}`,
+      cashAccountIds,
+    );
+    const to = await insertTestCashAccount(
+      `__test__ Yeni Hesap ${suffix}`,
+      cashAccountIds,
+    );
+    const { body } = await create({ cashAccountId: from, amount: "40.00" });
+    expect(await balanceOf(from)).toBe("40.00");
+
+    await patch(body.id, { cashAccountId: to, amount: "40.00" });
+    expect(await balanceOf(from)).toBe("0.00");
+    expect(await balanceOf(to)).toBe("40.00");
+    expect((await lastEntry("collection", "update", body.id)).changes).toEqual([
+      {
+        label: "Kasa - Banka",
+        from: `__test__ Eski Hesap ${suffix}`,
+        to: `__test__ Yeni Hesap ${suffix}`,
+      },
+    ]);
+  });
+
   it("keeps a yetkili that became Pasif", async () => {
     const leaving = await insertRepresentative(`__test__ Ayrılan ${suffix}`);
     const { body } = await create({ representativeId: leaving });
@@ -457,7 +551,7 @@ describe("GET /api/collections", () => {
       amount: "0.20",
       date: "2026-10-15",
       categoryId: bagis,
-      methodId: nakit,
+      cashAccountId: banka,
     });
     const third = await create({
       representativeId: payer,
@@ -486,8 +580,10 @@ describe("GET /api/collections", () => {
       first.body.id,
     ]);
 
-    const byMethod = await list(`representative=${payer}&method=${nakit}`);
-    expect(byMethod.collections.map((c) => c.id)).toEqual([second.body.id]);
+    const byAccount = await list(
+      `representative=${payer}&cashAccount=${banka}`,
+    );
+    expect(byAccount.collections.map((c) => c.id)).toEqual([second.body.id]);
   });
 });
 
@@ -537,13 +633,14 @@ describe("GET /api/collections/export", () => {
       "Yetkili",
       "Tutar",
       "Tahsilat Türü",
-      "Tahsilat Tipi",
+      "Kasa - Banka",
       "Proje",
       "Not",
     ]);
     expect(rows[1][0]).toEqual(new Date("2026-10-15T00:00:00Z"));
     expect(rows[1][1]).toBe(`__test__ Excel ${suffix}`);
     expect(rows[1][2]).toBe(0.2);
+    expect(rows[1][4]).toBe(`__test__ Kasa ${suffix}`);
     expect(rows[1][5]).toBeNull();
     expect(rows[2][2]).toBe(0.1);
     expect(rows[2][5]).toBe(

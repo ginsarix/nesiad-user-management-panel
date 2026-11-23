@@ -44,7 +44,7 @@ export async function getCollection(
 function toCollectionJson({
   representativeId,
   categoryId,
-  methodId,
+  cashAccountId,
   amount,
   date,
   note,
@@ -54,7 +54,7 @@ function toCollectionJson({
     // the form schema guarantees these are picked and the amount parses
     representativeId: representativeId as number,
     categoryId: categoryId as number,
-    methodId: methodId as number,
+    cashAccountId: cashAccountId as number,
     amount: parseAmountInput(amount) ?? "",
     date: displayToIso(date),
     note,

@@ -47,7 +47,7 @@ beforeAll(async () => {
         [
           ["association_role", `__test__ Başkan ${suffix}`],
           ["association_role", `__test__ Üye ${suffix}`],
-          ["payment_method", `__test__ Nakit ${suffix}`],
+          ["payment_category", `__test__ Nakit ${suffix}`],
         ] as const
       ).map(([kind, name]) => ({
         kind,

@@ -25,6 +25,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
+import { cashAccountItems } from "@/lib/cash-account-items";
 import {
   type CollectionFilters,
   collectionFiltersToParams,
@@ -32,6 +33,7 @@ import {
   parseCollectionFilters,
 } from "@/lib/collection-filters";
 import { dateFilterText, isoToDisplay } from "@/lib/dates";
+import { getCashAccounts } from "@/lib/fetches/cash-account";
 import {
   type CollectionRow,
   collectionsExportHref,
@@ -122,8 +124,8 @@ const columns = helper.columns([
     header: "Tahsilat Türü",
     sortFn: sortByText,
   }),
-  helper.accessor("methodName", {
-    header: "Tahsilat Tipi",
+  helper.accessor("cashAccountName", {
+    header: "Kasa - Banka",
     sortFn: sortByText,
   }),
   helper.accessor(projectOf, {
@@ -163,7 +165,7 @@ const SORTABLE_COLUMNS = [
   "representativeName",
   "amount",
   "categoryName",
-  "methodName",
+  "cashAccountName",
   "project",
 ];
 const DEFAULT_SORTING: SortingState = [{ id: "date", desc: true }];
@@ -279,12 +281,13 @@ export function Collections({
         .map((p) => ({ value: p.id, label: p.name })),
     [parameters],
   );
-  const methodItems = useMemo(
-    () =>
-      parameters
-        .filter((p) => p.kind === "collection_method")
-        .map((p) => ({ value: p.id, label: p.name })),
-    [parameters],
+  const { data: loadedCashAccounts } = useQuery({
+    queryKey: ["cash-accounts"],
+    queryFn: () => getCashAccounts(),
+  });
+  const cashAccountFilterItems = useMemo(
+    () => cashAccountItems(loadedCashAccounts ?? [], "all"),
+    [loadedCashAccounts],
   );
   // every proje, Pasif ones too: their tahsilatlar stay findable
   const projectItems = useMemo(
@@ -321,6 +324,7 @@ export function Collections({
       <MissingPrerequisitesNotice
         representatives={loadedRepresentatives}
         parameters={loadedParameters}
+        cashAccounts={loadedCashAccounts}
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -369,13 +373,13 @@ export function Collections({
         </div>
         <div className="w-44 [&_input]:bg-card">
           <SearchCombobox
-            id="collections-method"
-            items={methodItems}
-            value={filters.method}
-            onChange={(method) => updateFilters({ method })}
-            placeholder="Tüm tipler"
-            noItemsText="Tahsilat tipi yok."
-            noMatchText="Eşleşen tahsilat tipi yok."
+            id="collections-cash-account"
+            items={cashAccountFilterItems}
+            value={filters.cashAccount}
+            onChange={(cashAccount) => updateFilters({ cashAccount })}
+            placeholder="Tüm hesaplar"
+            noItemsText="Kasa - Banka yok."
+            noMatchText="Eşleşen hesap yok."
           />
         </div>
         <div className="w-56 [&_input]:bg-card">

@@ -16,9 +16,16 @@ import {
 } from "@/db/schema";
 import { deleteFile, getFilePath, readStoredFile } from "@/lib/file-storage";
 import type { MemberStatus } from "@/lib/member-status";
+import {
+  deleteTestCashAccounts,
+  insertTestCashAccount,
+} from "@/test/cash-accounts";
 import { membersRoute } from "./members";
 import { organizationsRoute } from "./organizations";
 import { representativesRoute } from "./representatives";
+
+// Kasa - Banka fixtures, deleted after the records using them
+const cashAccountIds: number[] = [];
 
 const createdRepresentativeIds: number[] = [];
 const createdMemberIds: number[] = [];
@@ -69,6 +76,7 @@ afterAll(async () => {
       .where(inArray(parameterTable.id, parameterIds));
   }
   await Promise.all(createdFiles.map(deleteFile));
+  await deleteTestCashAccounts(cashAccountIds);
 });
 
 async function createRole(name: string) {
@@ -408,18 +416,17 @@ async function addCollection(representativeId: number) {
         name: `__test__ Tür ${key}`,
         nameKey: `__test__ tür ${key}`,
       },
-      {
-        kind: "collection_method" as const,
-        name: `__test__ Tip ${key}`,
-        nameKey: `__test__ tip ${key}`,
-      },
     ])
     .returning({ id: parameterTable.id });
   parameterIds.push(...parameters.map((p) => p.id));
+  const cashAccountId = await insertTestCashAccount(
+    `__test__ Kasa ${key}`,
+    cashAccountIds,
+  );
   await db.insert(collectionTable).values({
     representativeId,
     categoryId: parameters[0].id,
-    methodId: parameters[1].id,
+    cashAccountId,
     amount: "10.00",
     date: "2026-11-01",
   });

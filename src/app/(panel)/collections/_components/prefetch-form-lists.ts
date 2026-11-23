@@ -1,15 +1,22 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ClientRequestOptions } from "hono/client";
+import { getCashAccounts } from "@/lib/fetches/cash-account";
 import { getParameters } from "@/lib/fetches/parameter";
 import { getProjects } from "@/lib/fetches/project";
 import { getRepresentatives } from "@/lib/fetches/representative";
 
-/** The yetkililer, parameters and projeler the tahsilat form and filters pick from */
+/** The yetkililer, parameters, Kasa - Banka accounts and projeler the tahsilat form and filters pick from */
 export function prefetchFormLists(
   queryClient: QueryClient,
   options: ClientRequestOptions,
 ) {
   return Promise.all([
+    queryClient
+      .query({
+        queryKey: ["cash-accounts"],
+        queryFn: () => getCashAccounts(options),
+      })
+      .catch(console.error),
     queryClient
       .query({
         queryKey: ["representatives"],

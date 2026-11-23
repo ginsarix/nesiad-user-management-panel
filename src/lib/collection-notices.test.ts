@@ -89,7 +89,7 @@ function collection(overrides: Record<string, unknown> = {}) {
     amount: "1250.50",
     date: "2026-11-01",
     categoryName: "Aidat",
-    methodName: "Kart",
+    cashAccountName: "Merkez Kasa",
     projectName: null,
     projectNumber: null,
     ...overrides,
@@ -107,7 +107,7 @@ describe("sendCollectionNotices", () => {
       tutar: "1.250,50 TL",
       tarih: "01.11.2026",
       tur: "Aidat",
-      tip: "Kart",
+      kasa: "Merkez Kasa",
       proje: "-",
     };
 
@@ -141,7 +141,7 @@ describe("sendCollectionNotices", () => {
       tutar: "1.250,50 TL",
       tarih: "01.11.2026",
       tur: "Aidat",
-      tip: "Kart",
+      kasa: "Merkez Kasa",
       proje: "Kreş (PR-7)",
     };
     expect(emailsTo(`__test__diger-${suffix}@example.com`)).toEqual([

@@ -21,9 +21,7 @@ const parameterIds: number[] = [];
 let cari: number;
 let yetkili: number;
 let paymentCategory: number;
-let paymentMethod: number;
 let collectionCategory: number;
-let collectionMethod: number;
 
 function json(method: string, body: unknown) {
   return {
@@ -62,17 +60,9 @@ beforeAll(async () => {
     "payment_category",
     `__test__ Kasa ÖT ${suffix}`,
   );
-  paymentMethod = await insertParameter(
-    "payment_method",
-    `__test__ Kasa ÖTip ${suffix}`,
-  );
   collectionCategory = await insertParameter(
     "collection_category",
     `__test__ Kasa TT ${suffix}`,
-  );
-  collectionMethod = await insertParameter(
-    "collection_method",
-    `__test__ Kasa TTip ${suffix}`,
   );
 });
 
@@ -103,7 +93,6 @@ async function addPayment(cashAccountId: number, amount: string) {
       amount,
       date: "2026-11-01",
       categoryId: paymentCategory,
-      methodId: paymentMethod,
       cashAccountId,
     })
     .returning({ id: paymentTable.id });
@@ -118,7 +107,6 @@ async function addCollection(cashAccountId: number, amount: string) {
       amount,
       date: "2026-11-01",
       categoryId: collectionCategory,
-      methodId: collectionMethod,
       cashAccountId,
     })
     .returning({ id: collectionTable.id });

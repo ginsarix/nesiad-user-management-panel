@@ -33,7 +33,7 @@ export const sectorTable = pgTable("sector", {
 });
 
 /**
- * The Parametreler lists other than sectors (Tahsilat Türü, Ödeme Tipi…):
+ * The Parametreler lists other than sectors (Tahsilat Türü, Ödeme Türü…):
  * one table, `kind` says which list an entry is in.
  */
 export const parameterTable = pgTable(
@@ -57,7 +57,7 @@ export const parameterTable = pgTable(
     unique("parameter_kind_name_key_unique").on(table.kind, table.nameKey),
     check(
       "parameter_kind_valid",
-      sql`${table.kind} IN ('collection_category','collection_method','payment_category','payment_method','association_role')`,
+      sql`${table.kind} IN ('collection_category','payment_category','association_role')`,
     ),
   ],
 );
@@ -229,15 +229,10 @@ export const collectionTable = pgTable(
     categoryId: integer("category_id")
       .notNull()
       .references(() => parameterTable.id, { onDelete: "restrict" }),
-    // Tahsilat Tipi: a collection_method parameter
-    methodId: integer("method_id")
-      .notNull()
-      .references(() => parameterTable.id, { onDelete: "restrict" }),
     // the Kasa - Banka it came into
-    cashAccountId: integer("cash_account_id").references(
-      () => cashAccountTable.id,
-      { onDelete: "restrict" },
-    ),
+    cashAccountId: integer("cash_account_id")
+      .notNull()
+      .references(() => cashAccountTable.id, { onDelete: "restrict" }),
     // TL; travels as a string ("1250.50") so it never becomes a float
     amount: numeric({ precision: 12, scale: 2, mode: "string" }).notNull(),
     date: date({ mode: "string" }).notNull(),
@@ -280,15 +275,10 @@ export const paymentTable = pgTable(
     categoryId: integer("category_id")
       .notNull()
       .references(() => parameterTable.id, { onDelete: "restrict" }),
-    // Ödeme Tipi: a payment_method parameter
-    methodId: integer("method_id")
-      .notNull()
-      .references(() => parameterTable.id, { onDelete: "restrict" }),
     // the Kasa - Banka it went out of
-    cashAccountId: integer("cash_account_id").references(
-      () => cashAccountTable.id,
-      { onDelete: "restrict" },
-    ),
+    cashAccountId: integer("cash_account_id")
+      .notNull()
+      .references(() => cashAccountTable.id, { onDelete: "restrict" }),
     note: text(),
 
     createdAt: timestamp("created_at", { withTimezone: true })

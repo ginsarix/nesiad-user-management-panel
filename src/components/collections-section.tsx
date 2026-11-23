@@ -41,7 +41,7 @@ export function CollectionsSection({
     to: null,
     representative: of === "representative" ? id : null,
     category: null,
-    method: null,
+    cashAccount: null,
     project: of === "project" ? id : null,
   };
   const { data, isError } = useQuery({
@@ -93,7 +93,7 @@ export function CollectionsSection({
                     {of === "project" && <TableHead>Yetkili</TableHead>}
                     <TableHead className="text-right">Tutar</TableHead>
                     <TableHead>Tahsilat Türü</TableHead>
-                    <TableHead>Tahsilat Tipi</TableHead>
+                    <TableHead>Kasa - Banka</TableHead>
                     {of === "representative" && <TableHead>Proje</TableHead>}
                     <TableHead>Not</TableHead>
                   </TableRow>
@@ -123,7 +123,7 @@ export function CollectionsSection({
                         {formatAmount(collection.amount)}
                       </TableCell>
                       <TableCell>{collection.categoryName}</TableCell>
-                      <TableCell>{collection.methodName}</TableCell>
+                      <TableCell>{collection.cashAccountName}</TableCell>
                       {of === "representative" && (
                         <TableCell>
                           {collection.projectId &&
@@ -157,7 +157,7 @@ export function CollectionsSection({
                     ...(of === "project" ? ["representative"] : []),
                     "amount",
                     "category",
-                    "method",
+                    "cashAccount",
                     ...(of === "representative" ? ["project"] : []),
                     "note",
                   ]}

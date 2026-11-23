@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { eq, or, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { db, type Executor } from "@/db";
 import {
@@ -39,17 +39,14 @@ function nameValues(name: string) {
   return { name, nameKey: name.toLocaleLowerCase("tr") };
 }
 
-/** Payments that use the entry as their Ödeme Türü or Ödeme Tipi */
+/** Payments that use the entry as their Ödeme Türü */
 function paymentsUsing(id: typeof parameterTable.id | number) {
-  return or(eq(paymentTable.categoryId, id), eq(paymentTable.methodId, id));
+  return eq(paymentTable.categoryId, id);
 }
 
-/** Tahsilatlar that use the entry as their Tahsilat Türü or Tahsilat Tipi */
+/** Tahsilatlar that use the entry as their Tahsilat Türü */
 function collectionsUsing(id: typeof parameterTable.id | number) {
-  return or(
-    eq(collectionTable.categoryId, id),
-    eq(collectionTable.methodId, id),
-  );
+  return eq(collectionTable.categoryId, id);
 }
 
 /**
@@ -79,7 +76,7 @@ function inUseError(kind: ParameterKind, usageCount: number | null) {
     : `Bu kayıt ${noun} kullanılıyor, silinemez.`;
 }
 
-/** e.g. "Ödeme Tipi: Nakit", the audit log's record name */
+/** e.g. "Ödeme Türü: Kira", the audit log's record name */
 function auditLabel(kind: ParameterKind, name: string) {
   return `${PARAMETER_KIND_LABELS[kind]}: ${name}`;
 }

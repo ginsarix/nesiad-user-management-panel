@@ -25,7 +25,7 @@ const projectChoiceSchema = z.discriminatedUnion(
 export const collectionSchema = z.object({
   representativeId: idSchema("Yetkili seçin"),
   categoryId: idSchema("Tahsilat türü seçin"),
-  methodId: idSchema("Tahsilat tipi seçin"),
+  cashAccountId: idSchema("Kasa - Banka seçin"),
   amount: amountSchema,
   date: requiredIsoDateSchema,
   note: optionalTextSchema.transform((note) => note ?? null),
@@ -43,7 +43,7 @@ export type ProjectMode = "none" | "existing" | "new";
 export const collectionFormSchema = z.object({
   representativeId: pickedSchema("Yetkili seçin"),
   categoryId: pickedSchema("Tahsilat türü seçin"),
-  methodId: pickedSchema("Tahsilat tipi seçin"),
+  cashAccountId: pickedSchema("Kasa - Banka seçin"),
   amount: typedAmountSchema,
   date: requiredDisplayDateSchema,
   note: z.string(),

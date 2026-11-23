@@ -1,23 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { parameterUsageNouns } from "./parameters";
+import { PARAMETER_KINDS, parameterUsageNouns } from "./parameters";
+
+describe("PARAMETER_KINDS", () => {
+  it("has no Ödeme Tipi or Tahsilat Tipi (Kasa - Banka replaced them)", () => {
+    expect(PARAMETER_KINDS).toEqual([
+      "collection_category",
+      "payment_category",
+      "association_role",
+    ]);
+  });
+});
 
 describe("parameterUsageNouns", () => {
   it("names what uses each kind of list, and the field to change there", () => {
-    expect(parameterUsageNouns("payment_method")).toEqual({
+    expect(parameterUsageNouns("payment_category")).toEqual({
       locative: "ödemede",
       genitivePlural: "ödemelerin",
-      field: "Ödeme Tipi",
+      field: "Ödeme Türü",
     });
     // a Tahsilat Türü is a tahakkuk row's Aidat too
     expect(parameterUsageNouns("collection_category")).toEqual({
       locative: "tahsilat veya tahakkuk kaydında",
       genitivePlural: "kayıtların",
       field: "Tahsilat Türü / Aidat",
-    });
-    expect(parameterUsageNouns("collection_method")).toEqual({
-      locative: "tahsilatta",
-      genitivePlural: "tahsilatların",
-      field: "Tahsilat Tipi",
     });
     expect(parameterUsageNouns("association_role")).toEqual({
       locative: "organizasyon kaydında",

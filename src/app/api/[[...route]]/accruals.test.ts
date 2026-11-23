@@ -235,7 +235,7 @@ describe("Tahakkuk", () => {
   it("needs the Aidat to be a Tahsilat Türü", async () => {
     const ali = await addRepresentative("Yanlış Liste");
     const aidat = await addParameter("Doğru Aidat");
-    const method = await addParameter("Nakit", "collection_method");
+    const method = await addParameter("Nakit", "payment_category");
     const res = await putAccruals(
       [
         { representativeId: ali.id, categoryId: aidat.id, amount: "1.00" },

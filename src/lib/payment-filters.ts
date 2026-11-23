@@ -8,8 +8,8 @@ export type PaymentFilters = {
   counterparty: number | null;
   /** Ödeme Türü (parameter id) */
   category: number | null;
-  /** Ödeme Tipi (parameter id) */
-  method: number | null;
+  /** the Kasa - Banka it went through */
+  cashAccount: number | null;
 };
 
 export const NO_PAYMENT_FILTERS: PaymentFilters = {
@@ -17,10 +17,10 @@ export const NO_PAYMENT_FILTERS: PaymentFilters = {
   to: null,
   counterparty: null,
   category: null,
-  method: null,
+  cashAccount: null,
 };
 
-const ID_KEYS = ["counterparty", "category", "method"] as const;
+const ID_KEYS = ["counterparty", "category", "cashAccount"] as const;
 
 function parseId(value: string | null) {
   const id = Number(value);
@@ -39,7 +39,7 @@ export function parsePaymentFilters(params: {
     to: isoDate(params.get("to")),
     counterparty: parseId(params.get("counterparty")),
     category: parseId(params.get("category")),
-    method: parseId(params.get("method")),
+    cashAccount: parseId(params.get("cashAccount")),
   };
 }
 

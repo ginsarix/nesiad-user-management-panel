@@ -14,7 +14,14 @@ import {
   smsSendTable,
 } from "@/db/schema";
 import { ISO_FORMAT, parseIsoDate, todayInIstanbul } from "@/lib/dates";
+import {
+  deleteTestCashAccounts,
+  insertTestCashAccount,
+} from "@/test/cash-accounts";
 import { dashboardRoute } from "./dashboard";
+
+// Kasa - Banka fixtures, deleted after the records using them
+const cashAccountIds: number[] = [];
 
 // unique per run: sector, parameter and cari names are unique
 const tag = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -120,9 +127,11 @@ beforeAll(async () => {
   [r.active, r.inactive, r.paying] = reps.map((rep) => rep.id);
 
   p.collectionCategory = await insertParameter("collection_category");
-  const collectionMethod = await insertParameter("collection_method");
   p.paymentCategory = await insertParameter("payment_category");
-  const paymentMethod = await insertParameter("payment_method");
+  const cashAccountId = await insertTestCashAccount(
+    `__test__ Dashboard ${tag}`,
+    cashAccountIds,
+  );
 
   const [project] = await db
     .insert(projectTable)
@@ -137,7 +146,7 @@ beforeAll(async () => {
   await db.insert(collectionTable).values({
     representativeId: r.paying,
     categoryId: p.collectionCategory,
-    methodId: collectionMethod,
+    cashAccountId,
     amount: "100.00",
     date: today,
     projectId: project.id,
@@ -152,7 +161,7 @@ beforeAll(async () => {
   await db.insert(paymentTable).values({
     counterpartyId: counterparty.id,
     categoryId: p.paymentCategory,
-    methodId: paymentMethod,
+    cashAccountId,
     amount: "40.50",
     date: today,
   });
@@ -201,6 +210,7 @@ afterAll(async () => {
   if (ids.sms.length) {
     await db.delete(smsSendTable).where(inArray(smsSendTable.id, ids.sms));
   }
+  await deleteTestCashAccounts(cashAccountIds);
 });
 
 async function getDashboard() {

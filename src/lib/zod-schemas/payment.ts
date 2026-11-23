@@ -15,7 +15,7 @@ export const paymentSchema = z.object({
   amount: amountSchema,
   date: requiredIsoDateSchema,
   categoryId: idSchema("Ödeme türü seçin"),
-  methodId: idSchema("Ödeme tipi seçin"),
+  cashAccountId: idSchema("Kasa - Banka seçin"),
   note: optionalTextSchema.transform((note) => note ?? null),
 });
 
@@ -27,7 +27,7 @@ export const paymentFormSchema = z.object({
   amount: typedAmountSchema,
   date: requiredDisplayDateSchema,
   categoryId: pickedSchema("Ödeme türü seçin"),
-  methodId: pickedSchema("Ödeme tipi seçin"),
+  cashAccountId: pickedSchema("Kasa - Banka seçin"),
   note: z.string(),
 });
 

@@ -1,14 +1,21 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ClientRequestOptions } from "hono/client";
+import { getCashAccounts } from "@/lib/fetches/cash-account";
 import { getCounterparties } from "@/lib/fetches/counterparty";
 import { getParameters } from "@/lib/fetches/parameter";
 
-/** The cariler and parameters the payment form picks from */
+/** The cariler, parameters and Kasa - Banka accounts the payment form and filters pick from */
 export function prefetchFormLists(
   queryClient: QueryClient,
   options: ClientRequestOptions,
 ) {
   return Promise.all([
+    queryClient
+      .query({
+        queryKey: ["cash-accounts"],
+        queryFn: () => getCashAccounts(options),
+      })
+      .catch(console.error),
     queryClient
       .query({
         queryKey: ["counterparties"],

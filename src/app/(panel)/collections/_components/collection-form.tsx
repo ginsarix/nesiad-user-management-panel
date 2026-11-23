@@ -8,12 +8,18 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo } from "react";
 import { Controller, type FieldPath, useForm } from "react-hook-form";
 import { AmountInput } from "@/components/amount-input";
+import { CashAccountSection } from "@/components/cash-account-section";
 import { SearchCombobox } from "@/components/search-combobox";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { initialCashAccountId } from "@/lib/cash-account-items";
 import { isoToDisplay, todayInIstanbul } from "@/lib/dates";
+import {
+  type CashAccountListItem,
+  getCashAccounts,
+} from "@/lib/fetches/cash-account";
 import {
   type Collection,
   createCollection,
@@ -42,12 +48,13 @@ import { ProjectSection } from "./project-section";
 const emptyRepresentatives: RepresentativeListItem[] = [];
 const emptyParameters: Parameter[] = [];
 const emptyProjects: ProjectListItem[] = [];
+const emptyCashAccounts: CashAccountListItem[] = [];
 
 // API field names the form can show an error under
 const FIELDS = new Set([
   "representativeId",
   "categoryId",
-  "methodId",
+  "cashAccountId",
   "amount",
   "date",
   "note",
@@ -89,6 +96,11 @@ export function CollectionForm({
     queryKey: ["projects"],
     queryFn: () => getProjects(),
   });
+  const { data: loadedCashAccounts } = useQuery({
+    queryKey: ["cash-accounts"],
+    queryFn: () => getCashAccounts(),
+  });
+  const cashAccounts = loadedCashAccounts ?? emptyCashAccounts;
   const representatives = loadedRepresentatives ?? emptyRepresentatives;
   const parameters = loadedParameters ?? emptyParameters;
 
@@ -106,10 +118,6 @@ export function CollectionForm({
   );
   const categoryItems = useMemo(
     () => itemsOf(parameters, "collection_category"),
-    [parameters],
-  );
-  const methodItems = useMemo(
-    () => itemsOf(parameters, "collection_method"),
     [parameters],
   );
 
@@ -130,7 +138,11 @@ export function CollectionForm({
     defaultValues: {
       representativeId: collection?.representativeId ?? fromRepresentative,
       categoryId: collection?.categoryId ?? null,
-      methodId: collection?.methodId ?? null,
+      cashAccountId: initialCashAccountId(
+        cashAccounts,
+        collection?.cashAccountId,
+        undefined,
+      ),
       amount: collection ? amountToInput(collection.amount) : "",
       date: isoToDisplay(collection?.date ?? todayInIstanbul()),
       note: collection?.note ?? "",
@@ -162,6 +174,8 @@ export function CollectionForm({
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
         queryClient.invalidateQueries({ queryKey: ["representatives"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
+        // the account's Bakiye moves
+        queryClient.invalidateQueries({ queryKey: ["cash-accounts"] }),
       ]);
       router.push(backHref);
     },
@@ -197,6 +211,7 @@ export function CollectionForm({
       <MissingPrerequisitesNotice
         representatives={loadedRepresentatives}
         parameters={loadedParameters}
+        cashAccounts={loadedCashAccounts}
       />
 
       <form
@@ -259,28 +274,6 @@ export function CollectionForm({
 
             <Controller
               control={form.control}
-              name="methodId"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={!!fieldState.error}>
-                  <Required htmlFor="methodId">Tahsilat Tipi</Required>
-                  <SearchCombobox
-                    id="methodId"
-                    items={methodItems}
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    invalid={!!fieldState.error}
-                    placeholder="Tahsilat tipi seçin"
-                    noItemsText="Ayarlar'da tahsilat tipi yok."
-                    noMatchText="Aramanızla eşleşen tahsilat tipi yok."
-                  />
-                  <FieldError errors={[fieldState.error]} />
-                </Field>
-              )}
-            />
-
-            <Controller
-              control={form.control}
               name="amount"
               render={({ field, fieldState }) => (
                 <Field data-invalid={!!fieldState.error}>
@@ -323,6 +316,21 @@ export function CollectionForm({
             </Field>
           </div>
         </section>
+
+        <Controller
+          control={form.control}
+          name="cashAccountId"
+          render={({ field, fieldState }) => (
+            <CashAccountSection
+              accounts={cashAccounts}
+              currentId={collection?.cashAccountId ?? null}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error}
+            />
+          )}
+        />
 
         <ProjectSection
           control={form.control}

@@ -1,18 +1,22 @@
 import { and, desc, eq, gte, lte, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db, type Executor } from "@/db";
-import { counterpartyTable, parameterTable, paymentTable } from "@/db/schema";
+import {
+  cashAccountTable,
+  counterpartyTable,
+  parameterTable,
+  paymentTable,
+} from "@/db/schema";
 import type { PaymentFilters } from "@/lib/payment-filters";
 
 const category = alias(parameterTable, "category");
-const method = alias(parameterTable, "method");
 
 /** A sum of amounts as "1250.50", added up in Postgres (never as floats) */
 export function sumOfAmounts() {
   return sql<string>`coalesce(sum(${paymentTable.amount}), 0)::numeric(14,2)::text`;
 }
 
-/** Payments with their cari's current title and parameter names */
+/** Payments with their cari's current title, Ödeme Türü and Kasa - Banka names */
 function selectPaymentRows(executor: Executor = db) {
   return executor
     .select({
@@ -24,8 +28,8 @@ function selectPaymentRows(executor: Executor = db) {
       counterpartyTitle: counterpartyTable.title,
       categoryId: paymentTable.categoryId,
       categoryName: category.name,
-      methodId: paymentTable.methodId,
-      methodName: method.name,
+      cashAccountId: paymentTable.cashAccountId,
+      cashAccountName: cashAccountTable.name,
     })
     .from(paymentTable)
     .innerJoin(
@@ -33,7 +37,10 @@ function selectPaymentRows(executor: Executor = db) {
       eq(paymentTable.counterpartyId, counterpartyTable.id),
     )
     .innerJoin(category, eq(paymentTable.categoryId, category.id))
-    .innerJoin(method, eq(paymentTable.methodId, method.id));
+    .innerJoin(
+      cashAccountTable,
+      eq(paymentTable.cashAccountId, cashAccountTable.id),
+    );
 }
 
 function whereOf(filters: PaymentFilters) {
@@ -46,8 +53,8 @@ function whereOf(filters: PaymentFilters) {
   if (filters.category !== null) {
     conditions.push(eq(paymentTable.categoryId, filters.category));
   }
-  if (filters.method !== null) {
-    conditions.push(eq(paymentTable.methodId, filters.method));
+  if (filters.cashAccount !== null) {
+    conditions.push(eq(paymentTable.cashAccountId, filters.cashAccount));
   }
   return and(...conditions);
 }

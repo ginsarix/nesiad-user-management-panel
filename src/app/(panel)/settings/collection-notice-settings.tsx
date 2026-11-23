@@ -9,7 +9,7 @@ export const COLLECTION_NOTICES: NoticeGroup = {
     tutar: "1.250,00 TL",
     tarih: "10.11.2026",
     tur: "Aidat",
-    tip: "Kart",
+    kasa: "Merkez Kasa",
     proje: "Kreş Projesi (PR-7)",
   },
   sms: [

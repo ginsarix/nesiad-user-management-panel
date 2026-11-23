@@ -496,7 +496,7 @@ describe("/api/sms/collection-notice-settings", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
       error:
-        "Tanınmayan alan: {ad}. Kullanılabilenler: {yetkili}, {tutar}, {tarih}, {tur}, {tip}, {proje}",
+        "Tanınmayan alan: {ad}. Kullanılabilenler: {yetkili}, {tutar}, {tarih}, {tur}, {kasa}, {proje}",
     });
   });
 

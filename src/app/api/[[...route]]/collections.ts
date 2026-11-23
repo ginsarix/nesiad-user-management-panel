@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import writeXlsxFile from "write-excel-file/node";
 import { z } from "zod";
@@ -28,6 +28,7 @@ import { NOTICE_OUTCOME_LABELS } from "@/lib/notice-outcome";
 import { projectLabel } from "@/lib/projects";
 import { netgsmClient } from "@/lib/sms/netgsm";
 import { collectionSchema } from "@/lib/zod-schemas/collection";
+import { usableCashAccount } from "./cash-account-queries";
 import {
   type CollectionRow,
   selectCollection,
@@ -53,7 +54,7 @@ const collectionAuditSpec: AuditSpec = {
   amount: { label: "Tutar", format: formatAudit.text },
   date: { label: "Tarih", format: formatAudit.date },
   category: { label: "Tahsilat Türü", format: formatAudit.text },
-  method: { label: "Tahsilat Tipi", format: formatAudit.text },
+  cashAccount: { label: "Kasa - Banka", format: formatAudit.text },
   project: { label: "Proje", format: formatAudit.text },
   note: { label: "Not", format: formatAudit.text },
 };
@@ -64,7 +65,7 @@ type CollectionRecord = {
   amount: string;
   date: string;
   category: string;
-  method: string;
+  cashAccount: string;
   project: string | null;
   note: string | null;
 };
@@ -84,7 +85,7 @@ function recordOf(row: CollectionRow): CollectionRecord {
     amount: row.amount,
     date: row.date,
     category: row.categoryName,
-    method: row.methodName,
+    cashAccount: row.cashAccountName,
     project:
       row.projectName && row.projectNumber
         ? projectLabel({ name: row.projectName, number: row.projectNumber })
@@ -107,9 +108,9 @@ class CollectionInputError extends Error {
 type Values = z.output<typeof collectionSchema>;
 
 /**
- * Checks the yetkili, parameters and proje, creating the proje when asked.
- * A new tahsilat needs an Aktif yetkili and proje; an edit may keep the
- * ones it already has. Returns the project id and the names to audit.
+ * Checks the yetkili, Tahsilat Türü, Kasa - Banka and proje, creating the
+ * proje when asked. A new tahsilat needs an Aktif yetkili, Kasa - Banka and
+ * proje; an edit may keep the ones it already has. Returns the project id and the names to audit.
  */
 async function resolveReferences(
   tx: Transaction,
@@ -140,31 +141,24 @@ async function resolveReferences(
     );
   }
 
-  const parameters = await tx
-    .select({
-      id: parameterTable.id,
-      kind: parameterTable.kind,
-      name: parameterTable.name,
-    })
+  const [category] = await tx
+    .select({ kind: parameterTable.kind, name: parameterTable.name })
     .from(parameterTable)
-    .where(inArray(parameterTable.id, [values.categoryId, values.methodId]));
-  const category = parameters.find(
-    (p) => p.id === values.categoryId && p.kind === "collection_category",
-  );
-  if (!category) {
+    .where(eq(parameterTable.id, values.categoryId));
+  if (category?.kind !== "collection_category") {
     throw new CollectionInputError(
       "Geçerli bir tahsilat türü seçin",
       "categoryId",
     );
   }
-  const method = parameters.find(
-    (p) => p.id === values.methodId && p.kind === "collection_method",
+
+  const cashAccount = await usableCashAccount(
+    tx,
+    values.cashAccountId,
+    existing?.cashAccountId ?? null,
   );
-  if (!method) {
-    throw new CollectionInputError(
-      "Geçerli bir tahsilat tipi seçin",
-      "methodId",
-    );
+  if ("error" in cashAccount) {
+    throw new CollectionInputError(cashAccount.error, "cashAccountId");
   }
 
   let project: { id: number; name: string; number: string } | null = null;
@@ -203,7 +197,7 @@ async function resolveReferences(
     amount: values.amount,
     date: values.date,
     category: category.name,
-    method: method.name,
+    cashAccount: cashAccount.name,
     project: project ? projectLabel(project) : null,
     note: values.note,
   };
@@ -278,7 +272,7 @@ const filtersQuerySchema = z.object({
   to: z.string().optional(),
   representative: z.string().optional(),
   category: z.string().optional(),
-  method: z.string().optional(),
+  cashAccount: z.string().optional(),
   project: z.string().optional(),
 });
 
@@ -296,7 +290,7 @@ async function collectionsWorkbook({
         "Yetkili",
         "Tutar",
         "Tahsilat Türü",
-        "Tahsilat Tipi",
+        "Kasa - Banka",
         "Proje",
         "Not",
       ].map(header),
@@ -305,7 +299,7 @@ async function collectionsWorkbook({
         collection.representativeName,
         amountCell(collection.amount),
         collection.categoryName,
-        collection.methodName,
+        collection.cashAccountName,
         recordOf(collection).project,
         collection.note,
       ]),

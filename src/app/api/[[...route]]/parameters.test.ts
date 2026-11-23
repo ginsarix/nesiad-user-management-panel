@@ -11,7 +11,14 @@ import {
   parameterTable,
   paymentTable,
 } from "@/db/schema";
+import {
+  deleteTestCashAccounts,
+  insertTestCashAccount,
+} from "@/test/cash-accounts";
 import { parametersRoute } from "./parameters";
+
+// Kasa - Banka fixtures, deleted after the records using them
+const cashAccountIds: number[] = [];
 
 const createdIds: number[] = [];
 const counterpartyIds: number[] = [];
@@ -53,6 +60,7 @@ afterAll(async () => {
       .delete(parameterTable)
       .where(inArray(parameterTable.id, createdIds));
   }
+  await deleteTestCashAccounts(cashAccountIds);
 });
 
 // names are unique within a list; keep them apart from parallel runs
@@ -83,8 +91,8 @@ async function listParameters() {
   }[];
 }
 
-/** One payment using the two entries, to a cari made for it */
-async function addPayment(categoryId: number, methodId: number) {
+/** One payment using the Ödeme Türü, to a cari made for it */
+async function addPayment(categoryId: number) {
   const title = `__test__ Cari ${crypto.randomUUID().slice(0, 8)}`;
   const [counterparty] = await db
     .insert(counterpartyTable)
@@ -96,7 +104,7 @@ async function addPayment(categoryId: number, methodId: number) {
     amount: "10.00",
     date: "2026-11-01",
     categoryId,
-    methodId,
+    cashAccountId: await insertTestCashAccount(title, cashAccountIds),
   });
 }
 
@@ -119,7 +127,7 @@ async function lastEntry(action: string, id: number) {
 describe("POST /api/parameters", () => {
   it("adds a trimmed name to a list and records it", async () => {
     const { res, body } = await createParameter(
-      "payment_method",
+      "payment_category",
       `  __test__ Nakit ${suffix}  `,
     );
     expect(res.status).toBe(201);
@@ -127,15 +135,15 @@ describe("POST /api/parameters", () => {
     const listed = (await listParameters()).find((p) => p.id === body.id);
     expect(listed).toEqual({
       id: body.id,
-      kind: "payment_method",
+      kind: "payment_category",
       name: `__test__ Nakit ${suffix}`,
       usageCount: 0,
     });
 
     const entry = await lastEntry("create", body.id);
-    expect(entry.entityLabel).toBe(`Ödeme Tipi: __test__ Nakit ${suffix}`);
+    expect(entry.entityLabel).toBe(`Ödeme Türü: __test__ Nakit ${suffix}`);
     expect(entry.details).toEqual([
-      { label: "Liste", value: "Ödeme Tipi" },
+      { label: "Liste", value: "Ödeme Türü" },
       { label: "Ad", value: `__test__ Nakit ${suffix}` },
     ]);
   });
@@ -152,7 +160,7 @@ describe("POST /api/parameters", () => {
   });
 
   it("requires a name", async () => {
-    const { res, body } = await createParameter("payment_method", "   ");
+    const { res, body } = await createParameter("payment_category", "   ");
     expect(res.status).toBe(400);
     expect(body.error).toBe("Ad boş olamaz");
   });
@@ -160,6 +168,13 @@ describe("POST /api/parameters", () => {
   it("rejects an unknown list", async () => {
     const { res } = await createParameter("sector", `__test__ X ${suffix}`);
     expect(res.status).toBe(400);
+  });
+
+  it("rejects the removed Ödeme Tipi and Tahsilat Tipi lists", async () => {
+    for (const kind of ["payment_method", "collection_method"]) {
+      const { res } = await createParameter(kind, `__test__ Tip ${suffix}`);
+      expect(res.status).toBe(400);
+    }
   });
 
   it("rejects a name already in the same list, ignoring Turkish case", async () => {
@@ -174,8 +189,8 @@ describe("POST /api/parameters", () => {
 
   it("allows the same name in different lists", async () => {
     const name = `__test__ Kart ${suffix}`;
-    const tahsilat = await createParameter("collection_method", name);
-    const odeme = await createParameter("payment_method", name);
+    const tahsilat = await createParameter("collection_category", name);
+    const odeme = await createParameter("payment_category", name);
     expect(tahsilat.res.status).toBe(201);
     expect(odeme.res.status).toBe(201);
   });
@@ -206,7 +221,7 @@ describe("GET /api/parameters", () => {
 describe("PATCH /api/parameters/:id", () => {
   it("renames an entry and records the change", async () => {
     const { body } = await createParameter(
-      "collection_method",
+      "collection_category",
       `__test__ Hesap ${suffix}`,
     );
     const res = await parametersRoute.request(
@@ -219,7 +234,7 @@ describe("PATCH /api/parameters/:id", () => {
     expect(listed?.name).toBe(`__test__ Banka ${suffix}`);
 
     const entry = await lastEntry("update", body.id);
-    expect(entry.entityLabel).toBe(`Tahsilat Tipi: __test__ Banka ${suffix}`);
+    expect(entry.entityLabel).toBe(`Tahsilat Türü: __test__ Banka ${suffix}`);
     expect(entry.changes).toEqual([
       {
         label: "Ad",
@@ -231,7 +246,7 @@ describe("PATCH /api/parameters/:id", () => {
 
   it("records nothing when the name is unchanged", async () => {
     const { body } = await createParameter(
-      "collection_method",
+      "collection_category",
       `__test__ Aynı ${suffix}`,
     );
     const res = await parametersRoute.request(
@@ -269,24 +284,18 @@ describe("parameters used by payments", () => {
     const category = (
       await createParameter("payment_category", `__test__ Kullanılan ${suffix}`)
     ).body.id;
-    const method = (
-      await createParameter("payment_method", `__test__ Havale ${suffix}`)
-    ).body.id;
-    await addPayment(category, method);
+    await addPayment(category);
 
     const listed = await listParameters();
     expect(listed.find((p) => p.id === category)?.usageCount).toBe(1);
-    expect(listed.find((p) => p.id === method)?.usageCount).toBe(1);
 
-    for (const id of [category, method]) {
-      const res = await parametersRoute.request(`/${id}`, {
-        method: "DELETE",
-      });
-      expect(res.status).toBe(409);
-      expect((await res.json()).error).toBe(
-        "Bu kayıt 1 ödemede kullanılıyor, silinemez.",
-      );
-    }
+    const res = await parametersRoute.request(`/${category}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Bu kayıt 1 ödemede kullanılıyor, silinemez.",
+    );
     expect((await listParameters()).some((p) => p.id === category)).toBe(true);
   });
 });
@@ -296,9 +305,6 @@ describe("parameters used by tahsilatlar", () => {
     const category = (
       await createParameter("collection_category", `__test__ Aidat K ${suffix}`)
     ).body.id;
-    const method = (
-      await createParameter("collection_method", `__test__ EFT ${suffix}`)
-    ).body.id;
     const [payer] = await db
       .insert(authorizedRepresentativeTable)
       .values({ name: `__test__ Yetkili ${suffix}` })
@@ -307,7 +313,10 @@ describe("parameters used by tahsilatlar", () => {
     await db.insert(collectionTable).values({
       representativeId: payer.id,
       categoryId: category,
-      methodId: method,
+      cashAccountId: await insertTestCashAccount(
+        `__test__ EFT ${suffix}`,
+        cashAccountIds,
+      ),
       amount: "10.00",
       date: "2026-11-01",
     });
@@ -315,12 +324,12 @@ describe("parameters used by tahsilatlar", () => {
     expect(
       (await listParameters()).find((p) => p.id === category)?.usageCount,
     ).toBe(1);
-    const res = await parametersRoute.request(`/${method}`, {
+    const res = await parametersRoute.request(`/${category}`, {
       method: "DELETE",
     });
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe(
-      "Bu kayıt 1 tahsilatta kullanılıyor, silinemez.",
+      "Bu kayıt 1 tahsilat veya tahakkuk kaydında kullanılıyor, silinemez.",
     );
   });
 });

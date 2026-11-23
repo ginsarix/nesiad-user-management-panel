@@ -50,21 +50,19 @@ export function Settings({
 
         <SettingsGroup
           title="Tahsilat"
-          description="Yetkililerden alınan ödemeler: ne için alındığı ve nasıl."
+          description="Yetkililerden alınan ödemeler: ne için alındığı."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <ParameterList kind="collection_category" title="Tür" />
-            <ParameterList kind="collection_method" title="Tip" />
           </div>
         </SettingsGroup>
 
         <SettingsGroup
           title="Ödeme"
-          description="Derneğin yaptığı ödemeler: ne için yapıldığı ve nasıl."
+          description="Derneğin yaptığı ödemeler: ne için yapıldığı."
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <ParameterList kind="payment_category" title="Tür" />
-            <ParameterList kind="payment_method" title="Tip" />
           </div>
         </SettingsGroup>
 

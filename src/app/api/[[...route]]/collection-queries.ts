@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { db, type Executor } from "@/db";
 import {
   authorizedRepresentativeTable,
+  cashAccountTable,
   collectionTable,
   parameterTable,
   projectTable,
@@ -10,14 +11,13 @@ import {
 import type { CollectionFilters } from "@/lib/collection-filters";
 
 const category = alias(parameterTable, "category");
-const method = alias(parameterTable, "method");
 
 /** A sum of tahsilat amounts as "1250.50", added up in Postgres */
 export function sumOfCollected() {
   return sql<string>`coalesce(sum(${collectionTable.amount}), 0)::numeric(14,2)::text`;
 }
 
-/** Tahsilatlar with the current yetkili name, parameter and proje names */
+/** Tahsilatlar with the current yetkili, Tahsilat Türü, Kasa - Banka and proje names */
 function selectCollectionRows(executor: Executor = db) {
   return executor
     .select({
@@ -29,8 +29,8 @@ function selectCollectionRows(executor: Executor = db) {
       representativeName: authorizedRepresentativeTable.name,
       categoryId: collectionTable.categoryId,
       categoryName: category.name,
-      methodId: collectionTable.methodId,
-      methodName: method.name,
+      cashAccountId: collectionTable.cashAccountId,
+      cashAccountName: cashAccountTable.name,
       projectId: collectionTable.projectId,
       projectName: projectTable.name,
       projectNumber: projectTable.number,
@@ -41,7 +41,10 @@ function selectCollectionRows(executor: Executor = db) {
       eq(collectionTable.representativeId, authorizedRepresentativeTable.id),
     )
     .innerJoin(category, eq(collectionTable.categoryId, category.id))
-    .innerJoin(method, eq(collectionTable.methodId, method.id))
+    .innerJoin(
+      cashAccountTable,
+      eq(collectionTable.cashAccountId, cashAccountTable.id),
+    )
     .leftJoin(projectTable, eq(collectionTable.projectId, projectTable.id));
 }
 
@@ -57,8 +60,8 @@ function whereOf(filters: CollectionFilters) {
   if (filters.category !== null) {
     conditions.push(eq(collectionTable.categoryId, filters.category));
   }
-  if (filters.method !== null) {
-    conditions.push(eq(collectionTable.methodId, filters.method));
+  if (filters.cashAccount !== null) {
+    conditions.push(eq(collectionTable.cashAccountId, filters.cashAccount));
   }
   if (filters.project === "none") {
     conditions.push(isNull(collectionTable.projectId));

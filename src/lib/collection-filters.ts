@@ -9,8 +9,8 @@ export type CollectionFilters = {
   representative: number | null;
   /** Tahsilat Türü (parameter id) */
   category: number | null;
-  /** Tahsilat Tipi (parameter id) */
-  method: number | null;
+  /** the Kasa - Banka it went through */
+  cashAccount: number | null;
   /** a proje, or "none" for tahsilatlar without one (Projesiz) */
   project: number | "none" | null;
 };
@@ -20,11 +20,11 @@ export const NO_COLLECTION_FILTERS: CollectionFilters = {
   to: null,
   representative: null,
   category: null,
-  method: null,
+  cashAccount: null,
   project: null,
 };
 
-const ID_KEYS = ["representative", "category", "method"] as const;
+const ID_KEYS = ["representative", "category", "cashAccount"] as const;
 
 function parseId(value: string | null) {
   const id = Number(value);
@@ -44,7 +44,7 @@ export function parseCollectionFilters(params: {
     to: isoDate(params.get("to")),
     representative: parseId(params.get("representative")),
     category: parseId(params.get("category")),
-    method: parseId(params.get("method")),
+    cashAccount: parseId(params.get("cashAccount")),
     project: project === "none" ? "none" : parseId(project),
   };
 }

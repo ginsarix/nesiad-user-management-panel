@@ -8,10 +8,15 @@ import {
   parameterTable,
   paymentTable,
 } from "@/db/schema";
+import {
+  deleteTestCashAccounts,
+  insertTestCashAccount,
+} from "@/test/cash-accounts";
 import { counterpartiesRoute } from "./counterparties";
 
 const createdIds: number[] = [];
 const parameterIds: number[] = [];
+const cashAccountIds: number[] = [];
 
 afterAll(async () => {
   if (createdIds.length) {
@@ -27,34 +32,31 @@ afterAll(async () => {
       .delete(parameterTable)
       .where(inArray(parameterTable.id, parameterIds));
   }
+  await deleteTestCashAccounts(cashAccountIds);
 });
 
 /** Two payments (100.00 and 50.25) to the cari, inserted directly */
 async function addPayments(counterpartyId: number) {
-  const parameters = await db
+  const [{ id: category }] = await db
     .insert(parameterTable)
-    .values([
-      {
-        kind: "payment_category" as const,
-        name: `__test__ Tür ${counterpartyId}`,
-        nameKey: `__test__ tür ${counterpartyId}`,
-      },
-      {
-        kind: "payment_method" as const,
-        name: `__test__ Tip ${counterpartyId}`,
-        nameKey: `__test__ tip ${counterpartyId}`,
-      },
-    ])
+    .values({
+      kind: "payment_category" as const,
+      name: `__test__ Tür ${counterpartyId}`,
+      nameKey: `__test__ tür ${counterpartyId}`,
+    })
     .returning({ id: parameterTable.id });
-  parameterIds.push(...parameters.map((p) => p.id));
-  const [category, method] = parameters.map((p) => p.id);
+  parameterIds.push(category);
+  const cashAccountId = await insertTestCashAccount(
+    `__test__ Kasa ${counterpartyId}`,
+    cashAccountIds,
+  );
   await db.insert(paymentTable).values(
     ["100.00", "50.25"].map((amount) => ({
       counterpartyId,
       amount,
       date: "2026-11-01",
       categoryId: category,
-      methodId: method,
+      cashAccountId,
     })),
   );
 }

@@ -134,7 +134,7 @@ function CounterpartyPayments({ id }: { id: number }) {
                     <TableHead>Tarih</TableHead>
                     <TableHead className="text-right">Tutar</TableHead>
                     <TableHead>Ödeme Türü</TableHead>
-                    <TableHead>Ödeme Tipi</TableHead>
+                    <TableHead>Kasa - Banka</TableHead>
                     <TableHead>Not</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -153,7 +153,7 @@ function CounterpartyPayments({ id }: { id: number }) {
                         {formatAmount(payment.amount)}
                       </TableCell>
                       <TableCell>{payment.categoryName}</TableCell>
-                      <TableCell>{payment.methodName}</TableCell>
+                      <TableCell>{payment.cashAccountName}</TableCell>
                       <TableCell>
                         <span className="line-clamp-1 max-w-48 whitespace-normal">
                           {orDash(payment.note)}
@@ -163,7 +163,13 @@ function CounterpartyPayments({ id }: { id: number }) {
                   ))}
                 </TableBody>
                 <TableTotalFooter
-                  columnIds={["date", "amount", "category", "method", "note"]}
+                  columnIds={[
+                    "date",
+                    "amount",
+                    "category",
+                    "cashAccount",
+                    "note",
+                  ]}
                   amountColumnId="amount"
                   amounts={data.payments.map((payment) => payment.amount)}
                   alignRight
