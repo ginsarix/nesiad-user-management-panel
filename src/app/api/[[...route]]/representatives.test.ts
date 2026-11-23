@@ -170,6 +170,7 @@ describe("POST /api/representatives", () => {
       phone: "",
       email: "",
       notes: "",
+      poPositiveCardNo: "",
       dateOfBirth: "",
     });
     expect(res.status).toBe(201);
@@ -180,6 +181,7 @@ describe("POST /api/representatives", () => {
       phone: null,
       email: null,
       notes: null,
+      poPositiveCardNo: null,
       dateOfBirth: null,
       active: true,
       members: [],
@@ -644,6 +646,31 @@ async function createWithPhoto(name: string) {
 
 const storedPhotos = async () =>
   (await readdir(getFilePath(""))).filter((name) => name.startsWith("photo_"));
+
+describe("PO Positive Card No", () => {
+  it("stores the card number as typed and audits changes to it", async () => {
+    const { body } = await createRepresentative({
+      name: "__test__ Kartlı Yetkili",
+      poPositiveCardNo: "  7000 1234 5678 9012 ",
+    });
+    const id = body.id as number;
+    expect((await getRepresentative(id)).body.poPositiveCardNo).toBe(
+      "7000 1234 5678 9012",
+    );
+    expect((await lastEntry("create", id)).details).toContainEqual({
+      label: "PO Positive Card No",
+      value: "7000 1234 5678 9012",
+    });
+
+    expect((await patch(id, { poPositiveCardNo: "" })).status).toBe(200);
+    expect((await getRepresentative(id)).body.poPositiveCardNo).toBeNull();
+    expect((await lastEntry("update", id)).changes).toContainEqual({
+      label: "PO Positive Card No",
+      from: "7000 1234 5678 9012",
+      to: "—",
+    });
+  });
+});
 
 describe("yetkili photo", () => {
   it("stores a photo and records Fotoğraf: Var", async () => {

@@ -57,6 +57,7 @@ export const createRepresentativeSchema = z.object({
   phone: optionalTextSchema,
   email: emailTextSchema.transform((value) => value || null).optional(),
   notes: optionalTextSchema,
+  poPositiveCardNo: optionalTextSchema,
 
   /** Defaults to aktif when left out */
   active: z.stringbool().optional(),
@@ -82,6 +83,7 @@ export const representativeFormSchema = z.object({
   phone: z.string(),
   email: emailTextSchema,
   notes: z.string(),
+  poPositiveCardNo: z.string(),
   active: z.boolean(),
   /** Already shrunk to the JPEG that is uploaded, when it was picked */
   photo: z

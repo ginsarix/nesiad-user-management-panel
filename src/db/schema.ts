@@ -371,6 +371,8 @@ export const authorizedRepresentativeTable = pgTable(
     phone: text(),
     email: text(),
     notes: text(),
+    // Petrol Ofisi Positive Card (a fuel rewards card) number, as typed
+    poPositiveCardNo: text("po_positive_card_no"),
     // a JPEG the uploader's browser shrank to 800px; stored like member logos
     photo: text(),
 

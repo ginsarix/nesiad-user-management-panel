@@ -1,0 +1,1 @@
+ALTER TABLE "authorized_representative" ADD COLUMN "po_positive_card_no" text;

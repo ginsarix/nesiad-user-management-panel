@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "c9b3929c-c25b-4d2c-9ba1-6c2d43dfee64",
+  "prevIds": [
+    "94f91d85-6899-439d-b597-ead94a0cee3c"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "authorized_representative",
+        "po_positive_card_no"
+      ],
+      "writes": [
+        "s|col|public.authorized_representative.po_positive_card_no",
+        "n|col|public.authorized_representative.po_positive_card_no",
+        "e|col|public.authorized_representative.po_positive_card_no"
+      ],
+      "reads": [
+        "n|tbl|public.authorized_representative",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "authorized_representative",
+        "name": "po_positive_card_no",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

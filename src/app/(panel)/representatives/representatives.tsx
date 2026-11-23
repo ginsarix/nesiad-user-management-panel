@@ -124,6 +124,11 @@ const columns = helper.columns([
     sortUndefined: "last",
     cell: (info) => formatDate(info.getValue()),
   }),
+  helper.accessor("poPositiveCardNo", {
+    header: "PO Positive Card No",
+    enableSorting: false,
+    cell: (info) => orDash(info.getValue()),
+  }),
   helper.accessor("notes", {
     header: "Notlar",
     enableSorting: false,
@@ -136,7 +141,7 @@ const columns = helper.columns([
 ]);
 
 // Extra details that can be switched on from "Sütunlar"
-const DEFAULT_COLUMN_VISIBILITY = { notes: false };
+const DEFAULT_COLUMN_VISIBILITY = { poPositiveCardNo: false, notes: false };
 
 type Status = "active" | "passive" | "all";
 
@@ -216,6 +221,9 @@ export function Representatives({
             // lets "5321234567" match "0532 123 45 67"
             representative.phone?.replace(/\D/g, ""),
             representative.email,
+            representative.poPositiveCardNo,
+            // lets "7000123456789012" match "7000 1234 5678 9012"
+            representative.poPositiveCardNo?.replace(/\D/g, ""),
             ...representative.members.flatMap((m) => [m.title, m.role]),
           ]
             .filter(Boolean)

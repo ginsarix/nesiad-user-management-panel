@@ -68,6 +68,7 @@ export function RepresentativeForm({
       // the API sends yyyy-aa-gg, the form works in gg.aa.yyyy
       dateOfBirth: isoToDisplay(representative?.dateOfBirth),
       notes: representative?.notes ?? "",
+      poPositiveCardNo: representative?.poPositiveCardNo ?? "",
       active: representative?.active ?? true,
       photo: null,
       removePhoto: false,
@@ -217,6 +218,17 @@ export function RepresentativeForm({
                 </Field>
               )}
             />
+
+            <Field>
+              <FieldLabel htmlFor="poPositiveCardNo">
+                PO Positive Card No
+              </FieldLabel>
+              <Input
+                id="poPositiveCardNo"
+                autoComplete="off"
+                {...form.register("poPositiveCardNo")}
+              />
+            </Field>
 
             <Field className="sm:col-span-2">
               <FieldLabel htmlFor="notes">Notlar</FieldLabel>

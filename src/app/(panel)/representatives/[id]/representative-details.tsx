@@ -80,6 +80,10 @@ export function RepresentativeDetails({ id }: { id: number }) {
                       label: "Doğum Tarihi",
                       value: formatDate(representative.dateOfBirth),
                     },
+                    {
+                      label: "PO Positive Card No",
+                      value: representative.poPositiveCardNo,
+                    },
                     { label: "Notlar", value: representative.notes },
                   ]}
                 />

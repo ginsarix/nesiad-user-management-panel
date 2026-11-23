@@ -114,6 +114,7 @@ const representativeAuditSpec: AuditSpec = {
   phone: { label: "Cep Telefonu", format: formatAudit.text },
   email: { label: "E-posta", format: formatAudit.text },
   dateOfBirth: { label: "Doğum Tarihi", format: formatAudit.date },
+  poPositiveCardNo: { label: "PO Positive Card No", format: formatAudit.text },
   notes: { label: "Notlar", format: formatAudit.text },
 };
 
