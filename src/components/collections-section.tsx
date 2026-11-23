@@ -23,17 +23,18 @@ import { formatAmount, sumAmounts } from "@/lib/money";
 import { projectLabel } from "@/lib/projects";
 
 /**
- * The tahsilatlar of one yetkili or one proje, with their count and total.
- * `of` picks which; that column is left out since it's always the same.
+ * The tahsilatlar of one yetkili, proje or Kasa - Banka, with their count
+ * and total. `of` picks which; that column is left out since it's always
+ * the same.
  */
 export function CollectionsSection({
   of,
   id,
   canAdd,
 }: {
-  of: "representative" | "project";
+  of: "representative" | "project" | "cashAccount";
   id: number;
-  /** A new tahsilat needs an Aktif yetkili or proje */
+  /** A new tahsilat needs an Aktif yetkili, proje or Kasa - Banka */
   canAdd: boolean;
 }) {
   const filters: CollectionFilters = {
@@ -41,7 +42,7 @@ export function CollectionsSection({
     to: null,
     representative: of === "representative" ? id : null,
     category: null,
-    cashAccount: null,
+    cashAccount: of === "cashAccount" ? id : null,
     project: of === "project" ? id : null,
   };
   const { data, isError } = useQuery({
@@ -90,11 +91,13 @@ export function CollectionsSection({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tarih</TableHead>
-                    {of === "project" && <TableHead>Yetkili</TableHead>}
+                    {of !== "representative" && <TableHead>Yetkili</TableHead>}
                     <TableHead className="text-right">Tutar</TableHead>
                     <TableHead>Tahsilat Türü</TableHead>
-                    <TableHead>Kasa - Banka</TableHead>
-                    {of === "representative" && <TableHead>Proje</TableHead>}
+                    {of !== "cashAccount" && (
+                      <TableHead>Kasa - Banka</TableHead>
+                    )}
+                    {of !== "project" && <TableHead>Proje</TableHead>}
                     <TableHead>Not</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -109,7 +112,7 @@ export function CollectionsSection({
                           {formatDate(collection.date)}
                         </Link>
                       </TableCell>
-                      {of === "project" && (
+                      {of !== "representative" && (
                         <TableCell>
                           <Link
                             href={`/representatives/${collection.representativeId}`}
@@ -123,8 +126,10 @@ export function CollectionsSection({
                         {formatAmount(collection.amount)}
                       </TableCell>
                       <TableCell>{collection.categoryName}</TableCell>
-                      <TableCell>{collection.cashAccountName}</TableCell>
-                      {of === "representative" && (
+                      {of !== "cashAccount" && (
+                        <TableCell>{collection.cashAccountName}</TableCell>
+                      )}
+                      {of !== "project" && (
                         <TableCell>
                           {collection.projectId &&
                           collection.projectName &&
@@ -154,11 +159,11 @@ export function CollectionsSection({
                 <TableTotalFooter
                   columnIds={[
                     "date",
-                    ...(of === "project" ? ["representative"] : []),
+                    ...(of !== "representative" ? ["representative"] : []),
                     "amount",
                     "category",
-                    "cashAccount",
-                    ...(of === "representative" ? ["project"] : []),
+                    ...(of !== "cashAccount" ? ["cashAccount"] : []),
+                    ...(of !== "project" ? ["project"] : []),
                     "note",
                   ]}
                   amountColumnId="amount"

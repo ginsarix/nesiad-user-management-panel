@@ -11,11 +11,12 @@ export default async function NewCollectionPage({
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // `?representative=12` / `?project=3` from a yetkili's or proje's "Tahsilat Ekle"
+  // `?representative=12` / `?project=3` / `?cashAccount=4` from a yetkili's, proje's or Kasa - Banka's "Tahsilat Ekle"
   const params = await searchParams;
   const from = {
     representative: idParam(params.representative),
     project: idParam(params.project),
+    cashAccount: idParam(params.cashAccount),
   };
 
   await prefetchFormLists(queryClient, options);

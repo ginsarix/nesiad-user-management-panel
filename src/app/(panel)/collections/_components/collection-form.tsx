@@ -70,8 +70,8 @@ function itemsOf(parameters: Parameter[], kind: ParameterKind) {
 }
 
 /**
- * Create form without a tahsilat, edit form with one. `from` is the yetkili
- * or proje page it was opened from: that one is preselected (when it can
+ * Create form without a tahsilat, edit form with one. `from` is the yetkili,
+ * proje or Kasa - Banka page it was opened from: that one is preselected (when it can
  * be picked) and saving or cancelling returns there.
  */
 export function CollectionForm({
@@ -79,7 +79,7 @@ export function CollectionForm({
   from,
 }: {
   collection?: Collection;
-  from?: { representative?: number; project?: number };
+  from?: { representative?: number; project?: number; cashAccount?: number };
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -141,7 +141,7 @@ export function CollectionForm({
       cashAccountId: initialCashAccountId(
         cashAccounts,
         collection?.cashAccountId,
-        undefined,
+        from?.cashAccount,
       ),
       amount: collection ? amountToInput(collection.amount) : "",
       date: isoToDisplay(collection?.date ?? todayInIstanbul()),
@@ -160,7 +160,9 @@ export function CollectionForm({
     ? `/representatives/${from.representative}`
     : from?.project
       ? `/projects/${from.project}`
-      : listHref("/collections");
+      : from?.cashAccount
+        ? `/cash-accounts/${from.cashAccount}`
+        : listHref("/collections");
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (values: CollectionFormValues) => {
@@ -205,7 +207,9 @@ export function CollectionForm({
           ? "Yetkiliye dön"
           : from?.project
             ? "Projeye dön"
-            : "Tahsilatlara dön"}
+            : from?.cashAccount
+              ? "Hesaba dön"
+              : "Tahsilatlara dön"}
       </Link>
 
       <MissingPrerequisitesNotice

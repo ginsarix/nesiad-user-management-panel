@@ -7,9 +7,11 @@ import { PaymentForm } from "../../_components/payment-form";
 export function EditPayment({
   id,
   fromCounterpartyId,
+  fromCashAccountId,
 }: {
   id: number;
   fromCounterpartyId?: number;
+  fromCashAccountId?: number;
 }) {
   const { data: payment, isError } = useQuery({
     queryKey: ["payments", "detail", id],
@@ -25,6 +27,10 @@ export function EditPayment({
   }
 
   return payment ? (
-    <PaymentForm payment={payment} fromCounterpartyId={fromCounterpartyId} />
+    <PaymentForm
+      payment={payment}
+      fromCounterpartyId={fromCounterpartyId}
+      fromCashAccountId={fromCashAccountId}
+    />
   ) : null;
 }

@@ -31,8 +31,8 @@ export function prefetchFormLists(
   ]);
 }
 
-/** Positive integer id from `?counterparty=12`, else undefined */
-export function counterpartyParam(value: string | string[] | undefined) {
+/** Positive integer id from `?counterparty=12` / `?cashAccount=3`, else undefined */
+export function idParam(value: string | string[] | undefined) {
   const id = Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : undefined;
 }

@@ -2,10 +2,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import { PaymentForm } from "../_components/payment-form";
-import {
-  counterpartyParam,
-  prefetchFormLists,
-} from "../_components/prefetch-form-lists";
+import { idParam, prefetchFormLists } from "../_components/prefetch-form-lists";
 
 export default async function NewPaymentPage({
   searchParams,
@@ -14,16 +11,19 @@ export default async function NewPaymentPage({
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // `?counterparty=12` from a cari page's "Ödeme Ekle"
-  const fromCounterpartyId = counterpartyParam(
-    (await searchParams).counterparty,
-  );
+  // `?counterparty=12` / `?cashAccount=3` from a cari's or Kasa - Banka's "Ödeme Ekle"
+  const query = await searchParams;
+  const fromCounterpartyId = idParam(query.counterparty);
+  const fromCashAccountId = idParam(query.cashAccount);
 
   await prefetchFormLists(queryClient, options);
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <PaymentForm fromCounterpartyId={fromCounterpartyId} />
+      <PaymentForm
+        fromCounterpartyId={fromCounterpartyId}
+        fromCashAccountId={fromCashAccountId}
+      />
     </HydrationBoundary>
   );
 }

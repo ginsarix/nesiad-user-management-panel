@@ -66,15 +66,17 @@ function itemsOf(parameters: Parameter[], kind: ParameterKind) {
 
 /**
  * Create form without a payment, edit form with one. `fromCounterpartyId`
- * comes from a cari page: that cari is preselected and saving or cancelling
- * returns to it.
+ * / `fromCashAccountId` come from a cari or Kasa - Banka page: that one is
+ * preselected (when it can be picked) and saving or cancelling returns to it.
  */
 export function PaymentForm({
   payment,
   fromCounterpartyId,
+  fromCashAccountId,
 }: {
   payment?: Payment;
   fromCounterpartyId?: number;
+  fromCashAccountId?: number;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -118,7 +120,7 @@ export function PaymentForm({
       cashAccountId: initialCashAccountId(
         cashAccounts,
         payment?.cashAccountId,
-        undefined,
+        fromCashAccountId,
       ),
       note: payment?.note ?? "",
     },
@@ -126,7 +128,9 @@ export function PaymentForm({
 
   const backHref = fromCounterpartyId
     ? `/counterparties/${fromCounterpartyId}`
-    : listHref("/payments");
+    : fromCashAccountId
+      ? `/cash-accounts/${fromCashAccountId}`
+      : listHref("/payments");
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (values: PaymentFormValues) => {
@@ -166,7 +170,11 @@ export function PaymentForm({
         className="inline-flex w-fit items-center gap-1.5 text-sm text-primary hover:underline"
       >
         <ArrowLeft className="size-4" />
-        {fromCounterpartyId ? "Cariye dön" : "Ödemelere dön"}
+        {fromCounterpartyId
+          ? "Cariye dön"
+          : fromCashAccountId
+            ? "Hesaba dön"
+            : "Ödemelere dön"}
       </Link>
 
       <MissingPrerequisitesNotice

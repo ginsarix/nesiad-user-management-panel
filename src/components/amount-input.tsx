@@ -6,11 +6,16 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
-import { amountToInput, parseAmountInput } from "@/lib/money";
+import {
+  amountToInput,
+  parseAmountInput,
+  parseSignedAmountInput,
+} from "@/lib/money";
 
 /**
  * A TL amount typed the Turkish way ("1.250,50"). Keeps what is typed and
- * tidies it to "1.250,50" on blur when it parses.
+ * tidies it to "1.250,50" on blur when it parses. `allowNegative` takes a
+ * leading "-" (a Kasa - Banka's Başlangıç Bakiyesi).
  */
 export function AmountInput({
   id,
@@ -19,6 +24,7 @@ export function AmountInput({
   onChange,
   onBlur,
   "aria-invalid": ariaInvalid,
+  allowNegative = false,
 }: {
   id: string;
   name?: string;
@@ -26,6 +32,7 @@ export function AmountInput({
   onChange: (value: string) => void;
   onBlur?: () => void;
   "aria-invalid"?: boolean;
+  allowNegative?: boolean;
 }) {
   return (
     <InputGroup>
@@ -41,7 +48,9 @@ export function AmountInput({
         onChange={(event) => onChange(event.target.value)}
         onBlur={() => {
           // only a real change: passing through a field changes nothing
-          const amount = parseAmountInput(value);
+          const amount = (
+            allowNegative ? parseSignedAmountInput : parseAmountInput
+          )(value);
           const tidied = amount === null ? value : amountToInput(amount);
           if (tidied !== value) onChange(tidied);
           onBlur?.();

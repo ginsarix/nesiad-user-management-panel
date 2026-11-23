@@ -19,11 +19,12 @@ export default async function EditCollectionPage({
 
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
-  // opened from a yetkili or proje page: return there
+  // opened from a yetkili, proje or Kasa - Banka page: return there
   const query = await searchParams;
   const from = {
     representative: idParam(query.representative),
     project: idParam(query.project),
+    cashAccount: idParam(query.cashAccount),
   };
 
   // prefetch

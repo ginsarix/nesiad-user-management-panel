@@ -4,7 +4,7 @@ import { getPayment } from "@/lib/fetches/payment";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
 import {
-  counterpartyParam,
+  idParam,
   prefetchFormLists,
 } from "../../_components/prefetch-form-lists";
 import { EditPayment } from "./edit-payment";
@@ -19,10 +19,11 @@ export default async function EditPaymentPage({
 
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
-  // `?counterparty=12` when opened from a cari page: return there
-  const fromCounterpartyId = counterpartyParam(
-    (await searchParams).counterparty,
-  );
+  // `?counterparty=12` / `?cashAccount=3` when opened from a cari or
+  // Kasa - Banka page: return there
+  const query = await searchParams;
+  const fromCounterpartyId = idParam(query.counterparty);
+  const fromCashAccountId = idParam(query.cashAccount);
 
   // prefetch
   const [payment] = await Promise.all([
@@ -39,7 +40,11 @@ export default async function EditPaymentPage({
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <EditPayment id={id} fromCounterpartyId={fromCounterpartyId} />
+      <EditPayment
+        id={id}
+        fromCounterpartyId={fromCounterpartyId}
+        fromCashAccountId={fromCashAccountId}
+      />
     </HydrationBoundary>
   );
 }

@@ -18,6 +18,7 @@ import {
   UserCheck,
   UserCog,
   UsersRound,
+  Vault,
   Wallet,
 } from "lucide-react";
 import {
@@ -85,6 +86,7 @@ export const navGroups: NavGroup[] = [
         title: "Finans",
         icon: Landmark,
         children: [
+          { title: "Kasa - Banka", href: "/cash-accounts", icon: Vault },
           { title: "Ödemeler", href: "/payments", icon: HandCoins },
           { title: "Cariler", href: "/counterparties", icon: BookUser },
           { title: "Tahsilatlar", href: "/collections", icon: Coins },
