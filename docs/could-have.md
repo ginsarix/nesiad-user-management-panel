@@ -22,3 +22,13 @@ Recording a payment to someone new means leaving the Ödeme form, creating the c
 
 - The dialog to reuse `counterpartyFormSchema` and `POST /api/counterparties` (which already audits and checks the Ünvan is unique).
 - The new cari to be selected in the form once created, and `["counterparties"]` invalidated.
+
+## Transfers between Kasa - Banka accounts
+
+_Added 2026-11-23_
+
+Moving money from one Kasa - Banka to another (cash deposited at the bank, a withdrawal into the cash box) can't be recorded: an ödeme needs a cari and a tahsilat needs a yetkili, so faking it with a pair of records doesn't work, and the only fix today is editing both accounts' Başlangıç Bakiyesi. A Virman record would cover it. It needs:
+
+- A `transfer` table: from account, to account (different ones), amount, date, note, audited like ödemeler.
+- The Bakiye sum (`opening_balance + tahsilatlar − ödemeler`) to also subtract outgoing and add incoming transfers.
+- The transfers listed on both accounts' details pages, and accounts with transfers kept from being deleted.
