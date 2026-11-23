@@ -12,6 +12,7 @@ export type AuditEntityType =
   | Organization
   | "sector"
   | "parameter"
+  | "cash_account"
   | "counterparty"
   | "payment"
   | "project"

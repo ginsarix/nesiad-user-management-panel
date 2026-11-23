@@ -11,6 +11,7 @@ export const AUDIT_ENTITY_TYPES = [
   "supervisory_board",
   "sector",
   "parameter",
+  "cash_account",
   "counterparty",
   "payment",
   "project",

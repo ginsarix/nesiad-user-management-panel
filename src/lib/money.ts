@@ -7,6 +7,9 @@
 /** The API's form of an amount: up to 10 digits, a dot, 2 decimals */
 export const AMOUNT_PATTERN = /^\d{1,10}\.\d{2}$/;
 
+/** The same, possibly below zero (a Kasa - Banka's Başlangıç Bakiyesi, Bakiye) */
+export const SIGNED_AMOUNT_PATTERN = /^-?\d{1,10}\.\d{2}$/;
+
 // Turkish input: dots group thousands (in threes), a comma starts up to 2
 // decimals. "1.250,50", "1250,5", "1250"
 const INPUT_PATTERN = /^(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{1,2}))?$/;
@@ -20,6 +23,18 @@ export function parseAmountInput(text: string): string | null {
   if (integer.length > MAX_INTEGER_DIGITS) return null;
   const decimals = (match[2] ?? "").padEnd(2, "0");
   return `${integer}.${decimals}`;
+}
+
+/**
+ * Like parseAmountInput, but a leading "-" (or "−") makes it negative:
+ * "-1.250,5" → "-1250.50". "-0" is "0.00".
+ */
+export function parseSignedAmountInput(text: string): string | null {
+  const trimmed = text.trim();
+  const negative = trimmed.startsWith("-") || trimmed.startsWith("\u2212");
+  const amount = parseAmountInput(negative ? trimmed.slice(1) : trimmed);
+  if (amount === null) return null;
+  return negative && amount !== "0.00" ? `-${amount}` : amount;
 }
 
 const currencyFormat = new Intl.NumberFormat("tr-TR", {
@@ -56,10 +71,11 @@ export function toKurus(amount: string): bigint {
   return BigInt(integer + decimals.padEnd(2, "0").slice(0, 2));
 }
 
-/** 125050n → "1250.50" */
+/** 125050n → "1250.50", -50n → "-0.50" */
 export function fromKurus(kurus: bigint): string {
-  const text = kurus.toString().padStart(3, "0");
-  return `${text.slice(0, -2)}.${text.slice(-2)}`;
+  const negative = kurus < BigInt(0);
+  const text = (negative ? -kurus : kurus).toString().padStart(3, "0");
+  return `${negative ? "-" : ""}${text.slice(0, -2)}.${text.slice(-2)}`;
 }
 
 /** ["1000.00", "50.25"] → "1050.25"; "0.00" without amounts */

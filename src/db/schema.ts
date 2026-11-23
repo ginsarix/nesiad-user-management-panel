@@ -105,6 +105,35 @@ export const projectTable = pgTable("project", {
 });
 
 /**
+ * Kasa - Banka: a cash box or bank account ödemeler leave and tahsilatlar
+ * enter. Bakiye is never stored: opening_balance + tahsilatlar − ödemeler,
+ * summed where read (cash-account-queries.ts).
+ */
+export const cashAccountTable = pgTable("cash_account", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: text().notNull(),
+  // Turkish lowercase name, so "İş Bankası" and "iş bankası" can't both exist
+  nameKey: text("name_key").notNull().unique(),
+  // Başlangıç Bakiyesi; may be below zero
+  openingBalance: numeric("opening_balance", {
+    precision: 12,
+    scale: 2,
+    mode: "string",
+  })
+    .default("0")
+    .notNull(),
+  active: boolean().default(true).notNull(),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+/**
  * Taahhütler: what a yetkili pledged to a proje, Adet × Tutar. A record
  * only; totals are computed where shown (src/lib/pledges.ts), never stored.
  */
@@ -204,6 +233,11 @@ export const collectionTable = pgTable(
     methodId: integer("method_id")
       .notNull()
       .references(() => parameterTable.id, { onDelete: "restrict" }),
+    // the Kasa - Banka it came into
+    cashAccountId: integer("cash_account_id").references(
+      () => cashAccountTable.id,
+      { onDelete: "restrict" },
+    ),
     // TL; travels as a string ("1250.50") so it never becomes a float
     amount: numeric({ precision: 12, scale: 2, mode: "string" }).notNull(),
     date: date({ mode: "string" }).notNull(),
@@ -226,6 +260,7 @@ export const collectionTable = pgTable(
     index("collection_date_idx").on(table.date.desc(), table.id.desc()),
     index("collection_representative_idx").on(table.representativeId),
     index("collection_project_idx").on(table.projectId),
+    index("collection_cash_account_idx").on(table.cashAccountId),
   ],
 );
 
@@ -249,6 +284,11 @@ export const paymentTable = pgTable(
     methodId: integer("method_id")
       .notNull()
       .references(() => parameterTable.id, { onDelete: "restrict" }),
+    // the Kasa - Banka it went out of
+    cashAccountId: integer("cash_account_id").references(
+      () => cashAccountTable.id,
+      { onDelete: "restrict" },
+    ),
     note: text(),
 
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -263,6 +303,7 @@ export const paymentTable = pgTable(
     check("payment_amount_positive", sql`${table.amount} > 0`),
     index("payment_date_idx").on(table.date.desc(), table.id.desc()),
     index("payment_counterparty_idx").on(table.counterpartyId),
+    index("payment_cash_account_idx").on(table.cashAccountId),
   ],
 );
 

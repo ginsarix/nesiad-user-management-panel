@@ -3,8 +3,11 @@ import {
   amountToInput,
   formatAmount,
   formatAmountText,
+  fromKurus,
   parseAmountInput,
+  parseSignedAmountInput,
   sumAmounts,
+  toKurus,
 } from "./money";
 
 describe("parseAmountInput", () => {
@@ -72,5 +75,38 @@ describe("sumAmounts", () => {
     expect(sumAmounts(["9999999999.99", "9999999999.99"])).toBe(
       "19999999999.98",
     );
+  });
+});
+
+describe("negative amounts", () => {
+  it("fromKurus keeps the sign", () => {
+    expect(fromKurus(BigInt(-50))).toBe("-0.50");
+    expect(fromKurus(BigInt(-125050))).toBe("-1250.50");
+    expect(fromKurus(BigInt(0))).toBe("0.00");
+  });
+
+  it("toKurus reads negative amounts", () => {
+    expect(toKurus("-0.50")).toBe(BigInt(-50));
+    expect(toKurus("-1250.50")).toBe(BigInt(-125050));
+  });
+
+  it("sumAmounts goes below zero", () => {
+    expect(sumAmounts(["100.00", "-250.25"])).toBe("-150.25");
+  });
+});
+
+describe("parseSignedAmountInput", () => {
+  it.each([
+    ["-1.250,5", "-1250.50"],
+    ["\u221210", "-10.00"],
+    ["1.250,50", "1250.50"],
+    ["-0", "0.00"],
+    [" -5 ", "-5.00"],
+  ])("parses %s", (input, expected) => {
+    expect(parseSignedAmountInput(input)).toBe(expected);
+  });
+
+  it.each(["--5", "", "-", "5-"])("rejects %j", (input) => {
+    expect(parseSignedAmountInput(input)).toBeNull();
   });
 });
