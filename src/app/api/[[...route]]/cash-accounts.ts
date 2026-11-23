@@ -175,10 +175,15 @@ export const cashAccountsRoute = new Hono<AppEnv>()
 
       const result = await db
         .transaction(async (tx) => {
-          const [paymentCount, collectionCount] = await Promise.all([
-            tx.$count(paymentTable, eq(paymentTable.cashAccountId, id)),
-            tx.$count(collectionTable, eq(collectionTable.cashAccountId, id)),
-          ]);
+          // one at a time: inside a transaction they share one connection
+          const paymentCount = await tx.$count(
+            paymentTable,
+            eq(paymentTable.cashAccountId, id),
+          );
+          const collectionCount = await tx.$count(
+            collectionTable,
+            eq(collectionTable.cashAccountId, id),
+          );
           if (paymentCount > 0 || collectionCount > 0) {
             return { refused: { paymentCount, collectionCount } };
           }

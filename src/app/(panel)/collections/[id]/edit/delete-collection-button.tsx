@@ -41,6 +41,8 @@ export function DeleteCollectionButton({
         queryClient.invalidateQueries({ queryKey: ["representatives"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        // the account's Bakiye moves back
+        queryClient.invalidateQueries({ queryKey: ["cash-accounts"] }),
       ]);
       router.push(backHref);
     },

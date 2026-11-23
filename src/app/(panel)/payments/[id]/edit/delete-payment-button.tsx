@@ -40,6 +40,8 @@ export function DeletePaymentButton({
         queryClient.invalidateQueries({ queryKey: ["payments", "list"] }),
         queryClient.invalidateQueries({ queryKey: ["counterparties"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
+        // the account's Bakiye moves back
+        queryClient.invalidateQueries({ queryKey: ["cash-accounts"] }),
       ]);
       router.push(backHref);
     },
