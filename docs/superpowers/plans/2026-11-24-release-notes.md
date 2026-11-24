@@ -4,7 +4,7 @@
 
 **Goal:** A Turkish "Sürüm Notları" page with search, a type filter and a version jump list; a link pinned to the bottom of the sidebar; and a dialog that shows each staff member a new version once.
 
-**Architecture:** The notes are a typed array in `src/lib/release-notes.ts`, with pure helpers for search, highlighting and "unseen" versions. The page and the dialog read that file directly; no API serves the notes. "Seen" is one nullable `date` column on `user`, exposed as a better-auth additional field. The panel layout reads it from the session, and `POST /api/release-notes/seen` sets it (no audit entry).
+**Architecture:** The notes are a typed array in `src/lib/release-notes.ts`, with pure helpers for search, highlighting and "unseen" versions. The page and the dialog read that file directly; no API serves the notes. "Seen" is one nullable `text` column on `user` holding a version id, exposed as a better-auth additional field. The panel layout reads it from the session, and `POST /api/release-notes/seen` sets it (no audit entry).
 
 **Tech Stack:** Next.js 16 (App Router), Hono, Drizzle (Postgres), better-auth, shadcn/Base UI, Tailwind, vitest.
 
@@ -15,26 +15,29 @@
 - UI text is Turkish; code, comments and commits are English. Run tests with `pnpm test --run`. Every task ends with `pnpm lint` and `pnpm exec tsc --noEmit` clean.
 - Entry types and labels, in this display order: `new` Yeni, `improved` İyileştirildi, `changed` Değiştirildi, `fixed` Düzeltildi, `removed` Silindi.
 - Tag colors (muted tints): Yeni green, İyileştirildi blue, Değiştirildi amber, Düzeltildi purple, Silindi red.
-- Version dates are `yyyy-aa-gg`. They're shown as "23 Kasım 2026" on the page and in the dialog, and as "23.11.2026" in the sidebar (`isoToDisplay`).
-- Column: `user.release_notes_seen`, `date`, nullable. Additive migration only.
+- A version is a date (`yyyy-aa-gg`) plus an optional `revision` (2, 3…) for later deploys the same day. Its id is `2026-11-24` or `2026-11-24-v2`, and ids never change once shipped.
+  - Page and dialog: "24 Kasım 2026" / "24 Kasım 2026 v2".
+  - Sidebar: "24.11.2026" / "24.11.2026v2".
+- Column: `user.release_notes_seen`, `text`, nullable, holding a version id. Additive migration only.
+- Order is always list order in `RELEASE_VERSIONS`, never string comparison of ids.
 - Marking notes seen writes **no** audit entry (CLAUDE.md audit rule: a person's own panel state).
 - No "yeni" badge or dot anywhere; the dialog is the only nudge.
 
 ## Calls settled while planning
 
-- The better-auth field is `releaseNotesSeen: { type: "string", required: false, input: false }` over a Drizzle `date(..., { mode: "string" })` column, so the session user carries `"yyyy-aa-gg"` or `null`.
-- New accounts get `releaseNotesSeen = LATEST_RELEASE_DATE` in the existing `databaseHooks.user.create.before`. That covers the seed admin and accounts created on Panel Kullanıcıları.
+- The better-auth field is `releaseNotesSeen: { type: "string", required: false, input: false }` over a Drizzle `text("release_notes_seen")` column, so the session user carries a version id or `null`.
+- New accounts get `releaseNotesSeen = LATEST_RELEASE_ID` in the existing `databaseHooks.user.create.before`. That covers the seed admin and accounts created on Panel Kullanıcıları.
 - `NewVersionDialog` (in the panel layout) handles "visiting `/release-notes` marks it seen": on that path it marks seen and never opens. The page itself doesn't call the API.
 - URL params on the page: `?q=` (search) and `?type=` (one of the type keys).
 - Matching uses `indexOf` on `foldTr` text, never `RegExp`, so a query like "(" can't throw.
 
 ## Review Focus
 
-- The better-auth `type: "string"` field over a Postgres `date` column must come back from `getSession` as exactly `"2026-11-24"`, not a `Date` or a timestamp string. Otherwise "unseen" comparisons silently break. Covered in Task 2's test.
+- A same-day second deploy: someone who saw `2026-11-24` must get the dialog for `2026-11-24-v2`. Someone at `-v2` must see `-v10` as newer, even though the string `"v10"` sorts before `"v2"`. Covered in Task 1's tests.
 - Client-side navigation: the panel layout doesn't re-render. After the dialog is closed, moving between pages must not reopen it. After landing on `/release-notes` with unseen notes, moving on to another page must not open it either. This is in Task 5's manual check.
 - Turkish search: "is" and "iş" must both find "İŞ" and "Işık". Highlights must land on the right characters. Whitespace-only and regex-like queries must not filter everything out or throw. Covered in Task 1's tests.
-- The seen date comes from the server and never moves backwards: an account already at a later date stays there. Covered in Task 2's test.
-- Malformed data (duplicate or unsorted dates, empty text) must fail CI, not the page. Covered in Task 1's data test.
+- Rollback or an id missing from the list (production running older code than what someone saw) must show nothing, not every version. Covered in Task 1's tests.
+- Malformed data (duplicate ids, unsorted versions, a v3 without a v2, empty text) must fail CI, not the page. Covered in Task 1's data test.
 
 ---
 
@@ -50,12 +53,17 @@
   - `RELEASE_NOTE_TYPES: readonly ReleaseNoteType[]`, in display order
   - `RELEASE_NOTE_LABELS: Record<ReleaseNoteType, string>`
   - `type ReleaseNote = { type: ReleaseNoteType; text: string }`
-  - `type ReleaseVersion = { date: string; label?: string; entries: ReleaseNote[] }`
+  - `type ReleaseVersion = { date: string; revision?: number; label?: string; entries: ReleaseNote[] }`
   - `RELEASE_VERSIONS: ReleaseVersion[]`, newest first
-  - `LATEST_RELEASE_DATE: string`
-  - `formatReleaseDate(date: string): string`, e.g. `"23 Kasım 2026"`
+  - `releaseVersionId(v: ReleaseVersion): string`, e.g. `"2026-11-24"` / `"2026-11-24-v2"`
+  - `LATEST_RELEASE_ID: string`, the id of `RELEASE_VERSIONS[0]`
+  - `formatReleaseVersion(v: ReleaseVersion): string`, e.g. `"24 Kasım 2026"` / `"24 Kasım 2026 v2"`
+  - `shortReleaseVersion(v: ReleaseVersion): string`, e.g. `"24.11.2026"` / `"24.11.2026v2"`, via `isoToDisplay`
   - `sortedEntries(version: ReleaseVersion): ReleaseNote[]`, in display order, stable within a type
-  - `unseenReleaseVersions(seen: string | null, versions?: ReleaseVersion[]): ReleaseVersion[]`
+  - `unseenReleaseVersions(seenId: string | null, versions?: ReleaseVersion[]): ReleaseVersion[]`:
+    - null → `[versions[0]]`
+    - a known id → the versions before it in the list
+    - an unknown id → `[]`
   - `filterReleaseVersions(versions: ReleaseVersion[], filter: { query: string; type: ReleaseNoteType | null }): ReleaseVersion[]`. It keeps only matching entries and drops versions left empty.
   - `matchRanges(text: string, query: string): [start: number, end: number][]`. It returns non-overlapping ranges in the original text, or `[]` when the query is blank or when folding changed the text length.
 
@@ -63,11 +71,14 @@
 
 ```ts
 describe("RELEASE_VERSIONS", () => {
-  it("has valid, unique dates, newest first", () => {
-    const dates = RELEASE_VERSIONS.map((v) => v.date);
-    for (const d of dates) expect(parseIsoDate(d)).not.toBeNull();
-    expect(new Set(dates).size).toBe(dates.length);
-    expect(dates).toEqual([...dates].sort().reverse());
+  it("has valid dates and unique ids", () => {
+    for (const v of RELEASE_VERSIONS) expect(parseIsoDate(v.date)).not.toBeNull();
+    const ids = RELEASE_VERSIONS.map(releaseVersionId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+  it("is newest first, and a day's revisions run 2, 3… without gaps", () => {
+    // walking oldest → newest: a new date starts with no revision; the same
+    // date again must be previous revision (1 if none) + 1; dates never go back
   });
   it("has no empty version or text", () => {
     for (const v of RELEASE_VERSIONS) {
@@ -75,14 +86,20 @@ describe("RELEASE_VERSIONS", () => {
       for (const e of v.entries) expect(e.text.trim()).not.toBe("");
     }
   });
-  it("LATEST_RELEASE_DATE is the newest date", () => {
-    expect(LATEST_RELEASE_DATE).toBe(RELEASE_VERSIONS[0].date);
+  it("LATEST_RELEASE_ID is the newest version's id", () => {
+    expect(LATEST_RELEASE_ID).toBe(releaseVersionId(RELEASE_VERSIONS[0]));
   });
 });
 
-it("formats dates in Turkish", () => {
-  expect(formatReleaseDate("2026-11-23")).toBe("23 Kasım 2026");
-  expect(formatReleaseDate("2026-03-01")).toBe("1 Mart 2026");
+it("names versions", () => {
+  const v1 = { date: "2026-11-24", entries: [] };
+  const v2 = { date: "2026-11-24", revision: 2, entries: [] };
+  expect(releaseVersionId(v1)).toBe("2026-11-24");
+  expect(releaseVersionId(v2)).toBe("2026-11-24-v2");
+  expect(formatReleaseVersion(v1)).toBe("24 Kasım 2026");
+  expect(formatReleaseVersion(v2)).toBe("24 Kasım 2026 v2");
+  expect(formatReleaseVersion({ date: "2026-03-01", entries: [] })).toBe("1 Mart 2026");
+  expect(shortReleaseVersion(v2)).toBe("24.11.2026v2");
 });
 
 it("sorts entries by type, keeping written order within a type", () => {
@@ -90,14 +107,23 @@ it("sorts entries by type, keeping written order within a type", () => {
 });
 
 describe("unseenReleaseVersions", () => {
-  // fixture dates: 2026-12-02, 2026-11-25, 2026-11-13
+  // fixture ids, newest first: 2026-12-02-v2, 2026-12-02, 2026-11-25, 2026-11-13
+  const ids = (vs: ReleaseVersion[]) => vs.map(releaseVersionId);
   it("only the newest when nothing was seen", () =>
-    expect(unseenReleaseVersions(null, versions).map((v) => v.date)).toEqual(["2026-12-02"]));
+    expect(ids(unseenReleaseVersions(null, versions))).toEqual(["2026-12-02-v2"]));
   it("none when up to date", () =>
-    expect(unseenReleaseVersions("2026-12-02", versions)).toEqual([]));
+    expect(unseenReleaseVersions("2026-12-02-v2", versions)).toEqual([]));
+  it("a same-day v2 after its day's first version", () =>
+    expect(ids(unseenReleaseVersions("2026-12-02", versions))).toEqual(["2026-12-02-v2"]));
   it("every newer one when behind", () =>
-    expect(unseenReleaseVersions("2026-11-13", versions).map((v) => v.date))
-      .toEqual(["2026-12-02", "2026-11-25"]));
+    expect(ids(unseenReleaseVersions("2026-11-25", versions)))
+      .toEqual(["2026-12-02-v2", "2026-12-02"]));
+  it("goes by list order, not string order", () => {
+    // a fixture with 2026-12-02-v10 first and 2026-12-02-v9 next:
+    // seen v9 → ["2026-12-02-v10"]
+  });
+  it("none for an id not in the list", () =>
+    expect(unseenReleaseVersions("2099-01-01", versions)).toEqual([]));
 });
 
 describe("filterReleaseVersions", () => {
@@ -132,7 +158,11 @@ Run: `pnpm test --run release-notes`
 Expected: FAIL. `./release-notes` can't be resolved.
 
 - [ ] **Step 3: Implement `src/lib/release-notes.ts`**
-  - `formatReleaseDate` uses `Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })` on `${date}T00:00:00Z`.
+  - `formatReleaseVersion` formats the date with `Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })` on `${date}T00:00:00Z`, then appends ` v<revision>`.
+  - The comment above `RELEASE_VERSIONS` states the rules:
+    - Newest first.
+    - Never add notes to a version that has been deployed. A later deploy the same day gets the same date with the next `revision`.
+    - Ids never change once shipped.
   - Search folds both sides with `foldTr` (`src/lib/turkish.ts`) after trimming the query.
   - `matchRanges` maps folded indexes straight back. It returns `[]` if `foldTr(text).length !== text.length`.
   - `RELEASE_VERSIONS` starts with only the upcoming version, dated `"2026-11-24"`. Its entries:
@@ -170,10 +200,10 @@ git commit -m "feat: release notes data and search helpers"
 - Test: `src/app/api/[[...route]]/release-notes.test.ts`
 
 **Interfaces:**
-- Consumes: `LATEST_RELEASE_DATE` (Task 1)
+- Consumes: `LATEST_RELEASE_ID` (Task 1)
 - Produces:
-  - `userTable.releaseNotesSeen`: `date("release_notes_seen", { mode: "string" })`, nullable
-  - session `user.releaseNotesSeen: string | null`
+  - `userTable.releaseNotesSeen`: `text("release_notes_seen")`, nullable
+  - session `user.releaseNotesSeen: string | null` (a version id)
   - `releaseNotesRoute`: `POST /seen` → `204`
   - `markReleaseNotesSeen(): Promise<void>` in `src/lib/fetches/release-notes.ts`. It throws via `throwResponseError(res, "Sürüm notları kaydedilemedi")`.
 
@@ -181,27 +211,20 @@ git commit -m "feat: release notes data and search helpers"
 
 ```ts
 it("starts a new account at the newest version", async () => {
-  const row = await seenOf(other.id);
-  expect(row).toBe(LATEST_RELEASE_DATE);
+  expect(await seenOf(other.id)).toBe(LATEST_RELEASE_ID);
 });
 
-it("marks the caller's notes seen, as a plain date in the session", async () => {
+it("marks only the caller's notes seen, and the session carries the id", async () => {
   await db.update(userTable).set({ releaseNotesSeen: null }).where(eq(userTable.id, me.id));
   await db.update(userTable).set({ releaseNotesSeen: "2026-01-01" }).where(eq(userTable.id, other.id));
 
   const res = await testApp.request("/seen", { method: "POST", headers: cookies });
   expect(res.status).toBe(204);
-  expect(await seenOf(me.id)).toBe(LATEST_RELEASE_DATE);
+  expect(await seenOf(me.id)).toBe(LATEST_RELEASE_ID);
   expect(await seenOf(other.id)).toBe("2026-01-01");
 
   const session = await auth.api.getSession({ headers: cookies });
-  expect(session?.user.releaseNotesSeen).toBe(LATEST_RELEASE_DATE);
-});
-
-it("never moves the date backwards", async () => {
-  await db.update(userTable).set({ releaseNotesSeen: "2099-01-01" }).where(eq(userTable.id, me.id));
-  await testApp.request("/seen", { method: "POST", headers: cookies });
-  expect(await seenOf(me.id)).toBe("2099-01-01");
+  expect(session?.user.releaseNotesSeen).toBe(LATEST_RELEASE_ID);
 });
 
 it("writes no audit entry", async () => {
@@ -218,14 +241,14 @@ it("writes no audit entry", async () => {
 Run: `pnpm test --run release-notes`
 Expected: FAIL. `./release-notes` (the route) can't be resolved.
 
-- [ ] **Step 3: Add the column and the better-auth field.** The field gets a comment: "the newest release notes version this person has seen; set only by POST /api/release-notes/seen, never audited (own panel state)". In `create.before`, also set `releaseNotesSeen: LATEST_RELEASE_DATE`.
+- [ ] **Step 3: Add the column and the better-auth field.** The field gets a comment: "the newest release notes version this person has seen; set only by POST /api/release-notes/seen, never audited (own panel state)". In `create.before`, also set `releaseNotesSeen: LATEST_RELEASE_ID`.
 
 - [ ] **Step 4: Apply and generate**
 
 Run: `pnpm db:push`, then `pnpm db:generate`.
-Expected: the migration is exactly `ALTER TABLE "user" ADD COLUMN "release_notes_seen" date;`, with no drops and no default.
+Expected: the migration is exactly `ALTER TABLE "user" ADD COLUMN "release_notes_seen" text;`, with no drops and no default.
 
-- [ ] **Step 5: Implement the route and the fetch.** The route sets ``releaseNotesSeen: sql`greatest(${userTable.releaseNotesSeen}, ${LATEST_RELEASE_DATE}::date)` `` for `c.get("session").user.id` and returns `c.body(null, 204)`. Postgres `greatest` ignores null. Add a comment saying why there's no `recordAudit`.
+- [ ] **Step 5: Implement the route and the fetch.** The route sets `releaseNotesSeen: LATEST_RELEASE_ID` for `c.get("session").user.id` and returns `c.body(null, 204)`. It reads no body. Add a comment saying why there's no `recordAudit`.
 
 - [ ] **Step 6: Run the tests and see them pass**
 
@@ -249,7 +272,7 @@ git commit -m "feat: remember the newest release notes each panel user has seen"
 - Test: `src/lib/nav.test.ts` (create it if it doesn't exist)
 
 **Interfaces:**
-- Consumes: `LATEST_RELEASE_DATE` (Task 1), `isoToDisplay` (`src/lib/dates.ts`)
+- Consumes: `RELEASE_VERSIONS`, `shortReleaseVersion` (Task 1)
 - Produces: `footerLinks: NavLink[]` in `nav.ts`, `[{ title: "Sürüm Notları", href: "/release-notes", icon: Newspaper }]`. `findActiveNavItem` also searches it.
 
 - [ ] **Step 1: Write the failing test**
@@ -268,7 +291,7 @@ Expected: FAIL. The result is `undefined`.
 - [ ] **Step 3: Implement it.**
   - Add `footerLinks` and include it in `findActiveNavItem`.
   - In `AppSidebar`, add a `SidebarFooter` after `SidebarContent` (above `SidebarRail`), with a top border in `sidebar-border`.
-  - Expanded: a muted caption "Sürüm {isoToDisplay(LATEST_RELEASE_DATE)}" (`text-[11px] text-sidebar-foreground/60`), then a "Sürüm Notları →" link (white, underlined, gold when on `/release-notes`).
+  - Expanded: a muted caption "Sürüm {shortReleaseVersion(RELEASE_VERSIONS[0])}" (`text-[11px] text-sidebar-foreground/60`), then a "Sürüm Notları →" link (white, underlined, gold when on `/release-notes`).
   - Collapsed (`group-data-[collapsible=icon]`): only a `SidebarMenuButton` with the `Newspaper` icon and the tooltip "Sürüm Notları · {date}".
   - The footer stays at the bottom of the bar however tall the window is, and the nav scrolls above it.
 
@@ -307,9 +330,9 @@ git commit -m "feat: Sürüm Notları link pinned to the bottom of the sidebar"
 - [ ] **Step 2: Build the page.**
   - `page.tsx`: `await requireSession()`, then render `<ReleaseNotes versions={RELEASE_VERSIONS} />`. Run `pnpm exec next typegen` afterwards.
   - `release-notes.tsx` (client), top: the search `Input` ("Ara…"), then single-select chips "Tümü" plus the five labels.
-  - Main column: one card per version from `filterReleaseVersions`, `id={version.date}`. The heading is `formatReleaseDate`, with "En son" on `LATEST_RELEASE_DATE` and `label` where set. Entries come from `sortedEntries`.
+  - Main column: one card per version from `filterReleaseVersions`, `id={releaseVersionId(version)}`. The heading is `formatReleaseVersion`, with "En son" on the version whose id is `LATEST_RELEASE_ID` and `label` where set. Entries come from `sortedEntries`.
   - Search status: while a query is set, show "{N} sürümde {M} sonuç". With nothing left, show "Sonuç bulunamadı".
-  - Right (`lg` and up): a sticky "Sürümler" list of the filtered versions. It's highlighted by scroll position (IntersectionObserver), and a click scrolls to `#date` and updates the hash.
+  - Right (`lg` and up): a sticky "Sürümler" list of the filtered versions. It's highlighted by scroll position (IntersectionObserver), and a click scrolls to `#<id>` and updates the hash.
   - Below `lg`: a "Sürüme git" `Select` (with `items`) above the cards, doing the same thing.
   - `q` and `type` are read from `useSearchParams` on load and mirrored with `history.replaceState`. On load with a hash, scroll to that version.
 
@@ -317,7 +340,7 @@ git commit -m "feat: Sürüm Notları link pinned to the bottom of the sidebar"
   - Searching "is" highlights "İŞ"/"Işık".
   - The chips combine with the search.
   - The "Sürümler" highlight follows scrolling, and clicking jumps.
-  - Reloading keeps `?q=`/`?type=`/`#date`.
+  - Reloading keeps `?q=`/`?type=`/`#<id>`.
   - At phone width, the "Sürüme git" select replaces the list and nothing scrolls sideways.
   - The header says "Sürüm Notları".
 
@@ -337,15 +360,15 @@ git commit -m "feat: Sürüm Notları page with search, type filter and version 
 - Modify: `src/app/(panel)/layout.tsx`
 
 **Interfaces:**
-- Consumes: `unseenReleaseVersions`, `formatReleaseDate`, `sortedEntries` (Task 1); `user.releaseNotesSeen`, `markReleaseNotesSeen` (Task 2); `ReleaseNoteEntry` (Task 4)
+- Consumes: `unseenReleaseVersions`, `formatReleaseVersion`, `sortedEntries` (Task 1); `user.releaseNotesSeen`, `markReleaseNotesSeen` (Task 2); `ReleaseNoteEntry` (Task 4)
 - Produces: `<NewVersionDialog versions={ReleaseVersion[]} />`. The layout passes `unseenReleaseVersions(user.releaseNotesSeen)` and renders it next to `SessionTimeout`.
 
 - [ ] **Step 1: Build the dialog** with shadcn `Dialog`. It holds `done` state (initially `versions.length === 0`).
   - On `/release-notes` (`usePathname`) while not done: call `markReleaseNotesSeen()` once, set done, and never open.
   - Elsewhere: open while not done.
   - Any close (`onOpenChange(false)`, Tamam, or the "Tüm sürüm notları" link to `/release-notes`): set done and call `markReleaseNotesSeen()`. If the call fails, log it and stay closed.
-  - Title "Panel güncellendi". Subtitle "{formatReleaseDate(date)} sürümündeki yenilikler" for one version, "Son girişinizden bu yana {n} sürüm" for more.
-  - Body (scrolls, `max-h` about 60vh): with several versions, a small date heading per version, newest first. Entries come from `sortedEntries`, shown with `ReleaseNoteEntry`.
+  - Title "Panel güncellendi". Subtitle "{formatReleaseVersion(version)} sürümündeki yenilikler" for one version, "Son girişinizden bu yana {n} sürüm" for more.
+  - Body (scrolls, `max-h` about 60vh): with several versions, a small `formatReleaseVersion` heading per version, newest first. Entries come from `sortedEntries`, shown with `ReleaseNoteEntry`.
   - Footer: the link on the left and the "Tamam" button on the right.
 
 - [ ] **Step 2: Check it in the browser** with the dev account:
@@ -390,8 +413,8 @@ Run: `pnpm test --run release-notes`
 Expected: PASS.
 
 - [ ] **Step 3: Update CLAUDE.md.**
-  - Add a Domain notes bullet for Sürüm Notları: the data file, page, footer, dialog, the `release_notes_seen` rules (null → newest only, new accounts start at the newest, never backwards, not audited).
-  - Add a rule under Commands or Architecture: every change staff would notice adds its entries to `src/lib/release-notes.ts` in the same change, dated the day it's pushed to `main`. A second push the same day joins that day's version. Check the date before pushing.
+  - Add a Domain notes bullet for Sürüm Notları: the data file, page, footer, dialog, the `release_notes_seen` rules (a version id; null → newest only; unknown id → nothing; new accounts start at the newest; not audited).
+  - Add a rule under Commands or Architecture: every change staff would notice adds its entries to `src/lib/release-notes.ts` in the same change, dated the day it’s pushed to `main`. Never add to a version that has been deployed: a later push the same day gets a new version with the same date and the next `revision` (v2, v3…). Check the date before pushing.
 
 - [ ] **Step 4: Commit**, then stop for the user to review the Turkish wording before the branch is pushed.
 

@@ -10,8 +10,14 @@ that ships adds its notes in the same commit.
 ## Goals
 
 - A "Sürüm Notları" page at `/release-notes`, in Turkish, for the 2–3 staff.
-- One version per day that had a production deploy, named by that date. It's
-  shown as "23 Kasım 2026", with "23.11.2026" in the sidebar.
+- One version per production deploy that staff would notice, named by its
+  date. It's shown as "23 Kasım 2026", with "23.11.2026" in the sidebar. A
+  later deploy on the same day that adds notes is a new version with the same
+  date and a suffix: "24 Kasım 2026 v2" / "24.11.2026v2", then v3, and so on.
+  (User's call: a new version rather than adding to the day's notes, so
+  everyone who saw the first notice still sees the new one.)
+- The past is grouped by deploy day (see "Rebuilt history"), since those
+  versions are being written after the fact.
 - Each version is a list of entries. Each entry has a type (Yeni,
   İyileştirildi, Değiştirildi, Düzeltildi, Silindi) and one plain sentence.
 - Search across every version, a type filter, and a quick way to jump to any
@@ -27,7 +33,8 @@ that ships adds its notes in the same commit.
 - A "yeni" badge or dot in the sidebar. The new-version dialog is the only
   nudge.
 - Editing notes from the panel. Notes are only written in the code.
-- Semver or any version number other than the date.
+- Semver or any version number other than the date (plus the same-day
+  suffix).
 - Developer-facing changes: docs, tests, refactors, dependency bumps and CI
   never appear.
 
@@ -60,12 +67,19 @@ export type ReleaseNoteType =
 
 export type ReleaseVersion = {
   date: string;          // "yyyy-aa-gg", the production deploy day
+  revision?: number;     // 2, 3, … for later deploys the same day
   label?: string;        // e.g. "İlk sürüm" on the first one
   entries: { type: ReleaseNoteType; text: string }[];
 };
 
 export const RELEASE_VERSIONS: ReleaseVersion[] = [ /* newest first */ ];
 ```
+
+- A version's **id** is its date, plus `-v<revision>` when there is one:
+  `2026-11-24`, `2026-11-24-v2`. Ids never change once shipped, since the
+  seen column stores them.
+- It's shown as "24 Kasım 2026" / "24 Kasım 2026 v2" on the page and in the
+  dialog, and as "24.11.2026" / "24.11.2026v2" in the sidebar.
 
 - Turkish labels and colors live in a map from type to label (Yeni,
   İyileştirildi, Değiştirildi, Düzeltildi, Silindi) in the same file. The
@@ -74,15 +88,20 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [ /* newest first */ ];
 - A version's entries render grouped in that order, keeping the written
   order within a type. (My call: tidier than mixed types.)
 - Entry text is plain text: no markdown, no links.
-- A unit test checks the data: dates are valid `yyyy-aa-gg`, unique and
-  newest first; every version has at least one entry; no text is empty.
+- A unit test checks the data:
+  - Dates are valid `yyyy-aa-gg`.
+  - Ids are unique.
+  - Versions are newest first, by date and then by revision.
+  - A revision appears only after the same date's earlier version, with no
+    gaps (no suffix, v2, v3…).
+  - Every version has at least one entry, and no text is empty.
 
 ### Sidebar footer (picked: B, the small version line)
 
 - `SidebarFooter` in `src/components/app-sidebar.tsx`, below
   `SidebarContent`. It sits at the bottom of the bar and the nav scrolls
   above it.
-- Expanded: a muted caption "Sürüm 23.11.2026" (the newest version's date),
+- Expanded: a muted caption "Sürüm 23.11.2026" (the newest version),
   with a "Sürüm Notları →" link under it in white. On `/release-notes` the
   link is marked active (gold, like the active bar).
 - Collapsed (icons only): one icon button (lucide `Newspaper`, my call) with
@@ -106,9 +125,10 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [ /* newest first */ ];
   - Tag colors: Yeni green, İyileştirildi blue, Değiştirildi amber,
     Düzeltildi purple, Silindi red. These are muted tints that fit the
     existing palette.
-- Right: a sticky "Sürümler" list of every version date. It highlights the
+- Right: a sticky "Sürümler" list of every version. It highlights the
   version being read as you scroll, and clicking scrolls to it. Each version
-  has an anchor (`#2026-11-13`), so a version can be linked directly.
+  has an anchor (its id, `#2026-11-13`), so a version can be linked
+  directly.
 - Narrow screens: the right list is hidden, and a "Sürüme git" select above
   the cards takes its place. (My call.)
 - Search: Turkish-aware via `foldTr`, matched against entry text. Matches
@@ -125,17 +145,21 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [ /* newest first */ ];
 
 ### New-version dialog
 
-- **Storage:** a new column `user.release_notes_seen`, `date`, nullable. It
-  holds the newest version date the person has seen. It's per account, not
+- **Storage:** a new column `user.release_notes_seen`, `text`, nullable. It
+  holds the id of the newest version the person has seen. It's a text id,
+  not a date, because same-day versions share a date. It's per account, not
   per browser, so a notice seen on one computer never comes back on another.
   It's declared in better-auth `user.additionalFields` with `input: false`,
   like `collection_sms`. The migration is additive (nullable, no default
   needed), so no production rows change.
-- **Who sees what:** the unseen versions are those newer than
-  `release_notes_seen`.
+- **Who sees what:** the unseen versions are those before the seen id in
+  `RELEASE_VERSIONS`, i.e. newer. This goes by list order, never by comparing
+  strings.
   - When it's null (every existing account at deploy), only the newest
     version counts as unseen. Nobody gets the whole history.
-  - New accounts are created with it set to the newest version date, so they
+  - An id that isn't in the list (e.g. production rolled back to older code)
+    means nothing is unseen.
+  - New accounts are created with it set to the newest version's id, so they
     see nothing until the next deploy.
 - **When:** the panel layout already has the session user on the server, so
   it passes the unseen versions (if any) to a client `NewVersionDialog`. It
@@ -152,19 +176,22 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [ /* newest first */ ];
     button.
 - **Seen:** any close (Tamam, ✕, Esc, outside click, or the link) calls
   `POST /api/release-notes/seen`. That sets `release_notes_seen` to the
-  newest version date for the session user. It never moves backwards
-  (`greatest`), and the server takes the date from `RELEASE_VERSIONS`, not
-  from the request. Visiting `/release-notes` does the same. If the call
+  newest version's id for the session user. The server takes the id from
+  `RELEASE_VERSIONS`, not from the request, so it can only ever write the
+  newest version of the code that's running. Visiting `/release-notes` does the same. If the call
   fails, the dialog still closes; it shows again on the next load, which is
   fine.
 - **No audit entry.** This is the person's own panel state (see the
   CLAUDE.md audit rule on what counts as a change). This was approved by the
   user.
 - **Tests:**
-  - The route sets the date for the caller only, never lowers it, and writes
-    no audit row.
-  - The unseen-versions helper covers null (newest only), up to date (none),
-    and two behind (both).
+  - The route sets the id for the caller only and writes no audit row.
+  - The unseen-versions helper covers:
+    - null (newest only)
+    - up to date (none)
+    - two behind (both), including a same-day v2 after its day's first
+      version
+    - an unknown id (none)
   - A new panel user starts at the newest version.
 
 ### Rebuilt history
@@ -204,8 +231,11 @@ Versions are cut at the last successful production deploy of each day
 
 - CLAUDE.md gains a rule: every `feat:` / `fix:` change that staff would
   notice adds its entries to `src/lib/release-notes.ts` in the same change,
-  under the date it's pushed to `main`. A second push the same day joins
-  that day's version. Make sure the date is right when pushing.
+  under the date it's pushed to `main`.
+  - Notes never go into a version that has already been deployed. A later
+    push the same day gets a new version with the same date and the next
+    revision (v2, v3…).
+  - Make sure the date is right when pushing.
 - Nothing enforces this in CI. (My call: a check that can't tell
   user-visible from internal commits would be noise.)
 
