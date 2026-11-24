@@ -41,9 +41,14 @@ import {
   representativeOrganizationsText,
   selectRepresentativeOrganizations,
 } from "./organization-queries";
+import {
+  InvalidOrganizationsError,
+  StaleOrganizationsError,
+  syncRepresentativeOrganizations,
+} from "./representative-organizations";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
-const MISSING_MEMBER_ERROR = "Seçilen üye bulunamadı";
+const MISSING_LINK_ERROR = "Seçilen üye, grup veya görev bulunamadı";
 
 /**
  * The tahsilatlar, taahhütler and tahakkuk rows of a yetkili. One query at
@@ -214,6 +219,24 @@ async function replaceLinks(
   );
 }
 
+/** The response for a refused save, or null when `error` isn't one */
+function refusedSaveResponse(error: unknown) {
+  if (error instanceof UnlinkableMemberError) {
+    return { body: { error: UNLINKABLE_MEMBER_ERROR }, status: 400 as const };
+  }
+  if (error instanceof InvalidOrganizationsError) {
+    return { body: { error: error.message }, status: 400 as const };
+  }
+  if (error instanceof StaleOrganizationsError) {
+    return { body: { error: error.message }, status: 409 as const };
+  }
+  // a member, group or görev deleted while the form was open
+  if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+    return { body: { error: MISSING_LINK_ERROR }, status: 400 as const };
+  }
+  return null;
+}
+
 export const representativesRoute = new Hono<AppEnv>()
   .get("/", async (c) => {
     const [representatives, links] = await Promise.all([
@@ -279,7 +302,12 @@ export const representativesRoute = new Hono<AppEnv>()
     requestBodyLimit,
     zValidator("form", createRepresentativeSchema, respondWithFirstIssue),
     async (c) => {
-      const { members = [], photo, ...fields } = c.req.valid("form");
+      const {
+        members = [],
+        organizations = [],
+        photo,
+        ...fields
+      } = c.req.valid("form");
 
       const storedPhoto = photo ? await storePhoto(photo) : null;
       if (photo && !storedPhoto) {
@@ -295,6 +323,12 @@ export const representativesRoute = new Hono<AppEnv>()
 
           await assertLinkable(tx, members);
           await replaceLinks(tx, representative.id, members);
+          await syncRepresentativeOrganizations(tx, {
+            representativeId: representative.id,
+            rows: organizations,
+            active: representative.active,
+            actor: actorOf(c),
+          });
           await recordAudit(tx, {
             actor: actorOf(c),
             action: "create",
@@ -308,6 +342,13 @@ export const representativesRoute = new Hono<AppEnv>()
                 label: "Bağlı Üyeler",
                 value: await linkedMembersText(tx, representative.id),
               },
+              {
+                label: "Organizasyonlar",
+                value: await representativeOrganizationsText(
+                  tx,
+                  representative.id,
+                ),
+              },
             ],
           });
           return representative.id;
@@ -316,12 +357,8 @@ export const representativesRoute = new Hono<AppEnv>()
         return c.json({ id, message: "Yetkili kaydedildi" }, 201);
       } catch (error) {
         await deleteFiles([storedPhoto]);
-        if (error instanceof UnlinkableMemberError) {
-          return c.json({ error: UNLINKABLE_MEMBER_ERROR }, 400);
-        }
-        if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
-          return c.json({ error: MISSING_MEMBER_ERROR }, 400);
-        }
+        const refused = refusedSaveResponse(error);
+        if (refused) return c.json(refused.body, refused.status);
         throw error;
       }
     },
@@ -334,7 +371,8 @@ export const representativesRoute = new Hono<AppEnv>()
     zValidator("form", updateRepresentativeSchema, respondWithFirstIssue),
     async (c) => {
       const { id } = c.req.valid("param");
-      const { members, photo, removePhoto, ...fields } = c.req.valid("form");
+      const { members, organizations, photo, removePhoto, ...fields } =
+        c.req.valid("form");
 
       // undefined keeps the current photo, null removes it
       let newPhoto: string | null | undefined;
@@ -377,6 +415,22 @@ export const representativesRoute = new Hono<AppEnv>()
             );
           }
 
+          let organizationChanges: ReturnType<typeof change> = [];
+          if (organizations) {
+            const before = await representativeOrganizationsText(tx, id);
+            await syncRepresentativeOrganizations(tx, {
+              representativeId: id,
+              rows: organizations,
+              active: fields.active ?? existing.active,
+              actor: actorOf(c),
+            });
+            organizationChanges = change(
+              "Organizasyonlar",
+              before,
+              await representativeOrganizationsText(tx, id),
+            );
+          }
+
           const changes = [
             ...diffFields(representativeAuditSpec, existing, fields),
             ...(newPhoto !== undefined
@@ -387,6 +441,7 @@ export const representativesRoute = new Hono<AppEnv>()
                 )
               : []),
             ...linkChanges,
+            ...organizationChanges,
           ];
           if (changes.length > 0) {
             await recordAudit(tx, {
@@ -410,12 +465,8 @@ export const representativesRoute = new Hono<AppEnv>()
         return c.json({ id, message: "Yetkili güncellendi" }, 200);
       } catch (error) {
         await deleteFiles([newPhoto]);
-        if (error instanceof UnlinkableMemberError) {
-          return c.json({ error: UNLINKABLE_MEMBER_ERROR }, 400);
-        }
-        if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
-          return c.json({ error: MISSING_MEMBER_ERROR }, 400);
-        }
+        const refused = refusedSaveResponse(error);
+        if (refused) return c.json(refused.body, refused.status);
         throw error;
       }
     },

@@ -1,5 +1,5 @@
 import { readdir } from "node:fs/promises";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
@@ -126,7 +126,7 @@ function representativeForm(body: Record<string, unknown>) {
   const fields: Record<string, string | File> = {};
   for (const [key, value] of Object.entries(body)) {
     if (value instanceof File || typeof value === "string") fields[key] = value;
-    else if (key === "members") fields[key] = JSON.stringify(value);
+    else if (typeof value === "object") fields[key] = JSON.stringify(value);
     else fields[key] = String(value);
   }
   return form(fields);
@@ -287,7 +287,7 @@ describe("POST /api/representatives", () => {
       members: [{ memberId: 2147483000 }],
     });
     expect(res.status).toBe(400);
-    expect(body.error).toBe("Seçilen üye bulunamadı");
+    expect(body.error).toBe("Seçilen üye, grup veya görev bulunamadı");
 
     // by name: other test files add yetkililer in parallel
     const all = await (await representativesRoute.request("/")).json();
@@ -549,6 +549,7 @@ describe("yetkili and Organizasyon", () => {
         rowId: expect.any(Number),
         groupId: committeeId,
         groupName: committeeName,
+        roleId: baskan.id,
         role: baskan.name,
       },
       {
@@ -556,6 +557,7 @@ describe("yetkili and Organizasyon", () => {
         rowId: expect.any(Number),
         groupId: committeeId,
         groupName: committeeName,
+        roleId: uye.id,
         role: uye.name,
       },
       {
@@ -563,6 +565,7 @@ describe("yetkili and Organizasyon", () => {
         rowId: expect.any(Number),
         groupId: boardId,
         groupName: boardName,
+        roleId: uye.id,
         role: uye.name,
       },
     ]);
@@ -604,6 +607,339 @@ describe("yetkili and Organizasyon", () => {
       label: "Organizasyonlar",
       value: `Komiteler › ${groupName}: ${role.name}`,
     });
+  });
+});
+
+/** A committee's rows in their saved order */
+async function committeeRows(groupId: number) {
+  return await db
+    .select({
+      id: committeeMemberTable.id,
+      representativeId: committeeMemberTable.representativeId,
+      roleId: committeeMemberTable.roleId,
+    })
+    .from(committeeMemberTable)
+    .where(eq(committeeMemberTable.groupId, groupId))
+    .orderBy(asc(committeeMemberTable.position), asc(committeeMemberTable.id));
+}
+
+async function lastGroupEntry(entityType: string, groupId: number) {
+  const [entry] = await db
+    .select()
+    .from(auditLogTable)
+    .where(
+      and(
+        eq(auditLogTable.entityType, entityType),
+        eq(auditLogTable.action, "update"),
+        eq(auditLogTable.entityId, String(groupId)),
+      ),
+    )
+    .orderBy(desc(auditLogTable.id))
+    .limit(1);
+  return entry;
+}
+
+describe("Organizasyon rows from the yetkili form", () => {
+  /** A committee of [other: Başkan, yetkili: Üye, other: Üye] */
+  async function setUp(label: string) {
+    const { body: yetkili } = await createRepresentative({
+      name: `__test__ Formdan ${label} ${suffix}`,
+    });
+    const { body: other } = await createRepresentative({
+      name: `__test__ Diğer ${label} ${suffix}`,
+    });
+    const baskan = await createRole(`__test__ Başkan ${label} ${suffix}`);
+    const uye = await createRole(`__test__ Üye ${label} ${suffix}`);
+    const groupName = `__test__ Komite ${label} ${suffix}`;
+    const groupId = await createGroup("committees", groupName, [
+      { representativeId: other.id, roleId: baskan.id },
+      { representativeId: yetkili.id, roleId: uye.id },
+      { representativeId: other.id, roleId: uye.id },
+    ]);
+    const [, row] = await committeeRows(groupId);
+    return {
+      yetkiliId: yetkili.id as number,
+      otherId: other.id as number,
+      baskan,
+      uye,
+      groupId,
+      groupName,
+      rowId: row.id,
+    };
+  }
+
+  it("changes a kept row's görev in place", async () => {
+    const t = await setUp("Yerinde");
+
+    const res = await patch(t.yetkiliId, {
+      organizations: [
+        {
+          organization: "committee",
+          rowId: t.rowId,
+          groupId: t.groupId,
+          roleId: t.baskan.id,
+        },
+      ],
+    });
+    expect(res.status).toBe(200);
+
+    expect(await committeeRows(t.groupId)).toEqual([
+      {
+        id: expect.any(Number),
+        representativeId: t.otherId,
+        roleId: t.baskan.id,
+      },
+      { id: t.rowId, representativeId: t.yetkiliId, roleId: t.baskan.id },
+      { id: expect.any(Number), representativeId: t.otherId, roleId: t.uye.id },
+    ]);
+  });
+
+  it("adds new rows at the end of their group and audits both sides", async () => {
+    const t = await setUp("Yeni");
+    const boardName = `__test__ Denetim Yeni ${suffix}`;
+    const boardId = await createGroup("supervisory-boards", boardName, []);
+
+    const res = await patch(t.yetkiliId, {
+      organizations: [
+        {
+          organization: "committee",
+          rowId: t.rowId,
+          groupId: t.groupId,
+          roleId: t.uye.id,
+        },
+        {
+          organization: "committee",
+          rowId: null,
+          groupId: t.groupId,
+          roleId: t.baskan.id,
+        },
+        {
+          organization: "supervisory_board",
+          rowId: null,
+          groupId: boardId,
+          roleId: t.uye.id,
+        },
+      ],
+    });
+    expect(res.status).toBe(200);
+
+    const rows = await committeeRows(t.groupId);
+    expect(rows.map((r) => [r.representativeId, r.roleId])).toEqual([
+      [t.otherId, t.baskan.id],
+      [t.yetkiliId, t.uye.id],
+      [t.otherId, t.uye.id],
+      [t.yetkiliId, t.baskan.id],
+    ]);
+
+    const entry = await lastEntry("update", t.yetkiliId);
+    expect(entry.changes).toContainEqual({
+      label: "Organizasyonlar",
+      from: `Komiteler › ${t.groupName}: ${t.uye.name}`,
+      to: `Komiteler › ${t.groupName}: ${t.uye.name}, Komiteler › ${t.groupName}: ${t.baskan.name}, Denetim Kurulu › ${boardName}: ${t.uye.name}`,
+    });
+    const groupEntry = await lastGroupEntry("committee", t.groupId);
+    expect(groupEntry.changes).toEqual([
+      {
+        label: "Kişiler",
+        from: expect.any(String),
+        to: expect.stringMatching(
+          new RegExp(`Formdan Yeni ${suffix}: ${t.baskan.name}$`),
+        ),
+      },
+    ]);
+    expect(await lastGroupEntry("supervisory_board", boardId)).toBeDefined();
+  });
+
+  it("removes rows left out and moves a row to the end of another group", async () => {
+    const t = await setUp("Taşı");
+    const otherGroupId = await createGroup(
+      "committees",
+      `__test__ Komite Hedef ${suffix}`,
+      [{ representativeId: t.otherId, roleId: t.baskan.id }],
+    );
+
+    const moved = await patch(t.yetkiliId, {
+      organizations: [
+        {
+          organization: "committee",
+          rowId: t.rowId,
+          groupId: otherGroupId,
+          roleId: t.uye.id,
+        },
+      ],
+    });
+    expect(moved.status).toBe(200);
+    expect(
+      (await committeeRows(t.groupId)).map((r) => r.representativeId),
+    ).toEqual([t.otherId, t.otherId]);
+    expect(await committeeRows(otherGroupId)).toEqual([
+      {
+        id: expect.any(Number),
+        representativeId: t.otherId,
+        roleId: t.baskan.id,
+      },
+      { id: t.rowId, representativeId: t.yetkiliId, roleId: t.uye.id },
+    ]);
+
+    const removed = await patch(t.yetkiliId, { organizations: [] });
+    expect(removed.status).toBe(200);
+    expect(
+      (await committeeRows(otherGroupId)).map((r) => r.representativeId),
+    ).toEqual([t.otherId]);
+  });
+
+  it("leaves the rows alone when organizations isn't sent", async () => {
+    const t = await setUp("Dokunma");
+
+    const res = await patch(t.yetkiliId, { notes: "not" });
+    expect(res.status).toBe(200);
+    expect((await committeeRows(t.groupId)).map((r) => r.id)).toContain(
+      t.rowId,
+    );
+  });
+
+  it("keeps a Pasif yetkili's rows but refuses a new group", async () => {
+    const t = await setUp("Pasif");
+    const otherGroupId = await createGroup(
+      "committees",
+      `__test__ Komite Pasif Hedef ${suffix}`,
+      [],
+    );
+    const kept = {
+      organization: "committee",
+      rowId: t.rowId,
+      groupId: t.groupId,
+      roleId: t.uye.id,
+    };
+
+    // a second row in a group they're already in is fine
+    const same = await patch(t.yetkiliId, {
+      active: false,
+      organizations: [
+        kept,
+        {
+          organization: "committee",
+          rowId: null,
+          groupId: t.groupId,
+          roleId: t.baskan.id,
+        },
+      ],
+    });
+    expect(same.status).toBe(200);
+
+    const res = await patch(t.yetkiliId, {
+      organizations: [
+        kept,
+        {
+          organization: "committee",
+          rowId: null,
+          groupId: otherGroupId,
+          roleId: t.uye.id,
+        },
+      ],
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "Pasif yetkili yeni bir gruba eklenemez",
+    );
+    expect(await committeeRows(otherGroupId)).toEqual([]);
+  });
+
+  it("refuses a row someone else changed meanwhile and saves nothing", async () => {
+    const t = await setUp("Eski");
+    // the group form saves the whole group, which gives the rows new ids
+    await organizationsRoute.request(
+      `/committees/${t.groupId}`,
+      json("PATCH", {
+        name: t.groupName,
+        people: [{ representativeId: t.yetkiliId, roleId: t.uye.id }],
+      }),
+    );
+
+    const res = await patch(t.yetkiliId, {
+      notes: "kaydedilmemeli",
+      organizations: [
+        {
+          organization: "committee",
+          rowId: t.rowId,
+          groupId: t.groupId,
+          roleId: t.baskan.id,
+        },
+      ],
+    });
+    expect(res.status).toBe(409);
+
+    const { body } = await getRepresentative(t.yetkiliId);
+    expect(body.notes).toBeNull();
+    expect(body.organizations.map((o: { role: string }) => o.role)).toEqual([
+      t.uye.name,
+    ]);
+  });
+
+  it("refuses a görev that isn't a Dernek Görevi", async () => {
+    const t = await setUp("Görev");
+    const [notARole] = await db
+      .insert(parameterTable)
+      .values({
+        kind: "collection_category",
+        name: `__test__ Aidat ${suffix}`,
+        nameKey: `__test__ aidat ${suffix}`,
+      })
+      .returning({ id: parameterTable.id });
+    parameterIds.push(notARole.id);
+
+    const res = await patch(t.yetkiliId, {
+      organizations: [
+        {
+          organization: "committee",
+          rowId: t.rowId,
+          groupId: t.groupId,
+          roleId: notARole.id,
+        },
+      ],
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Seçilen görev bulunamadı");
+  });
+
+  it("puts a new yetkili in groups and names them in the create entry", async () => {
+    const role = await createRole(`__test__ Sayman ${suffix}`);
+    const groupName = `__test__ Komite Oluştur ${suffix}`;
+    const groupId = await createGroup("committees", groupName, []);
+
+    const { res, body } = await createRepresentative({
+      name: `__test__ Yeni Kurullu ${suffix}`,
+      organizations: [
+        { organization: "committee", rowId: null, groupId, roleId: role.id },
+      ],
+    });
+    expect(res.status).toBe(201);
+    expect(
+      (await committeeRows(groupId)).map((r) => r.representativeId),
+    ).toEqual([body.id]);
+
+    const entry = await lastEntry("create", body.id);
+    expect(entry.details).toContainEqual({
+      label: "Organizasyonlar",
+      value: `Komiteler › ${groupName}: ${role.name}`,
+    });
+  });
+
+  it("refuses an unknown group", async () => {
+    const t = await setUp("Grupsuz");
+
+    const res = await patch(t.yetkiliId, {
+      organizations: [
+        {
+          organization: "honorary_board",
+          rowId: null,
+          groupId: 2_000_000_000,
+          roleId: t.uye.id,
+        },
+      ],
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Seçilen grup bulunamadı");
   });
 });
 

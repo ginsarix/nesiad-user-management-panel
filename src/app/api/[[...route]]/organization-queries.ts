@@ -1,7 +1,8 @@
-import { eq, type SQL, sql } from "drizzle-orm";
+import { asc, eq, type SQL, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { db, type Executor } from "@/db";
 import {
+  authorizedRepresentativeTable,
   committeeMemberTable,
   committeeTable,
   disciplinaryBoardMemberTable,
@@ -47,12 +48,47 @@ export const ORGANIZATION_TABLES: Record<Organization, OrganizationTables> = {
   },
 };
 
+/** The group with its people in their saved order, or null */
+export async function loadOrganizationGroup(
+  executor: Executor,
+  { group, person }: OrganizationTables,
+  id: number,
+) {
+  const [found] = await executor
+    .select({ id: group.id, name: group.name })
+    .from(group)
+    .where(eq(group.id, id));
+  if (!found) return null;
+
+  const people = await executor
+    .select({
+      id: person.id,
+      representativeId: person.representativeId,
+      representativeName: authorizedRepresentativeTable.name,
+      representativePhoto: authorizedRepresentativeTable.photo,
+      representativeActive: authorizedRepresentativeTable.active,
+      roleId: person.roleId,
+      roleName: parameterTable.name,
+    })
+    .from(person)
+    .innerJoin(
+      authorizedRepresentativeTable,
+      eq(person.representativeId, authorizedRepresentativeTable.id),
+    )
+    .innerJoin(parameterTable, eq(person.roleId, parameterTable.id))
+    .where(eq(person.groupId, id))
+    .orderBy(asc(person.position), asc(person.id));
+
+  return { ...found, people };
+}
+
 export type RepresentativeOrganization = {
   organization: Organization;
   /** The group row's id; unique only within its organization */
   rowId: number;
   groupId: number;
   groupName: string;
+  roleId: number;
   role: string;
 };
 
@@ -65,33 +101,36 @@ export async function selectRepresentativeOrganizations(
   representativeId: number,
   executor: Executor = db,
 ): Promise<RepresentativeOrganization[]> {
-  const perOrganization = await Promise.all(
-    ORGANIZATIONS.map(async (organization) => {
-      const { group, person } = ORGANIZATION_TABLES[organization];
-      const rows = await executor
-        .select({
-          rowId: person.id,
-          groupId: group.id,
-          groupName: group.name,
-          role: parameterTable.name,
-          position: person.position,
-        })
-        .from(person)
-        .innerJoin(group, eq(person.groupId, group.id))
-        .innerJoin(parameterTable, eq(person.roleId, parameterTable.id))
-        .where(eq(person.representativeId, representativeId));
+  // one page at a time: inside a transaction they share one connection
+  const all: RepresentativeOrganization[] = [];
+  for (const organization of ORGANIZATIONS) {
+    const { group, person } = ORGANIZATION_TABLES[organization];
+    const rows = await executor
+      .select({
+        rowId: person.id,
+        groupId: group.id,
+        groupName: group.name,
+        roleId: person.roleId,
+        role: parameterTable.name,
+        position: person.position,
+      })
+      .from(person)
+      .innerJoin(group, eq(person.groupId, group.id))
+      .innerJoin(parameterTable, eq(person.roleId, parameterTable.id))
+      .where(eq(person.representativeId, representativeId));
 
-      return rows
+    all.push(
+      ...rows
         .toSorted(
           (a, b) =>
             compareTr(a.groupName, b.groupName) ||
             a.groupId - b.groupId ||
             a.position - b.position,
         )
-        .map(({ position: _, ...row }) => ({ organization, ...row }));
-    }),
-  );
-  return perOrganization.flat();
+        .map(({ position: _, ...row }) => ({ organization, ...row })),
+    );
+  }
+  return all;
 }
 
 /** "Komiteler › Eğitim Komitesi: Başkan, …" for the audit log */

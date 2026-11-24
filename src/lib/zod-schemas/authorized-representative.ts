@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ORGANIZATIONS } from "../organizations";
 import {
   emailTextSchema,
   optionalDisplayDateSchema,
@@ -27,28 +28,57 @@ function hasDuplicateMembers(links: { memberId: number | null }[]) {
 
 const INVALID_MEMBERS_MESSAGE = "Geçersiz üye listesi";
 
-/** Multipart carries the member links as JSON text */
-const memberLinksTextSchema = z
-  .string()
-  .transform((text, ctx) => {
-    try {
-      return JSON.parse(text) as unknown;
-    } catch {
-      ctx.addIssue({ code: "custom", message: INVALID_MEMBERS_MESSAGE });
-      return z.NEVER;
-    }
-  })
-  .pipe(
-    z
-      .array(
-        z.object({
-          memberId: z.number().int().positive(),
-          role: optionalTextSchema.nullable(),
-        }),
-        { error: INVALID_MEMBERS_MESSAGE },
-      )
-      .refine((links) => !hasDuplicateMembers(links), DUPLICATE_MEMBER_MESSAGE),
-  );
+/** Multipart carries the member links and group rows as JSON text */
+function jsonTextSchema<T extends z.ZodType>(schema: T, message: string) {
+  return z
+    .string()
+    .transform((text, ctx) => {
+      try {
+        return JSON.parse(text) as unknown;
+      } catch {
+        ctx.addIssue({ code: "custom", message });
+        return z.NEVER;
+      }
+    })
+    .pipe(schema);
+}
+
+const memberLinksTextSchema = jsonTextSchema(
+  z
+    .array(
+      z.object({
+        memberId: z.number().int().positive(),
+        role: optionalTextSchema.nullable(),
+      }),
+      { error: INVALID_MEMBERS_MESSAGE },
+    )
+    .refine((links) => !hasDuplicateMembers(links), DUPLICATE_MEMBER_MESSAGE),
+  INVALID_MEMBERS_MESSAGE,
+);
+
+const INVALID_ORGANIZATIONS_MESSAGE = "Geçersiz organizasyon listesi";
+
+/**
+ * The yetkili's Organizasyon group rows. `rowId` names a row the yetkili
+ * already has (it keeps its place in the group); a row without one is new
+ * and goes to the end of its group.
+ */
+const organizationRowsTextSchema = jsonTextSchema(
+  z.array(
+    z.object({
+      organization: z.enum(ORGANIZATIONS),
+      rowId: z.number().int().positive().nullable(),
+      groupId: z.number().int().positive(),
+      roleId: z.number().int().positive(),
+    }),
+    { error: INVALID_ORGANIZATIONS_MESSAGE },
+  ),
+  INVALID_ORGANIZATIONS_MESSAGE,
+);
+
+export type OrganizationRowInput = z.output<
+  typeof organizationRowsTextSchema
+>[number];
 
 /** API schema; the yetkili form is sent as multipart form data */
 export const createRepresentativeSchema = z.object({
@@ -65,10 +95,16 @@ export const createRepresentativeSchema = z.object({
   /** The members this yetkili represents, each with their görev there */
   members: memberLinksTextSchema.optional(),
 
+  /** The Organizasyon group rows this yetkili is in */
+  organizations: organizationRowsTextSchema.optional(),
+
   photo: photoFileSchema.optional(),
 });
 
-/** Fields left out are kept; `members`, when sent, replaces all links */
+/**
+ * Fields left out are kept; `members`, when sent, replaces all links, and
+ * `organizations`, when sent, becomes the yetkili's group rows
+ */
 export const updateRepresentativeSchema = createRepresentativeSchema
   .partial()
   .extend({
@@ -103,6 +139,25 @@ export const representativeFormSchema = z.object({
       }),
     )
     .refine((links) => !hasDuplicateMembers(links), DUPLICATE_MEMBER_MESSAGE),
+  organizations: z.array(
+    z.object({
+      // the saved row this one edits; null for a row added in the form
+      rowId: z.number().nullable(),
+      // null while a newly added row has nothing picked yet
+      organization: z
+        .enum(ORGANIZATIONS)
+        .nullable()
+        .refine((organization) => organization !== null, "Organizasyon seçin"),
+      groupId: z
+        .number()
+        .nullable()
+        .refine((id) => id !== null, "Grup seçin"),
+      roleId: z
+        .number()
+        .nullable()
+        .refine((id) => id !== null, "Görev seçin"),
+    }),
+  ),
 });
 
 /** What the form holds; a row's memberId may still be null */

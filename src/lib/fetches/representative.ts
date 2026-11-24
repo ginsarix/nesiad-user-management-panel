@@ -31,12 +31,13 @@ export async function getRepresentative(
 
 /**
  * Every field is sent so clearing one in the form clears it in the DB. The
- * API takes multipart form data: member links as JSON text.
+ * API takes multipart form data: member links and group rows as JSON text.
  */
 function toRepresentativeForm({
   dateOfBirth,
   active,
   members,
+  organizations,
   photo,
   removePhoto,
   ...fields
@@ -47,6 +48,15 @@ function toRepresentativeForm({
     dateOfBirth: displayToIso(dateOfBirth),
     active: String(active),
     members: JSON.stringify(members),
+    // the form validated every row, so nothing is null but a new row's rowId
+    organizations: JSON.stringify(
+      organizations.map((row) => ({
+        organization: row.organization,
+        rowId: row.rowId,
+        groupId: row.groupId as number,
+        roleId: row.roleId as number,
+      })),
+    ),
     ...(photo ? { photo } : removePhoto && { removePhoto: "true" }),
   };
 }

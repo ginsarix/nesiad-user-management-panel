@@ -1,7 +1,7 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
-import { getMembers } from "@/lib/fetches/member";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
+import { prefetchRepresentativeFormOptions } from "../_components/prefetch-form-options";
 import { RepresentativeForm } from "../_components/representative-form";
 
 export default async function NewRepresentativePage({
@@ -17,13 +17,8 @@ export default async function NewRepresentativePage({
   const fromMemberId =
     Number.isSafeInteger(memberId) && memberId > 0 ? memberId : undefined;
 
-  // prefetch (the members to link)
-  await queryClient
-    .query({
-      queryKey: ["members"],
-      queryFn: () => getMembers(options),
-    })
-    .catch(console.error);
+  // prefetch (what the pickers list)
+  await prefetchRepresentativeFormOptions(queryClient, options);
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>

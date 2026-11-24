@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
-import { db, type Executor, type Transaction } from "@/db";
+import { db, type Transaction } from "@/db";
 import { authorizedRepresentativeTable, parameterTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
@@ -22,6 +22,7 @@ import {
 } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
 import {
+  loadOrganizationGroup,
   ORGANIZATION_TABLES,
   type OrganizationTables,
 } from "./organization-queries";
@@ -46,40 +47,6 @@ function organizationOf(slug: string): Organization {
 
 function nameValues(name: string) {
   return { name, nameKey: name.toLocaleLowerCase("tr") };
-}
-
-/** The group with its people in their saved order, or null */
-async function loadGroup(
-  executor: Executor,
-  { group, person }: OrganizationTables,
-  id: number,
-) {
-  const [found] = await executor
-    .select({ id: group.id, name: group.name })
-    .from(group)
-    .where(eq(group.id, id));
-  if (!found) return null;
-
-  const people = await executor
-    .select({
-      id: person.id,
-      representativeId: person.representativeId,
-      representativeName: authorizedRepresentativeTable.name,
-      representativePhoto: authorizedRepresentativeTable.photo,
-      representativeActive: authorizedRepresentativeTable.active,
-      roleId: person.roleId,
-      roleName: parameterTable.name,
-    })
-    .from(person)
-    .innerJoin(
-      authorizedRepresentativeTable,
-      eq(person.representativeId, authorizedRepresentativeTable.id),
-    )
-    .innerJoin(parameterTable, eq(person.roleId, parameterTable.id))
-    .where(eq(person.groupId, id))
-    .orderBy(asc(person.position), asc(person.id));
-
-  return { ...found, people };
 }
 
 /**
@@ -208,7 +175,7 @@ export const organizationsRoute = new Hono<AppEnv>()
       const params = c.req.valid("param");
       const tables = ORGANIZATION_TABLES[organizationOf(params.organization)];
 
-      const group = await loadGroup(db, tables, params.id);
+      const group = await loadOrganizationGroup(db, tables, params.id);
       if (!group) return c.json({ error: NOT_FOUND_ERROR }, 404);
 
       return c.json(group, 200);
@@ -233,7 +200,7 @@ export const organizationsRoute = new Hono<AppEnv>()
             .returning({ id: tables.group.id });
           await replacePeople(tx, tables, created.id, people);
 
-          const saved = await loadGroup(tx, tables, created.id);
+          const saved = await loadOrganizationGroup(tx, tables, created.id);
           await recordAudit(tx, {
             actor: actorOf(c),
             action: "create",
@@ -271,7 +238,7 @@ export const organizationsRoute = new Hono<AppEnv>()
 
       try {
         const found = await db.transaction(async (tx) => {
-          const before = await loadGroup(tx, tables, id);
+          const before = await loadOrganizationGroup(tx, tables, id);
           if (!before) return false;
 
           await assertValidPeople(
@@ -286,7 +253,7 @@ export const organizationsRoute = new Hono<AppEnv>()
             .where(eq(tables.group.id, id));
           await replacePeople(tx, tables, id, people);
 
-          const after = await loadGroup(tx, tables, id);
+          const after = await loadOrganizationGroup(tx, tables, id);
           const changes = [
             ...change("İsim", before.name, name),
             ...change(
@@ -328,7 +295,7 @@ export const organizationsRoute = new Hono<AppEnv>()
 
       const deleted = await db.transaction(async (tx) => {
         // the rows go with the group, so name them now
-        const group = await loadGroup(tx, tables, id);
+        const group = await loadOrganizationGroup(tx, tables, id);
         if (!group) return false;
 
         await tx.delete(tables.group).where(eq(tables.group.id, id));

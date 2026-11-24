@@ -1,9 +1,9 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
-import { getMembers } from "@/lib/fetches/member";
 import { getRepresentative } from "@/lib/fetches/representative";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
+import { prefetchRepresentativeFormOptions } from "../../_components/prefetch-form-options";
 import { EditRepresentative } from "./edit-representative";
 
 export default async function EditRepresentativePage({
@@ -16,7 +16,7 @@ export default async function EditRepresentativePage({
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // prefetch (the members to link too)
+  // prefetch (what the pickers list too)
   const [representative] = await Promise.all([
     queryClient
       .query({
@@ -24,12 +24,7 @@ export default async function EditRepresentativePage({
         queryFn: () => getRepresentative(id, options),
       })
       .catch(console.error),
-    queryClient
-      .query({
-        queryKey: ["members"],
-        queryFn: () => getMembers(options),
-      })
-      .catch(console.error),
+    prefetchRepresentativeFormOptions(queryClient, options),
   ]);
 
   if (representative === null) notFound();
