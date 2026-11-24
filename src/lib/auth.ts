@@ -17,6 +17,7 @@ import { twoFactorGuard } from "./auth-plugins/two-factor-guard";
 import { env } from "./env";
 import { deliverLoginCode } from "./login-code";
 import { sendEmail } from "./mail";
+import { LATEST_RELEASE_ID } from "./release-notes";
 import { SESSION_IDLE_SECONDS, SESSION_REFRESH_SECONDS } from "./session-idle";
 
 /** FAKE_2FA: every login code is 000000 and none is sent; never in production */
@@ -66,13 +67,24 @@ export const auth = betterAuth({
         defaultValue: true,
         input: false,
       },
+      // the newest release notes version this person has seen; set only by
+      // POST /api/release-notes/seen, never audited (their own panel state)
+      releaseNotesSeen: { type: "string", required: false, input: false },
     },
   },
   databaseHooks: {
     user: {
       create: {
-        // every account logs in with a code after the password
-        before: async (user) => ({ data: { ...user, twoFactorEnabled: true } }),
+        // every account logs in with a code after the password; a new
+        // account starts with the release notes seen, so its first login
+        // shows no new-version dialog
+        before: async (user) => ({
+          data: {
+            ...user,
+            twoFactorEnabled: true,
+            releaseNotesSeen: LATEST_RELEASE_ID,
+          },
+        }),
       },
     },
   },

@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "de12954c-acb7-4112-8091-fb08ba7f5e0e",
+  "prevIds": [
+    "30534fb2-ecc0-498e-8c07-25b48d48dd00"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "user",
+        "release_notes_seen"
+      ],
+      "writes": [
+        "s|col|public.user.release_notes_seen",
+        "n|col|public.user.release_notes_seen",
+        "e|col|public.user.release_notes_seen"
+      ],
+      "reads": [
+        "n|tbl|public.user",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user",
+        "name": "release_notes_seen",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

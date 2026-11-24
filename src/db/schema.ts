@@ -509,6 +509,9 @@ export const userTable = pgTable("user", {
   // whether the staff notice of a new tahsilat reaches them by SMS / email
   collectionSms: boolean("collection_sms").default(true).notNull(),
   collectionEmail: boolean("collection_email").default(true).notNull(),
+  // id of the newest Sürüm Notları version they've seen ("2026-11-24",
+  // "2026-11-24-v2"); null until the first one (src/lib/release-notes.ts)
+  releaseNotesSeen: text("release_notes_seen"),
 });
 
 export const sessionTable = pgTable(
