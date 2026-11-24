@@ -36,7 +36,12 @@ const suffix = crypto.randomUUID().slice(0, 8);
 const userIds: string[] = [];
 const representativeIds: number[] = [];
 
-async function insertUser(key: string, phone: string, banned = false) {
+async function insertUser(
+  key: string,
+  phone: string,
+  banned = false,
+  prefs: { collectionSms?: boolean; collectionEmail?: boolean } = {},
+) {
   const id = `__test__${key}-${suffix}`;
   await db.insert(userTable).values({
     id,
@@ -45,6 +50,7 @@ async function insertUser(key: string, phone: string, banned = false) {
     emailVerified: true,
     phone,
     banned,
+    ...prefs,
   });
   userIds.push(id);
   return id;
@@ -57,6 +63,16 @@ beforeAll(async () => {
   actor = await insertUser("kaydeden", "+905320000001");
   await insertUser("diger", "+905320000002");
   await insertUser("engelli", "+905320000003", true);
+  await insertUser("smsKapali", "+905320000004", false, {
+    collectionSms: false,
+  });
+  await insertUser("epostaKapali", "+905320000005", false, {
+    collectionEmail: false,
+  });
+  await insertUser("ikisiKapali", "+905320000006", false, {
+    collectionSms: false,
+    collectionEmail: false,
+  });
   const [row] = await db
     .insert(authorizedRepresentativeTable)
     .values({
@@ -162,6 +178,23 @@ describe("sendCollectionNotices", () => {
     expect(emailsTo(`__test__engelli-${suffix}@example.com`)).toEqual([]);
     expect(sentSms.some((sms) => sms.no === "5320000001")).toBe(false);
     expect(sentSms.some((sms) => sms.no === "5320000003")).toBe(false);
+  });
+
+  it("leaves each panel user out of the channels they turned off", async () => {
+    await sendCollectionNotices(collection(), actor);
+
+    expect(emailsTo(`__test__smsKapali-${suffix}@example.com`)).toHaveLength(1);
+    expect(sentSms.some((sms) => sms.no === "5320000004")).toBe(false);
+
+    expect(emailsTo(`__test__epostaKapali-${suffix}@example.com`)).toEqual([]);
+    expect(sentSms.some((sms) => sms.no === "5320000005")).toBe(true);
+
+    expect(emailsTo(`__test__ikisiKapali-${suffix}@example.com`)).toEqual([]);
+    expect(sentSms.some((sms) => sms.no === "5320000006")).toBe(false);
+
+    // the existing rules still hold
+    expect(emailsTo(`__test__engelli-${suffix}@example.com`)).toEqual([]);
+    expect(sentSms.some((sms) => sms.no === "5320000001")).toBe(false);
   });
 
   it("skips the yetkili's channels without an address or a mobile number", async () => {

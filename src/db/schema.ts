@@ -506,6 +506,9 @@ export const userTable = pgTable("user", {
   banExpires: timestamp("ban_expires"),
   phone: text("phone").notNull(),
   twoFactorEnabled: boolean("two_factor_enabled").default(true).notNull(),
+  // whether the staff notice of a new tahsilat reaches them by SMS / email
+  collectionSms: boolean("collection_sms").default(true).notNull(),
+  collectionEmail: boolean("collection_email").default(true).notNull(),
 });
 
 export const sessionTable = pgTable(

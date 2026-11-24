@@ -44,7 +44,8 @@ function countOutcomes(outcomes: NoticeOutcome[]): OutcomeCounts {
  * Tells the yetkili and every other active panel user about a new tahsilat,
  * by email and SMS, from the Ayarlar templates. The yetkili's SMS goes to
  * Cep Telefonu. The person who recorded it (`actorId`) and disabled accounts get
- * nothing. Never throws; each message reports its own outcome.
+ * nothing, and panel users who turned a channel off (Panel Kullanıcıları) get
+ * nothing on it. Never throws; each message reports its own outcome.
  */
 export async function sendCollectionNotices(
   collection: NoticeCollection,
@@ -60,7 +61,12 @@ export async function sendCollectionNotices(
       .from(authorizedRepresentativeTable)
       .where(eq(authorizedRepresentativeTable.id, collection.representativeId)),
     db
-      .select({ email: userTable.email, phone: userTable.phone })
+      .select({
+        email: userTable.email,
+        phone: userTable.phone,
+        collectionSms: userTable.collectionSms,
+        collectionEmail: userTable.collectionEmail,
+      })
       .from(userTable)
       .where(
         and(
@@ -101,23 +107,27 @@ export async function sendCollectionNotices(
         fill(settings.representativeSms),
       ),
       Promise.all(
-        staff.map((user) =>
-          sendNoticeEmail(
-            "Collection notice email (panel user)",
-            user.email,
-            fill(settings.staffEmailSubject),
-            fill(settings.staffEmailBody),
+        staff
+          .filter((user) => user.collectionEmail)
+          .map((user) =>
+            sendNoticeEmail(
+              "Collection notice email (panel user)",
+              user.email,
+              fill(settings.staffEmailSubject),
+              fill(settings.staffEmailBody),
+            ),
           ),
-        ),
       ),
       Promise.all(
-        staff.map((user) =>
-          sendNoticeSms(
-            "Collection notice SMS (panel user)",
-            user.phone,
-            fill(settings.staffSms),
+        staff
+          .filter((user) => user.collectionSms)
+          .map((user) =>
+            sendNoticeSms(
+              "Collection notice SMS (panel user)",
+              user.phone,
+              fill(settings.staffSms),
+            ),
           ),
-        ),
       ),
     ]);
 

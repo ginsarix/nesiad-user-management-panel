@@ -52,6 +52,20 @@ export const auth = betterAuth({
     additionalFields: {
       // where login codes go by SMS; set by the panel, never by the user's own request
       phone: { type: "string", required: true, input: false },
+      // tahsilat notice switches; set only through
+      // PATCH /api/panel-users/:id/collection-notices, which audits
+      collectionSms: {
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        input: false,
+      },
+      collectionEmail: {
+        type: "boolean",
+        required: false,
+        defaultValue: true,
+        input: false,
+      },
     },
   },
   databaseHooks: {
