@@ -28,15 +28,31 @@ function unwrap<T>(result: {
 export async function getPanelUsers(
   headers?: Record<string, string>,
 ): Promise<PanelUser[]> {
-  const { users } = unwrap(
-    await adminApi.admin.listUsers({
+  const [list, lastLogins] = await Promise.all([
+    adminApi.admin.listUsers({
       // a handful of staff; well under any page size
       query: { limit: 1000 },
       fetchOptions: { headers },
     }),
-  );
+    getLastLogins(headers),
+  ]);
+  const { users } = unwrap(list);
   // whole user rows, so `phone` is there (NOT NULL) though the types lack it
-  return (users as PanelUser[]).toSorted((a, b) => compareTr(a.name, b.name));
+  return (users as Omit<PanelUser, "lastLoginAt">[])
+    .map((user) => ({ ...user, lastLoginAt: lastLogins[user.id] ?? null }))
+    .toSorted((a, b) => compareTr(a.name, b.name));
+}
+
+/** { [userId]: ISO time } of each user's last login, from the audit log */
+async function getLastLogins(headers?: Record<string, string>) {
+  const res = await rpcClient.api["panel-users"]["last-logins"].$get(
+    undefined,
+    { headers },
+  );
+
+  if (!res.ok) throw new Error("An error occured while getting last logins");
+
+  return await res.json();
 }
 
 /** Texts a verification code to `phone`; `userId` when it is for an existing user */
@@ -121,5 +137,11 @@ export async function deletePanelUser(userId: string) {
   unwrap(await adminApi.admin.removeUser({ userId }));
 }
 
-/** `phone` is an additional field (src/lib/auth.ts) the admin client's types lack */
-export type PanelUser = UserWithRole & { phone: string };
+/**
+ * `phone` is an additional field (src/lib/auth.ts) the admin client's types
+ * lack; `lastLoginAt` (ISO time, null if never) comes from the audit log
+ */
+export type PanelUser = UserWithRole & {
+  phone: string;
+  lastLoginAt: string | null;
+};

@@ -74,6 +74,21 @@ const sortByCreatedAt: SortFn<typeof features, PanelUser> = (a, b) =>
   new Date(a.original.createdAt).getTime() -
   new Date(b.original.createdAt).getTime();
 
+/** Never logged in sorts as the oldest */
+const sortByLastLogin: SortFn<typeof features, PanelUser> = (a, b) =>
+  (a.original.lastLoginAt ? new Date(a.original.lastLoginAt).getTime() : 0) -
+  (b.original.lastLoginAt ? new Date(b.original.lastLoginAt).getTime() : 0);
+
+const lastLoginFormat = new Intl.DateTimeFormat("tr-TR", {
+  // fixed, so the server's time zone doesn't change what's rendered
+  timeZone: "Europe/Istanbul",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 const helper = createColumnHelper<typeof features, PanelUser>();
 
 const DEFAULT_COLUMN_VISIBILITY = {};
@@ -133,6 +148,14 @@ export function PanelUsers({
           header: "Eklenme Tarihi",
           sortFn: sortByCreatedAt,
           cell: (info) => formatDisplayDate(new Date(info.getValue())),
+        }),
+        helper.accessor("lastLoginAt", {
+          header: "Son Giriş Tarihi",
+          sortFn: sortByLastLogin,
+          cell: (info) => {
+            const value = info.getValue();
+            return value ? lastLoginFormat.format(new Date(value)) : "—";
+          },
         }),
         helper.display({
           id: "actions",

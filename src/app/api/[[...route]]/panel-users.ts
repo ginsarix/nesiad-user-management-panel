@@ -1,10 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
 import { isAPIError } from "better-auth/api";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, max } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "@/db";
-import { userTable } from "@/db/schema";
+import { auditLogTable, userTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { authErrorMessage } from "@/lib/auth-errors";
@@ -23,6 +23,9 @@ import {
 import { type AppEnv, actorOf } from "./env";
 import { respondWithFirstIssue } from "./validation";
 
+/** Audit actions that mean the user logged in (by code, or by the email link) */
+const LOGIN_ACTIONS = ["login", "login_email_link"];
+
 const idParam = zValidator(
   "param",
   z.object({ id: z.string().min(1) }),
@@ -33,8 +36,33 @@ const idParam = zValidator(
 // endpoints from the client. Here: creating an account and changing its
 // phone, because the number must be proven by an SMS code first (the code
 // is tied to the admin's session and the number), and resending the
-// verification email.
+// verification email. Also each user's last login, read from the audit log.
 export const panelUsersRoute = new Hono<AppEnv>()
+  // { [userId]: ISO time } for users who have logged in. Computed from the
+  // audit log rather than stored, so it covers every login since logins
+  // were first recorded
+  .get("/last-logins", async (c) => {
+    const rows = await db
+      .select({
+        userId: auditLogTable.entityId,
+        at: max(auditLogTable.createdAt),
+      })
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.entityType, "auth"),
+          inArray(auditLogTable.action, LOGIN_ACTIONS),
+          isNotNull(auditLogTable.entityId),
+        ),
+      )
+      .groupBy(auditLogTable.entityId);
+
+    const lastLogins: Record<string, string> = {};
+    for (const { userId, at } of rows) {
+      if (userId && at) lastLogins[userId] = at.toISOString();
+    }
+    return c.json(lastLogins, 200);
+  })
   .post(
     "/phone-codes",
     zValidator("json", phoneCodeRequestSchema, respondWithFirstIssue),

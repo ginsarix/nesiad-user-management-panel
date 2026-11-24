@@ -385,3 +385,56 @@ describe("panel user phone numbers", () => {
     for (const code of sentCodes) expect(logged).not.toContain(code);
   });
 });
+
+describe("GET /api/panel-users/last-logins", () => {
+  async function lastLogins() {
+    const res = await testApp.request("/last-logins", { headers: cookies });
+    expect(res.status).toBe(200);
+    return (await res.json()) as Record<string, string>;
+  }
+
+  it("has the login the admin made in beforeAll", async () => {
+    const [entry] = await db
+      .select({ createdAt: auditLogTable.createdAt })
+      .from(auditLogTable)
+      .where(
+        and(
+          eq(auditLogTable.action, "login"),
+          eq(auditLogTable.entityId, admin.id),
+        ),
+      )
+      .orderBy(desc(auditLogTable.createdAt))
+      .limit(1);
+    expect(entry).toBeDefined();
+    expect((await lastLogins())[admin.id]).toBe(entry.createdAt.toISOString());
+  });
+
+  it("leaves out users who never logged in", async () => {
+    const user = await newUser("5550000008");
+    expect(await lastLogins()).not.toHaveProperty(user.id);
+  });
+
+  it("takes the newest of code and email-link logins, not other events", async () => {
+    const user = await newUser("5550000007");
+    const entry = (action: string, createdAt: string) => ({
+      action,
+      createdAt: new Date(createdAt),
+      actorId: user.id,
+      actorName: "__test__ Kullanıcı",
+      actorEmail: user.email,
+      entityType: "auth",
+      entityId: user.id,
+      entityLabel: "__test__ Kullanıcı",
+    });
+    await db
+      .insert(auditLogTable)
+      .values([
+        entry("login", "2026-11-01T09:00:00Z"),
+        entry("login_email_link", "2026-11-02T09:00:00Z"),
+        entry("logout", "2026-11-03T09:00:00Z"),
+        entry("login_code_failed", "2026-11-04T09:00:00Z"),
+      ]);
+
+    expect((await lastLogins())[user.id]).toBe("2026-11-02T09:00:00.000Z");
+  });
+});
