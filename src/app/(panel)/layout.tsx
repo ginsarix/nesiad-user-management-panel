@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
 import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
+import { NewVersionDialog } from "@/components/new-version-dialog";
 import { SessionTimeout } from "@/components/session-timeout";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { unseenReleaseVersions } from "@/lib/release-notes";
 import { requireSession } from "@/lib/session";
 
 export default async function PanelLayout({
@@ -21,6 +23,9 @@ export default async function PanelLayout({
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <SessionTimeout />
+      <NewVersionDialog
+        versions={unseenReleaseVersions(user.releaseNotesSeen ?? null)}
+      />
       <AppSidebar />
       <SidebarInset>
         <AppHeader user={{ name: user.name, email: user.email }} />
