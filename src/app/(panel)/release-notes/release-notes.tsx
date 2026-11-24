@@ -22,6 +22,7 @@ import {
   type ReleaseVersion,
   releaseVersionId,
   sortedEntries,
+  versionIdFromHash,
 } from "@/lib/release-notes";
 import { cn } from "@/lib/utils";
 
@@ -77,7 +78,7 @@ export function ReleaseNotes({ versions }: { versions: ReleaseVersion[] }) {
 
   // opened with a version's link (#2026-11-13)
   useEffect(() => {
-    const id = decodeURIComponent(window.location.hash.slice(1));
+    const id = versionIdFromHash(window.location.hash);
     if (!id) return;
     document.getElementById(id)?.scrollIntoView();
     pinned.current = true;

@@ -157,8 +157,11 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [ /* newest first */ ];
   strings.
   - When it's null (every existing account at deploy), only the newest
     version counts as unseen. Nobody gets the whole history.
-  - An id that isn't in the list (e.g. production rolled back to older code)
-    means nothing is unseen.
+  - An id that isn't in the list goes by its date and revision. If it's newer
+    than the list (production rolled back to older code), nothing is unseen.
+    If it's older (its version was removed, e.g. by reverting a deploy), the
+    versions after it are unseen, so notices don't stop for good. (Added
+    after the final review.)
   - New accounts are created with it set to the newest version's id, so they
     see nothing until the next deploy.
 - **When:** the panel layout already has the session user on the server, so

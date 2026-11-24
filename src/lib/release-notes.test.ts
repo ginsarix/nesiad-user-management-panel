@@ -11,6 +11,7 @@ import {
   shortReleaseVersion,
   sortedEntries,
   unseenReleaseVersions,
+  versionIdFromHash,
 } from "./release-notes";
 
 const ids = (versions: ReleaseVersion[]) => versions.map(releaseVersionId);
@@ -135,8 +136,25 @@ describe("unseenReleaseVersions", () => {
     ]);
   });
 
-  it("none for an id not in the list", () => {
+  it("none for an id newer than the list (production rolled back)", () => {
     expect(unseenReleaseVersions("2099-01-01", versions)).toEqual([]);
+    expect(unseenReleaseVersions("2026-12-02-v3", versions)).toEqual([]);
+  });
+
+  it("the newer ones when the seen version was removed from the list", () => {
+    expect(ids(unseenReleaseVersions("2026-11-20", versions))).toEqual([
+      "2026-12-02-v2",
+      "2026-12-02",
+      "2026-11-25",
+    ]);
+    // a removed same-day revision still counts by its revision
+    expect(ids(unseenReleaseVersions("2026-12-02-v1", versions))).toEqual([
+      "2026-12-02-v2",
+    ]);
+  });
+
+  it("none for something that isn't a version id", () => {
+    expect(unseenReleaseVersions("bozuk", versions)).toEqual([]);
   });
 
   it("uses the real list by default", () => {
@@ -193,6 +211,18 @@ describe("filterReleaseVersions", () => {
     expect(filterReleaseVersions(versions, { query: "(", type: null })).toEqual(
       [],
     );
+  });
+});
+
+describe("versionIdFromHash", () => {
+  it("reads a version id from the address", () => {
+    expect(versionIdFromHash("#2026-11-24-v2")).toBe("2026-11-24-v2");
+    expect(versionIdFromHash("")).toBe(null);
+  });
+
+  it("ignores a malformed hash instead of throwing", () => {
+    expect(versionIdFromHash("#%")).toBe(null);
+    expect(versionIdFromHash("#%E0%A4%A")).toBe(null);
   });
 });
 

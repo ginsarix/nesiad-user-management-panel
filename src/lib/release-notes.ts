@@ -60,7 +60,7 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [
       },
       {
         type: "new",
-        text: "Panel güncellendiğinde yenilikler, bir sonraki girişte bir kez açılan pencerede gösteriliyor.",
+        text: "Panel güncellendiğinde yenilikler, panelde bir kez açılan pencerede gösteriliyor.",
       },
       {
         type: "new",
@@ -348,7 +348,9 @@ export function sortedEntries(version: ReleaseVersion) {
 /**
  * The versions newer than the one last seen, newest first, by list order.
  * Nothing seen yet → only the newest (nobody gets the whole history). An id
- * that isn't in the list (e.g. production rolled back) → nothing.
+ * that isn't in the list goes by its date and revision: newer than the list
+ * (production rolled back) → nothing; older (its version was removed, e.g.
+ * a reverted deploy) → the versions after it, so notices don't stop for good.
  */
 export function unseenReleaseVersions(
   seenId: string | null,
@@ -358,7 +360,25 @@ export function unseenReleaseVersions(
   const index = versions.findIndex(
     (version) => releaseVersionId(version) === seenId,
   );
-  return index === -1 ? [] : versions.slice(0, index);
+  if (index !== -1) return versions.slice(0, index);
+
+  const seen = seenId.match(/^(\d{4}-\d{2}-\d{2})(?:-v(\d+))?$/);
+  if (!seen) return [];
+  const [, date, revision = "1"] = seen;
+  return versions.filter(
+    (version) =>
+      version.date > date ||
+      (version.date === date && (version.revision ?? 1) > Number(revision)),
+  );
+}
+
+/** The version id in an address's #hash, or null (never throws) */
+export function versionIdFromHash(hash: string) {
+  try {
+    return decodeURIComponent(hash.replace(/^#/, "")) || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
