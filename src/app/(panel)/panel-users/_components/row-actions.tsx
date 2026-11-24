@@ -6,7 +6,11 @@ import {
   CirclePause,
   Ellipsis,
   KeyRound,
+  Mail,
   MailCheck,
+  MailX,
+  MessageSquare,
+  MessageSquareOff,
   Pencil,
   Phone,
   Trash2,
@@ -35,6 +39,7 @@ import {
   deletePanelUser,
   type PanelUser,
   sendVerificationEmail,
+  setPanelUserCollectionNotices,
   setPanelUserDisabled,
 } from "@/lib/fetches/panel-user";
 import { ChangePhoneDialog } from "./change-phone-dialog";
@@ -44,8 +49,8 @@ import { SetPasswordDialog } from "./set-password-dialog";
 export type Notice = { tone: "success" | "error"; text: string };
 
 /**
- * The "⋯" menu of a row. Your own row only offers renaming: disabling or
- * deleting yourself isn't allowed, and a password set here would log you
+ * The "⋯" menu of a row. Your own row only offers renaming, the phone and
+ * the tahsilat notice switches: disabling or deleting yourself isn't allowed, and a password set here would log you
  * out ("Şifre değiştir" in the user menu is for that).
  */
 export function RowActions({
@@ -74,6 +79,38 @@ export function RowActions({
         text: disabled
           ? `${user.name} tekrar giriş yapabilir.`
           : `${user.name} devre dışı bırakıldı ve oturumları kapatıldı.`,
+      });
+      return queryClient.invalidateQueries({ queryKey: ["panel-users"] });
+    },
+    onError: (error) => onNotice({ tone: "error", text: error.message }),
+  });
+
+  const toggleCollectionSms = useMutation({
+    mutationFn: () =>
+      setPanelUserCollectionNotices(user.id, { sms: !user.collectionSms }),
+    onSuccess: () => {
+      onNotice({
+        tone: "success",
+        text: user.collectionSms
+          ? `${user.name} artık tahsilat SMS'i almayacak.`
+          : `${user.name} tekrar tahsilat SMS'i alacak.`,
+      });
+      return queryClient.invalidateQueries({ queryKey: ["panel-users"] });
+    },
+    onError: (error) => onNotice({ tone: "error", text: error.message }),
+  });
+
+  const toggleCollectionEmail = useMutation({
+    mutationFn: () =>
+      setPanelUserCollectionNotices(user.id, {
+        email: !user.collectionEmail,
+      }),
+    onSuccess: () => {
+      onNotice({
+        tone: "success",
+        text: user.collectionEmail
+          ? `${user.name} artık tahsilat e-postası almayacak.`
+          : `${user.name} tekrar tahsilat e-postası alacak.`,
       });
       return queryClient.invalidateQueries({ queryKey: ["panel-users"] });
     },
@@ -113,6 +150,24 @@ export function RowActions({
           <DropdownMenuItem onClick={() => setDialog("phone")}>
             <Phone />
             Telefonu değiştir
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={toggleCollectionSms.isPending}
+            onClick={() => toggleCollectionSms.mutate()}
+          >
+            {user.collectionSms ? <MessageSquareOff /> : <MessageSquare />}
+            {user.collectionSms
+              ? "Tahsilat SMS'ini kapat"
+              : "Tahsilat SMS'ini aç"}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={toggleCollectionEmail.isPending}
+            onClick={() => toggleCollectionEmail.mutate()}
+          >
+            {user.collectionEmail ? <MailX /> : <Mail />}
+            {user.collectionEmail
+              ? "Tahsilat e-postasını kapat"
+              : "Tahsilat e-postasını aç"}
           </DropdownMenuItem>
           {!isCurrentUser && (
             <DropdownMenuItem onClick={() => setDialog("password")}>

@@ -67,6 +67,15 @@ function StatusTag({ status }: { status: Status }) {
   );
 }
 
+/** Which tahsilat notices the user gets, as the column shows it */
+function collectionNoticesLabel(user: PanelUser) {
+  const channels = [
+    user.collectionSms && "SMS",
+    user.collectionEmail && "E-posta",
+  ].filter(Boolean);
+  return channels.length > 0 ? channels.join(", ") : "Kapalı";
+}
+
 const sortByName: SortFn<typeof features, PanelUser> = (a, b) =>
   compareTr(a.original.name, b.original.name);
 
@@ -143,6 +152,20 @@ export function PanelUsers({
           header: "Durum",
           enableSorting: false,
           cell: ({ row }) => <StatusTag status={statusOf(row.original)} />,
+        }),
+        helper.accessor(collectionNoticesLabel, {
+          id: "collectionNotices",
+          header: "Tahsilat Bildirimleri",
+          enableSorting: false,
+          cell: (info) => (
+            <span
+              className={cn(
+                info.getValue() === "Kapalı" && "text-muted-foreground",
+              )}
+            >
+              {info.getValue()}
+            </span>
+          ),
         }),
         helper.accessor("createdAt", {
           header: "Eklenme Tarihi",

@@ -37,7 +37,8 @@ export async function getPanelUsers(
     getLastLogins(headers),
   ]);
   const { users } = unwrap(list);
-  // whole user rows, so `phone` is there (NOT NULL) though the types lack it
+  // whole user rows, so `phone` and the tahsilat switches are there (NOT
+  // NULL) though the types lack them
   return (users as Omit<PanelUser, "lastLoginAt">[])
     .map((user) => ({ ...user, lastLoginAt: lastLogins[user.id] ?? null }))
     .toSorted((a, b) => compareTr(a.name, b.name));
@@ -115,6 +116,20 @@ export async function changePanelUserPhone(
   if (!res.ok) await throwResponseError(res, "Telefon numarası güncellenemedi");
 }
 
+/** Turns the staff tahsilat SMS and/or email on or off for the user */
+export async function setPanelUserCollectionNotices(
+  userId: string,
+  values: { sms?: boolean; email?: boolean },
+) {
+  const res = await rpcClient.api["panel-users"][":id"][
+    "collection-notices"
+  ].$patch({ param: { id: userId }, json: values });
+
+  if (!res.ok) {
+    await throwResponseError(res, "Tahsilat bildirimleri güncellenemedi");
+  }
+}
+
 /** Also logs them out everywhere, like every other password change here */
 export async function setPanelUserPassword(
   userId: string,
@@ -138,10 +153,13 @@ export async function deletePanelUser(userId: string) {
 }
 
 /**
- * `phone` is an additional field (src/lib/auth.ts) the admin client's types
- * lack; `lastLoginAt` (ISO time, null if never) comes from the audit log
+ * `phone` and the tahsilat notice switches are additional fields
+ * (src/lib/auth.ts) the admin client's types lack; `lastLoginAt` (ISO time,
+ * null if never) comes from the audit log
  */
 export type PanelUser = UserWithRole & {
   phone: string;
+  collectionSms: boolean;
+  collectionEmail: boolean;
   lastLoginAt: string | null;
 };
