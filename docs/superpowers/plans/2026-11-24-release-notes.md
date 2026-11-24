@@ -16,8 +16,8 @@
 - Entry types and labels, in this display order: `new` Yeni, `improved` İyileştirildi, `changed` Değiştirildi, `fixed` Düzeltildi, `removed` Silindi.
 - Tag colors (muted tints): Yeni green, İyileştirildi blue, Değiştirildi amber, Düzeltildi purple, Silindi red.
 - A version is a date (`yyyy-aa-gg`) plus an optional `revision` (2, 3…) for later deploys the same day. Its id is `2026-11-24` or `2026-11-24-v2`, and ids never change once shipped.
-  - Page and dialog: "24 Kasım 2026" / "24 Kasım 2026 v2".
-  - Sidebar: "24.11.2026" / "24.11.2026v2".
+  - Page and dialog: "24 Kasım 2026" / "24 Kasım 2026 V2".
+  - Sidebar: "24.11.2026" / "24.11.2026 V2".
 - Column: `user.release_notes_seen`, `text`, nullable, holding a version id. Additive migration only.
 - Order is always list order in `RELEASE_VERSIONS`, never string comparison of ids.
 - Marking notes seen writes **no** audit entry (CLAUDE.md audit rule: a person's own panel state).
@@ -57,8 +57,8 @@
   - `RELEASE_VERSIONS: ReleaseVersion[]`, newest first
   - `releaseVersionId(v: ReleaseVersion): string`, e.g. `"2026-11-24"` / `"2026-11-24-v2"`
   - `LATEST_RELEASE_ID: string`, the id of `RELEASE_VERSIONS[0]`
-  - `formatReleaseVersion(v: ReleaseVersion): string`, e.g. `"24 Kasım 2026"` / `"24 Kasım 2026 v2"`
-  - `shortReleaseVersion(v: ReleaseVersion): string`, e.g. `"24.11.2026"` / `"24.11.2026v2"`, via `isoToDisplay`
+  - `formatReleaseVersion(v: ReleaseVersion): string`, e.g. `"24 Kasım 2026"` / `"24 Kasım 2026 V2"`
+  - `shortReleaseVersion(v: ReleaseVersion): string`, e.g. `"24.11.2026"` / `"24.11.2026 V2"`, via `isoToDisplay`
   - `sortedEntries(version: ReleaseVersion): ReleaseNote[]`, in display order, stable within a type
   - `unseenReleaseVersions(seenId: string | null, versions?: ReleaseVersion[]): ReleaseVersion[]`:
     - null → `[versions[0]]`
@@ -97,9 +97,9 @@ it("names versions", () => {
   expect(releaseVersionId(v1)).toBe("2026-11-24");
   expect(releaseVersionId(v2)).toBe("2026-11-24-v2");
   expect(formatReleaseVersion(v1)).toBe("24 Kasım 2026");
-  expect(formatReleaseVersion(v2)).toBe("24 Kasım 2026 v2");
+  expect(formatReleaseVersion(v2)).toBe("24 Kasım 2026 V2");
   expect(formatReleaseVersion({ date: "2026-03-01", entries: [] })).toBe("1 Mart 2026");
-  expect(shortReleaseVersion(v2)).toBe("24.11.2026v2");
+  expect(shortReleaseVersion(v2)).toBe("24.11.2026 V2");
 });
 
 it("sorts entries by type, keeping written order within a type", () => {
@@ -158,7 +158,7 @@ Run: `pnpm test --run release-notes`
 Expected: FAIL. `./release-notes` can't be resolved.
 
 - [ ] **Step 3: Implement `src/lib/release-notes.ts`**
-  - `formatReleaseVersion` formats the date with `Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })` on `${date}T00:00:00Z`, then appends ` v<revision>`.
+  - `formatReleaseVersion` formats the date with `Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })` on `${date}T00:00:00Z`, then appends ` V<revision>`.
   - The comment above `RELEASE_VERSIONS` states the rules:
     - Newest first.
     - Never add notes to a version that has been deployed. A later deploy the same day gets the same date with the next `revision`.

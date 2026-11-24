@@ -13,7 +13,7 @@ that ships adds its notes in the same commit.
 - One version per production deploy that staff would notice, named by its
   date. It's shown as "23 Kasım 2026", with "23.11.2026" in the sidebar. A
   later deploy on the same day that adds notes is a new version with the same
-  date and a suffix: "24 Kasım 2026 v2" / "24.11.2026v2", then v3, and so on.
+  date and a suffix: "24 Kasım 2026 V2" / "24.11.2026 V2", then V3, and so on.
   (User's call: a new version rather than adding to the day's notes, so
   everyone who saw the first notice still sees the new one.)
 - The past is grouped by deploy day (see "Rebuilt history"), since those
@@ -78,8 +78,8 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [ /* newest first */ ];
 - A version's **id** is its date, plus `-v<revision>` when there is one:
   `2026-11-24`, `2026-11-24-v2`. Ids never change once shipped, since the
   seen column stores them.
-- It's shown as "24 Kasım 2026" / "24 Kasım 2026 v2" on the page and in the
-  dialog, and as "24.11.2026" / "24.11.2026v2" in the sidebar.
+- It's shown as "24 Kasım 2026" / "24 Kasım 2026 V2" on the page and in the
+  dialog, and as "24.11.2026" / "24.11.2026 V2" in the sidebar.
 
 - Turkish labels and colors live in a map from type to label (Yeni,
   İyileştirildi, Değiştirildi, Düzeltildi, Silindi) in the same file. The
