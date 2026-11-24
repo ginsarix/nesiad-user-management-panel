@@ -21,6 +21,7 @@ describe("navigation", () => {
       "Komiteler",
       "Disiplin Kurulu",
       "Denetim Kurulu",
+      "Onur Kurulu",
     ]);
 
     const path = "/organization/committees/12/edit";

@@ -7,6 +7,7 @@ export const ENTITY_TYPE_LABELS: Record<AuditEntityTypeFilter, string> = {
   committee: "Komiteler",
   disciplinary_board: "Disiplin Kurulu",
   supervisory_board: "Denetim Kurulu",
+  honorary_board: "Onur Kurulu",
   sector: "Sektörler",
   parameter: "Parametreler",
   cash_account: "Kasa - Banka",
@@ -55,6 +56,11 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     create: "Denetim Kurulu eklendi",
     update: "Denetim Kurulu güncellendi",
     delete: "Denetim Kurulu silindi",
+  },
+  honorary_board: {
+    create: "Onur Kurulu eklendi",
+    update: "Onur Kurulu güncellendi",
+    delete: "Onur Kurulu silindi",
   },
   sector: {
     create: "Sektör eklendi",

@@ -137,7 +137,7 @@ export function RepresentativeDetails({ id }: { id: number }) {
                   <ul className="divide-y text-sm">
                     {representative.organizations.map((row) => (
                       <li
-                        // row ids repeat across the four pages' tables
+                        // row ids repeat across the pages' tables
                         key={`${row.organization}-${row.rowId}`}
                         className="flex flex-wrap items-center gap-2 py-1.5 first:pt-0 last:pb-0"
                       >

@@ -6,6 +6,8 @@ import {
   committeeTable,
   disciplinaryBoardMemberTable,
   disciplinaryBoardTable,
+  honoraryBoardMemberTable,
+  honoraryBoardTable,
   managementBoardMemberTable,
   managementBoardTable,
   parameterTable,
@@ -19,7 +21,7 @@ import {
 } from "@/lib/organizations";
 import { compareTr } from "@/lib/turkish";
 
-/** One Organizasyon page's tables; all four share these column names */
+/** One Organizasyon page's tables; all share these column names */
 export type OrganizationTables = {
   group: typeof committeeTable;
   person: typeof committeeMemberTable;
@@ -38,6 +40,10 @@ export const ORGANIZATION_TABLES: Record<Organization, OrganizationTables> = {
   supervisory_board: {
     group: supervisoryBoardTable,
     person: supervisoryBoardMemberTable,
+  },
+  honorary_board: {
+    group: honoraryBoardTable,
+    person: honoraryBoardMemberTable,
   },
 };
 
@@ -107,7 +113,7 @@ export async function representativeOrganizationsText(
   );
 }
 
-/** How many group rows, across all four pages, use the Dernek Görevi `roleId` */
+/** How many group rows, across all the pages, use the Dernek Görevi `roleId` */
 export function organizationRoleUsageSql(roleId: AnyPgColumn): SQL<number> {
   const counts = ORGANIZATIONS.map((organization) => {
     const { person } = ORGANIZATION_TABLES[organization];

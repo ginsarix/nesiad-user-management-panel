@@ -1,0 +1,549 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "237a5bfc-48e1-4ccf-8bb2-b48ffd5018e1",
+  "prevIds": [
+    "c9b3929c-c25b-4d2c-9ba1-6c2d43dfee64"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "honorary_board_member"
+      ],
+      "writes": [
+        "s|tbl|public.honorary_board_member",
+        "n|tbl|public.honorary_board_member",
+        "e|tbl|public.honorary_board_member",
+        "n|rel|public.honorary_board_member",
+        "n|type|public.honorary_board_member",
+        "n|rel|public.honorary_board_member_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "honorary_board"
+      ],
+      "writes": [
+        "s|tbl|public.honorary_board",
+        "n|tbl|public.honorary_board",
+        "e|tbl|public.honorary_board",
+        "n|rel|public.honorary_board",
+        "n|type|public.honorary_board",
+        "n|rel|public.honorary_board_pkey",
+        "n|rel|public.honorary_board_name_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "honorary_board_member",
+        "honorary_board_member_group_idx"
+      ],
+      "writes": [
+        "s|idx|public.honorary_board_member_group_idx",
+        "n|idx|public.honorary_board_member_group_idx",
+        "e|idx|public.honorary_board_member_group_idx",
+        "n|rel|public.honorary_board_member_group_idx"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.group_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "honorary_board_member",
+        "honorary_board_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.honorary_board_member_representative_idx",
+        "n|idx|public.honorary_board_member_representative_idx",
+        "e|idx|public.honorary_board_member_representative_idx",
+        "n|rel|public.honorary_board_member_representative_idx"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "honorary_board_member",
+        "honorary_board_member_role_idx"
+      ],
+      "writes": [
+        "s|idx|public.honorary_board_member_role_idx",
+        "n|idx|public.honorary_board_member_role_idx",
+        "e|idx|public.honorary_board_member_role_idx",
+        "n|rel|public.honorary_board_member_role_idx"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.role_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "honorary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.honorary_board_member.honorary_board_member_group_id_honorary_board_id_fkey",
+        "n|fk|public.honorary_board_member.honorary_board_member_group_id_honorary_board_id_fkey",
+        "e|fk|public.honorary_board_member.honorary_board_member_group_id_honorary_board_id_fkey",
+        "n|con|public.honorary_board_member.honorary_board_member_group_id_honorary_board_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|tbl|public.honorary_board",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.group_id",
+        "n|col|public.honorary_board.id",
+        "e|uniqueness|public.honorary_board.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "honorary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.honorary_board_member.honorary_board_member_mx437RuDfwmI_fkey",
+        "n|fk|public.honorary_board_member.honorary_board_member_mx437RuDfwmI_fkey",
+        "e|fk|public.honorary_board_member.honorary_board_member_mx437RuDfwmI_fkey",
+        "n|con|public.honorary_board_member.honorary_board_member_mx437RuDfwmI_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|tbl|public.authorized_representative",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.representative_id",
+        "n|col|public.authorized_representative.id",
+        "e|uniqueness|public.authorized_representative.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "honorary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.honorary_board_member.honorary_board_member_role_id_parameter_id_fkey",
+        "n|fk|public.honorary_board_member.honorary_board_member_role_id_parameter_id_fkey",
+        "e|fk|public.honorary_board_member.honorary_board_member_role_id_parameter_id_fkey",
+        "n|con|public.honorary_board_member.honorary_board_member_role_id_parameter_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|tbl|public.parameter",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.role_id",
+        "n|col|public.parameter.id",
+        "e|uniqueness|public.parameter.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "honorary_board_member",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "honorary_board",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "honorary_board_member_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "group_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "representative_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "role_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board",
+        "name": "id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "honorary_board_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "2147483647",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board",
+        "name": "name_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_group_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "group_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_representative_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "representative_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_role_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "role_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_group_id_honorary_board_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "group_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "honorary_board",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_mx437RuDfwmI_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "representative_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "authorized_representative",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_role_id_parameter_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "role_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "parameter",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board",
+        "name": "honorary_board_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board",
+        "name": "honorary_board_name_key_unique",
+        "nameExplicit": true,
+        "columns": [
+          "name_key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    }
+  ]
+}

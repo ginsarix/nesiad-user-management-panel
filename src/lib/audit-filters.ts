@@ -9,6 +9,7 @@ export const AUDIT_ENTITY_TYPES = [
   "committee",
   "disciplinary_board",
   "supervisory_board",
+  "honorary_board",
   "sector",
   "parameter",
   "cash_account",

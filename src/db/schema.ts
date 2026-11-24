@@ -485,6 +485,10 @@ const supervisoryBoard = organizationTables("supervisory_board");
 export const supervisoryBoardTable = supervisoryBoard.group;
 export const supervisoryBoardMemberTable = supervisoryBoard.person;
 
+const honoraryBoard = organizationTables("honorary_board");
+export const honoraryBoardTable = honoraryBoard.group;
+export const honoraryBoardMemberTable = honoraryBoard.person;
+
 export const userTable = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

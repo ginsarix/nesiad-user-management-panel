@@ -1,4 +1,5 @@
 import {
+  Award,
   BookUser,
   Briefcase,
   Building2,
@@ -60,6 +61,7 @@ const ORGANIZATION_ICONS: Record<Organization, LucideIcon> = {
   committee: UsersRound,
   disciplinary_board: Scale,
   supervisory_board: ClipboardCheck,
+  honorary_board: Award,
 };
 
 export const navGroups: NavGroup[] = [

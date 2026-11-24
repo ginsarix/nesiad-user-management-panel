@@ -9,7 +9,7 @@ import {
   organizationHref,
 } from "@/lib/organizations";
 
-/** A missing group, or a page slug that isn't one of the four */
+/** A missing group, or a page slug that isn't one of the pages */
 export default function OrganizationNotFound() {
   // /organization/<slug>/…: not-found pages get no params
   const organization = organizationFromSlug(usePathname().split("/")[2] ?? "");

@@ -3,13 +3,14 @@
 /**
  * The Organizasyon pages, in sidebar and display order. Each keeps its
  * groups in its own tables (staff may want one handled differently later),
- * but for now all four share the same route, pages and components.
+ * but for now they all share the same route, pages and components.
  */
 export const ORGANIZATIONS = [
   "management_board",
   "committee",
   "disciplinary_board",
   "supervisory_board",
+  "honorary_board",
 ] as const;
 
 export type Organization = (typeof ORGANIZATIONS)[number];
@@ -56,6 +57,13 @@ export const ORGANIZATION_INFO = {
     noun: "denetim kurulu",
     backLabel: "Denetim Kurulu listesine dön",
   },
+  honorary_board: {
+    slug: "honorary-boards",
+    title: "Onur Kurulu",
+    singular: "Onur Kurulu",
+    noun: "onur kurulu",
+    backLabel: "Onur Kurulu listesine dön",
+  },
 } as const satisfies Record<Organization, OrganizationInfo>;
 
 export const ORGANIZATION_SLUGS = [
@@ -63,6 +71,7 @@ export const ORGANIZATION_SLUGS = [
   ORGANIZATION_INFO.committee.slug,
   ORGANIZATION_INFO.disciplinary_board.slug,
   ORGANIZATION_INFO.supervisory_board.slug,
+  ORGANIZATION_INFO.honorary_board.slug,
 ] as const;
 
 export type OrganizationSlug = (typeof ORGANIZATION_SLUGS)[number];
