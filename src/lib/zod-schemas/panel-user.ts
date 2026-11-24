@@ -43,6 +43,13 @@ export const phoneCodeRequestSchema = z.object({
   userId: z.string().min(1).optional(),
 });
 
+/** Which tahsilat notices the user gets; at least one switch per request */
+export const collectionNoticesSchema = z
+  .object({ sms: z.boolean().optional(), email: z.boolean().optional() })
+  .refine((value) => value.sms !== undefined || value.email !== undefined, {
+    message: "Değiştirilecek bir ayar seçin",
+  });
+
 export const renamePanelUserSchema = z.object({ name: nameSchema });
 
 export const setPanelUserPasswordSchema = z.object({

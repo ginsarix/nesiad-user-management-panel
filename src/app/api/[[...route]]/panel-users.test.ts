@@ -438,3 +438,98 @@ describe("GET /api/panel-users/last-logins", () => {
     expect((await lastLogins())[user.id]).toBe("2026-11-02T09:00:00.000Z");
   });
 });
+
+describe("PATCH /api/panel-users/:id/collection-notices", () => {
+  async function switchesOf(id: string) {
+    const [user] = await db
+      .select({
+        sms: userTable.collectionSms,
+        email: userTable.collectionEmail,
+      })
+      .from(userTable)
+      .where(eq(userTable.id, id));
+    return user;
+  }
+
+  it("turns the SMS off and logs only that change", async () => {
+    const target = await newUser();
+    const res = await request("PATCH", `/${target.id}/collection-notices`, {
+      sms: false,
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      message: "Tahsilat bildirimleri güncellendi",
+    });
+    expect(await switchesOf(target.id)).toEqual({ sms: false, email: true });
+    expect(await lastEntry("collection_notices", target.id)).toMatchObject({
+      entityType: "panel_user",
+      entityLabel: "__test__ Kullanıcı",
+      changes: [{ label: "Tahsilat SMS'i", from: "Açık", to: "Kapalı" }],
+    });
+  });
+
+  it("turns the email off and back on, one entry each", async () => {
+    const target = await newUser();
+    const off = await request("PATCH", `/${target.id}/collection-notices`, {
+      email: false,
+    });
+    expect(off.status).toBe(200);
+    expect(await lastEntry("collection_notices", target.id)).toMatchObject({
+      changes: [{ label: "Tahsilat E-postası", from: "Açık", to: "Kapalı" }],
+    });
+
+    const on = await request("PATCH", `/${target.id}/collection-notices`, {
+      email: true,
+    });
+    expect(on.status).toBe(200);
+    expect(await switchesOf(target.id)).toEqual({ sms: true, email: true });
+    expect(await lastEntry("collection_notices", target.id)).toMatchObject({
+      changes: [{ label: "Tahsilat E-postası", from: "Kapalı", to: "Açık" }],
+    });
+  });
+
+  it("logs nothing when nothing changes", async () => {
+    const target = await newUser();
+    const res = await request("PATCH", `/${target.id}/collection-notices`, {
+      sms: true,
+      email: true,
+    });
+    expect(res.status).toBe(200);
+    expect(await lastEntry("collection_notices", target.id)).toBeUndefined();
+  });
+
+  it("refuses an empty body or non-boolean values", async () => {
+    const target = await newUser();
+    const empty = await request(
+      "PATCH",
+      `/${target.id}/collection-notices`,
+      {},
+    );
+    expect(empty.status).toBe(400);
+    const text = await request("PATCH", `/${target.id}/collection-notices`, {
+      sms: "false",
+    });
+    expect(text.status).toBe(400);
+    expect(await switchesOf(target.id)).toEqual({ sms: true, email: true });
+  });
+
+  it("returns 404 for an unknown user", async () => {
+    const res = await request("PATCH", "/__test__nobody/collection-notices", {
+      sms: false,
+    });
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Kullanıcı bulunamadı" });
+  });
+
+  it("can't be changed through better-auth's update-user", async () => {
+    const target = await newUser();
+    await auth.api
+      .adminUpdateUser({
+        headers: cookies,
+        body: { userId: target.id, data: { collectionSms: false } },
+      })
+      .catch(() => {});
+    // still on, whether better-auth refused the field or ignored it
+    expect(await switchesOf(target.id)).toEqual({ sms: true, email: true });
+  });
+});

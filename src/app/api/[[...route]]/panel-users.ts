@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { auditLogTable, userTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
+import { type AuditSpec, diffFields } from "@/lib/audit-diff";
 import { auth } from "@/lib/auth";
 import { authErrorMessage } from "@/lib/auth-errors";
 import {
@@ -18,6 +19,7 @@ import { maskPhone } from "@/lib/sms/phone";
 import {
   addPanelUserSchema,
   changePanelUserPhoneSchema,
+  collectionNoticesSchema,
   phoneCodeRequestSchema,
 } from "@/lib/zod-schemas/panel-user";
 import { type AppEnv, actorOf } from "./env";
@@ -25,6 +27,14 @@ import { respondWithFirstIssue } from "./validation";
 
 /** Audit actions that mean the user logged in (by code, or by the email link) */
 const LOGIN_ACTIONS = ["login", "login_email_link"];
+
+const onOff = (value: unknown) => (value ? "Açık" : "Kapalı");
+
+/** The tahsilat notice switches, keyed as the PATCH body names them */
+const COLLECTION_NOTICE_FIELDS: AuditSpec = {
+  sms: { label: "Tahsilat SMS'i", format: onOff },
+  email: { label: "Tahsilat E-postası", format: onOff },
+};
 
 const idParam = zValidator(
   "param",
@@ -35,7 +45,8 @@ const idParam = zValidator(
 // Everything else about panel users goes through better-auth's admin
 // endpoints from the client. Here: creating an account and changing its
 // phone, because the number must be proven by an SMS code first (the code
-// is tied to the admin's session and the number), and resending the
+// is tied to the admin's session and the number), switching the tahsilat
+// notices (audited here, so better-auth can't set them), and resending the
 // verification email. Also each user's last login, read from the audit log.
 export const panelUsersRoute = new Hono<AppEnv>()
   // { [userId]: ISO time } for users who have logged in. Computed from the
@@ -187,6 +198,47 @@ export const panelUsersRoute = new Hono<AppEnv>()
       });
 
       return c.json({ message: "Telefon numarası güncellendi" }, 200);
+    },
+  )
+  .patch(
+    "/:id/collection-notices",
+    idParam,
+    zValidator("json", collectionNoticesSchema, respondWithFirstIssue),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const update = c.req.valid("json");
+
+      const [user] = await db
+        .select({
+          name: userTable.name,
+          sms: userTable.collectionSms,
+          email: userTable.collectionEmail,
+        })
+        .from(userTable)
+        .where(eq(userTable.id, id));
+      if (!user) return c.json({ error: "Kullanıcı bulunamadı" }, 404);
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(userTable)
+          .set({
+            collectionSms: update.sms,
+            collectionEmail: update.email,
+          })
+          .where(eq(userTable.id, id));
+        const changes = diffFields(COLLECTION_NOTICE_FIELDS, user, update);
+        if (changes.length === 0) return;
+        await recordAudit(tx, {
+          actor: actorOf(c),
+          action: "collection_notices",
+          entityType: "panel_user",
+          entityId: id,
+          entityLabel: user.name,
+          changes,
+        });
+      });
+
+      return c.json({ message: "Tahsilat bildirimleri güncellendi" }, 200);
     },
   )
   .post("/:id/verification-email", idParam, async (c) => {

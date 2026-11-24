@@ -111,6 +111,8 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     verification_email: "Doğrulama e-postası gönderildi",
     phone_code_sent: "Telefon doğrulama kodu gönderildi",
     phone_change: "Panel kullanıcısının telefonu değiştirildi",
+    collection_notices:
+      "Panel kullanıcısının tahsilat bildirimleri değiştirildi",
   },
   sms: {
     send: "SMS gönderildi",
