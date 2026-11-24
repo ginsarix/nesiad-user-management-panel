@@ -72,6 +72,10 @@ describe("navigation", () => {
     expect(findActiveNavItem("/members/1")?.title).toBe("Üyeler");
   });
 
+  it("finds the sidebar footer's page for the header title", () => {
+    expect(findActiveNavItem("/release-notes")?.title).toBe("Sürüm Notları");
+  });
+
   it("shows Genel Bakış first, active only on the dashboard itself", () => {
     expect(navGroups[0].items[0].title).toBe("Genel Bakış");
     expect(findActiveNavItem("/")?.title).toBe("Genel Bakış");

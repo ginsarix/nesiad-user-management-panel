@@ -12,6 +12,7 @@ import {
   type LucideIcon,
   MessageSquareText,
   Network,
+  Newspaper,
   ReceiptText,
   Scale,
   ScrollText,
@@ -115,6 +116,11 @@ export const navGroups: NavGroup[] = [
   },
 ];
 
+/** Links pinned to the bottom of the sidebar, outside the groups */
+export const footerLinks: NavLink[] = [
+  { title: "Sürüm Notları", href: "/release-notes", icon: Newspaper },
+];
+
 export function isNavItemActive(item: NavLink, pathname: string) {
   // "/" is only the dashboard, not every page under it
   if (item.href === "/") return pathname === "/";
@@ -131,5 +137,6 @@ export function findActiveNavItem(pathname: string) {
   return navGroups
     .flatMap((group) => group.items)
     .flatMap((item) => (isNavParent(item) ? item.children : [item]))
+    .concat(footerLinks)
     .find((item) => isNavItemActive(item, pathname));
 }

@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -23,6 +24,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
+  footerLinks,
   isNavItemActive,
   isNavParent,
   isNavParentActive,
@@ -30,6 +32,7 @@ import {
   type NavParent,
   navGroups,
 } from "@/lib/nav";
+import { RELEASE_VERSIONS, shortReleaseVersion } from "@/lib/release-notes";
 
 // the gold bar on the left that marks the open page
 const ACTIVE_BAR = "data-active:shadow-[inset_3px_0_0_var(--sidebar-primary)]";
@@ -86,6 +89,8 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+
+      <ReleaseNotesFooter pathname={pathname} />
 
       <SidebarRail />
     </Sidebar>
@@ -186,5 +191,47 @@ function NavParentItem({
         </SidebarMenuSub>
       )}
     </SidebarMenuItem>
+  );
+}
+
+/**
+ * The current version and a link to Sürüm Notları, pinned to the bottom of
+ * the bar (the nav scrolls above it). Collapsed, it's a single icon.
+ */
+function ReleaseNotesFooter({ pathname }: { pathname: string }) {
+  const [link] = footerLinks;
+  const version = shortReleaseVersion(RELEASE_VERSIONS[0]);
+  const active = isNavItemActive(link, pathname);
+
+  return (
+    <SidebarFooter className="border-t border-sidebar-border px-4 py-3 group-data-[collapsible=icon]:p-2">
+      <div className="group-data-[collapsible=icon]:hidden">
+        <div className="text-[11px] text-sidebar-foreground/60">
+          Sürüm {version}
+        </div>
+        <Link
+          href={link.href}
+          aria-current={active ? "page" : undefined}
+          className={`mt-0.5 inline-block text-xs underline underline-offset-3 hover:text-white ${
+            active ? "text-sidebar-primary" : "text-white"
+          }`}
+        >
+          {link.title} →
+        </Link>
+      </div>
+      <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            render={<Link href={link.href} />}
+            isActive={active}
+            tooltip={`${link.title} · ${version}`}
+            className={ACTIVE_BAR}
+          >
+            <link.icon />
+            <span>{link.title}</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarFooter>
   );
 }
