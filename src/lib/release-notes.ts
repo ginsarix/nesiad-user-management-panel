@@ -80,6 +80,230 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [
       },
     ],
   },
+  {
+    date: "2026-11-23",
+    entries: [
+      {
+        type: "new",
+        text: "Finans altında Kasa - Banka sayfası: kasalar ve banka hesapları, Başlangıç Bakiyesi ve güncel Bakiye ile listeleniyor.",
+      },
+      {
+        type: "new",
+        text: "Yetkililerde PO Positive Card No alanı.",
+      },
+      {
+        type: "changed",
+        text: "Her ödeme ve tahsilatta paranın girdiği veya çıktığı Kasa - Banka seçiliyor.",
+      },
+      {
+        type: "removed",
+        text: "Parametreler'deki Ödeme Tipi ve Tahsilat Tipi listeleri kaldırıldı; yerlerini Kasa - Banka aldı.",
+      },
+    ],
+  },
+  {
+    date: "2026-11-13",
+    entries: [
+      {
+        type: "new",
+        text: "Yetkililere fotoğraf eklenebiliyor; fotoğraflar yetkili adlarının yanında yuvarlak olarak görünüyor.",
+      },
+      {
+        type: "new",
+        text: "Projelerde Taahhütler: yetkililerin projeye verdiği sözler Adet ve Tutar ile, satır ve genel toplamlarıyla kaydediliyor.",
+      },
+      {
+        type: "new",
+        text: 'Taahhütlerde "Adet ve tutarı tüm satırlara uygula" kutusu; işaretliyken yapılan değişiklikler Cmd/Ctrl+Z ile geri alınabiliyor.',
+      },
+      {
+        type: "new",
+        text: "Finans altında Tahakkuk sayfası: Yetkili, Aidat ve Tutar satırlarından oluşan tek liste.",
+      },
+      {
+        type: "improved",
+        text: "Tutar içeren her tablonun altında Toplam satırı.",
+      },
+      {
+        type: "changed",
+        text: "Tahsilatlar artık üyeye değil yetkiliye bağlı; yeni tahsilat bildirimi de yetkiliye gidiyor.",
+      },
+      {
+        type: "changed",
+        text: "Yönetimler sayfasının adı Yönetim oldu.",
+      },
+    ],
+  },
+  {
+    date: "2026-11-11",
+    entries: [
+      {
+        type: "new",
+        text: "Genel Bakış: girişten sonra açılan, ilgilenilmesi gerekenleri ve bu yılın özetini gösteren sayfa.",
+      },
+      {
+        type: "new",
+        text: "Organizasyon menüsü: Yönetimler, Komiteler, Disiplin Kurulu ve Denetim Kurulu sayfalarında yetkililer ve Dernek Görevleri ile gruplar oluşturuluyor.",
+      },
+      {
+        type: "new",
+        text: "Parametreler'de Dernek Görevleri listesi.",
+      },
+      {
+        type: "new",
+        text: "Yetkili sayfasında yetkilinin yer aldığı organizasyon grupları görünüyor.",
+      },
+      {
+        type: "improved",
+        text: "Kaydedilmemiş değişiklikler varken sayfadan ayrılmak istendiğinde uyarı veriliyor.",
+      },
+      {
+        type: "improved",
+        text: "Bildirim metinleri düzenlenirken yanında önizleme görünüyor ve yer tutucular düğmeyle ekleniyor.",
+      },
+      {
+        type: "changed",
+        text: "Bildirim metinleri Ayarlar sayfasındaki Bildirimler sekmesine taşındı ve sekme tek seferde kaydediliyor.",
+      },
+      {
+        type: "changed",
+        text: "30 dakika işlem yapılmayan oturumlar kendiliğinden kapanıyor.",
+      },
+      {
+        type: "changed",
+        text: "Üyeler listesinde üyenin adına tıklayınca detay sayfası açılıyor.",
+      },
+      {
+        type: "fixed",
+        text: "SMS metinlerindeki desteklenmeyen karakterler artık gönderimi bozmuyor.",
+      },
+    ],
+  },
+  {
+    date: "2026-11-10",
+    entries: [
+      {
+        type: "new",
+        text: "Finans menüsü: Cariler ve Ödemeler sayfaları, filtreler ve Excel'e aktarma ile.",
+      },
+      {
+        type: "new",
+        text: "Projeler ve Tahsilatlar sayfaları; tahsilatlar bir projeye bağlanabiliyor ve Excel'e aktarılabiliyor.",
+      },
+      {
+        type: "new",
+        text: "Yeni tahsilatta ilgili üyeye ve diğer panel kullanıcılarına e-posta ve SMS ile bildirim gidiyor.",
+      },
+      {
+        type: "new",
+        text: "Ayarlar'da Parametreler sekmesi: Tahsilat Türü, Ödeme Türü, Tahsilat Tipi ve Ödeme Tipi listeleri.",
+      },
+      {
+        type: "new",
+        text: "Başvuru reddedilirken yalnızca personelin göreceği bir Ret Notu yazılabiliyor.",
+      },
+      {
+        type: "improved",
+        text: "Üye logosu olarak PDF ve SVG dosyaları da yüklenebiliyor.",
+      },
+      {
+        type: "improved",
+        text: "Tarih alanlarında noktalar yazarken kendiliğinden ekleniyor.",
+      },
+      {
+        type: "changed",
+        text: "Otomatik kutlama SMS'leri artık varsayılan olarak açık.",
+      },
+    ],
+  },
+  {
+    date: "2026-11-09",
+    entries: [
+      {
+        type: "new",
+        text: "Girişte şifreden sonra cep telefonuna SMS ile gelen kod soruluyor; SMS gitmezse veya istenirse kod e-posta ile gönderiliyor.",
+      },
+      {
+        type: "new",
+        text: "Her panel kullanıcısının bir cep telefonu var; numara eklenirken veya değiştirilirken SMS koduyla doğrulanıyor.",
+      },
+      {
+        type: "new",
+        text: 'Başvuru kaydedildiğinde başvurana "Başvurunuz alındı" e-postası ve SMS\'i gidiyor.',
+      },
+      {
+        type: "improved",
+        text: "Başvuru formunun adımları arasında serbestçe ileri geri gidilebiliyor.",
+      },
+      {
+        type: "changed",
+        text: 'Başvuru formunda Eğitim listeden seçiliyor, firma tanıtımı en az 1000 karakter olmalı ve diğer dernekler sorusu "Dernek, meslek grupları" oldu.',
+      },
+    ],
+  },
+  {
+    date: "2026-11-06",
+    entries: [
+      {
+        type: "new",
+        text: "/uyelik adresinde herkese açık üyelik başvuru formu; başvurular Aday olarak Üyeler'e düşüyor.",
+      },
+      {
+        type: "new",
+        text: "Başvurular için Kabul Et, Pasif olarak ekle, Reddet ve Tekrar Aday yap kararları; kabul ve retlerde başvurana e-posta ve SMS gidiyor.",
+      },
+      {
+        type: "new",
+        text: "Başvuru bildirimlerinin metinleri panelden düzenlenebiliyor.",
+      },
+      {
+        type: "new",
+        text: "Üye sayfasında başvuru bilgileri ve belgeleri görüntülenip düzenlenebiliyor.",
+      },
+      {
+        type: "changed",
+        text: "Üyelerin Aktif/Pasif işaretinin yerini durum aldı: Aktif, Pasif, Aday veya Reddedildi.",
+      },
+      {
+        type: "changed",
+        text: "Sektörler yeni Ayarlar sayfasına taşındı.",
+      },
+    ],
+  },
+  {
+    date: "2026-11-03",
+    label: "İlk sürüm",
+    entries: [
+      {
+        type: "new",
+        text: "Üyeler: arama ve sektör filtresiyle liste, detay sayfası, logo, Aktif/Pasif durumu ve Üye Giriş Tarihi'nden hesaplanan Kıdem.",
+      },
+      {
+        type: "new",
+        text: "Yetkililer: üyelere görevleriyle bağlanan yetkili kayıtları.",
+      },
+      {
+        type: "new",
+        text: "Sektörler listesi ve üyelerin sektöre bağlanması.",
+      },
+      {
+        type: "new",
+        text: "SMS sayfası: seçilen kişilere SMS gönderimi ve doğum günleri ile kuruluş yıl dönümlerinde otomatik kutlama SMS'i.",
+      },
+      {
+        type: "new",
+        text: "Panel Kullanıcıları sayfası ve e-posta ile şifre sıfırlama.",
+      },
+      {
+        type: "new",
+        text: "Denetim Kayıtları: paneldeki değişikliklerin kim tarafından ve ne zaman yapıldığı.",
+      },
+      {
+        type: "new",
+        text: "Tablolarda Sütunlar düğmesiyle gösterilecek sütunlar seçilebiliyor.",
+      },
+    ],
+  },
 ];
 
 /** "2026-11-24", or "2026-11-24-v2" for a later deploy the same day */

@@ -2,7 +2,7 @@
 
 import { SearchIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ReleaseNoteEntry } from "@/components/release-note-entry";
 import { Input } from "@/components/ui/input";
 import {
@@ -70,37 +70,66 @@ export function ReleaseNotes({ versions }: { versions: ReleaseVersion[] }) {
     );
   }, [query, type]);
 
+  // A version picked from the list (or the address) stays highlighted until
+  // the user scrolls themselves: the last ones can't reach the top of the
+  // screen, so the scroll position alone would name an earlier one
+  const pinned = useRef(false);
+
   // opened with a version's link (#2026-11-13)
   useEffect(() => {
     const id = decodeURIComponent(window.location.hash.slice(1));
     if (!id) return;
     document.getElementById(id)?.scrollIntoView();
+    pinned.current = true;
     setReadingId(id);
   }, []);
 
-  // the topmost card in the upper part of the screen is the one being read
+  // the version being read: the last card whose top has passed a line just
+  // under the sticky header, or the last card once the page can't scroll on
   useEffect(() => {
     const ids = shownKey ? shownKey.split(" ") : [];
-    const inView = new Map<string, boolean>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          inView.set(entry.target.id, entry.isIntersecting);
-        }
-        const first = ids.find((id) => inView.get(id));
-        if (first) setReadingId(first);
-      },
-      // below the sticky header, the top 40% of the screen
-      { rootMargin: "-56px 0px -60% 0px" },
-    );
-    for (const id of ids) {
-      const card = document.getElementById(id);
-      if (card) observer.observe(card);
-    }
-    return () => observer.disconnect();
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (pinned.current || ids.length === 0) return;
+      const atBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2;
+      if (atBottom) {
+        setReadingId(ids[ids.length - 1]);
+        return;
+      }
+      const line = 56 + 120;
+      const passed = ids.filter(
+        (id) =>
+          (document.getElementById(id)?.getBoundingClientRect().top ?? 0) <=
+          line,
+      );
+      setReadingId(passed.at(-1) ?? ids[0]);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    // at the bottom, a wheel turn scrolls nothing, so look again here too
+    const unpin = () => {
+      pinned.current = false;
+      onScroll();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("wheel", unpin, { passive: true });
+    window.addEventListener("touchmove", unpin, { passive: true });
+    window.addEventListener("keydown", unpin);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("wheel", unpin);
+      window.removeEventListener("touchmove", unpin);
+      window.removeEventListener("keydown", unpin);
+    };
   }, [shownKey]);
 
   const goTo = (id: string) => {
+    pinned.current = true;
     setReadingId(id);
     jumpTo(id);
   };
