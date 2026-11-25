@@ -58,6 +58,18 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [
         type: "new",
         text: "Genel Bakış sayfasında Kasa - Banka bakiyeleri: aktif hesapların ilk beşi, isme göre sıralı.",
       },
+      {
+        type: "new",
+        text: "Kasa - Banka dönemleri: her hesaba başlangıç tarihi ve başlangıç bakiyesi olan dönemler eklenebilir; hesap sayfasında her dönem kendi sekmesinde görünür.",
+      },
+      {
+        type: "new",
+        text: 'Kasa - Banka sayfasında Devir: bir dönemin bakiyesi "Devir et" ile sonraki bir döneme aktarılır; kaynak dönem sonradan değişirse sayfa uyarır.',
+      },
+      {
+        type: "changed",
+        text: "Başlangıç Bakiyesi artık hesabın dönemlerinde tutulur; mevcut hesapların bakiyesi 01.01.2026 dönemine taşındı ve listede, Genel Bakış'ta bugünün döneminin bakiyesi gösterilir.",
+      },
     ],
   },
   {
