@@ -52,6 +52,15 @@ export type ReleaseVersion = {
  */
 export const RELEASE_VERSIONS: ReleaseVersion[] = [
   {
+    date: "2026-11-25",
+    entries: [
+      {
+        type: "new",
+        text: "Genel Bakış sayfasında Kasa - Banka bakiyeleri: aktif hesapların ilk beşi, isme göre sıralı.",
+      },
+    ],
+  },
+  {
     date: "2026-11-24",
     entries: [
       {

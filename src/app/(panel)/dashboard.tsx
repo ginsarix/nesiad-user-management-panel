@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { auditActionLabel, formatAuditTime } from "@/lib/audit-labels";
 import {
   CANDIDATE_LIST_SIZE,
+  CASH_ACCOUNT_LIST_SIZE,
   CELEBRATION_DAYS,
   FAILED_SMS_DAYS,
 } from "@/lib/dashboard";
@@ -63,7 +64,8 @@ export function Dashboard() {
           </Panel>
           <RepresentativesWithoutCollection data={data} />
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <CashAccounts data={data} />
           <Panel title="Tahsilat türleri" note={String(data.year)}>
             <BarList
               empty="Bu yıl tahsilat yok"
@@ -501,6 +503,45 @@ function RepresentativesWithoutCollection({ data }: { data: DashboardData }) {
               >
                 {r.name}
               </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function CashAccounts({ data }: { data: DashboardData }) {
+  const { count, top } = data.money.cashAccounts;
+  return (
+    <Panel
+      title={`Kasa - Banka${count > CASH_ACCOUNT_LIST_SIZE ? ` (${count})` : ""}`}
+      note="Güncel bakiye"
+      action={<PanelLink href="/cash-accounts">Tümü</PanelLink>}
+    >
+      {top.length === 0 ? (
+        <p className="py-1 text-sm text-muted-foreground">Aktif hesap yok</p>
+      ) : (
+        <ul className="flex flex-col divide-y text-sm">
+          {top.map((account) => (
+            <li
+              key={account.id}
+              className="flex items-baseline justify-between gap-3 py-1.5"
+            >
+              <Link
+                href={`/cash-accounts/${account.id}`}
+                className="min-w-0 truncate text-primary hover:underline"
+              >
+                {account.name}
+              </Link>
+              <span
+                className={cn(
+                  "shrink-0 tabular-nums",
+                  account.balance.startsWith("-") && "text-destructive",
+                )}
+              >
+                {formatAmount(account.balance)}
+              </span>
             </li>
           ))}
         </ul>
