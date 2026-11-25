@@ -72,9 +72,22 @@ export function CashAccountForm({ account }: { account?: CashAccount }) {
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (values: CashAccountFormValues) => {
-      const json = cashAccountToApi(values);
-      if (!account) return await createCashAccount(json);
-      await updateCashAccount(account.id, json);
+      if (!account) {
+        const json = cashAccountToApi(values, { periodsEdited: true });
+        return await createCashAccount({
+          ...json,
+          periods: json.periods ?? [],
+        });
+      }
+      await updateCashAccount(
+        account.id,
+        cashAccountToApi(values, {
+          // the rows as typed vs. as loaded
+          periodsEdited:
+            JSON.stringify(form.getValues("periods")) !==
+            JSON.stringify(form.formState.defaultValues?.periods),
+        }),
+      );
       return account.id;
     },
     onSuccess: async (id) => {

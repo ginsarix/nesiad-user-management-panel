@@ -113,13 +113,21 @@ export type CashAccountFormInput = z.input<typeof cashAccountFormSchema>;
 export type CashAccountFormValues = z.output<typeof cashAccountFormSchema>;
 export type PeriodFormRow = CashAccountFormInput["periods"][number];
 
-/** Valid form values → what the API takes; an empty balance is 0 */
+/**
+ * Valid form values → what the API takes; an empty balance is 0. Periods go
+ * only when they were edited (always on create): an edit form opened before
+ * a Devir still holds the old Başlangıç Bakiyesi, and sending it back with a
+ * rename would undo the devir.
+ */
 export function cashAccountToApi(
   values: CashAccountFormValues,
-): CashAccountCreateValues & CashAccountUpdateValues {
+  { periodsEdited }: { periodsEdited: boolean },
+): CashAccountUpdateValues {
+  const { name, active } = values;
+  if (!periodsEdited) return { name, active };
   return {
-    name: values.name,
-    active: values.active,
+    name,
+    active,
     periods: values.periods.map((period) => ({
       ...(period.id !== undefined && { id: period.id }),
       startDate: displayToIso(period.startDate),

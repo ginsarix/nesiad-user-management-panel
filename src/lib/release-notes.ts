@@ -67,6 +67,10 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [
         text: 'Kasa - Banka sayfasında Devir: bir dönemin bakiyesi "Devir et" ile sonraki bir döneme aktarılır; kaynak dönem sonradan değişirse sayfa uyarır.',
       },
       {
+        type: "improved",
+        text: "Ödeme ve tahsilat formlarındaki Kasa - Banka bölümü, girilen tarihin dönemindeki bakiyeyi gösterir; tarih hesabın hiçbir dönemine girmiyorsa uyarır.",
+      },
+      {
         type: "changed",
         text: "Başlangıç Bakiyesi artık hesabın dönemlerinde tutulur; mevcut hesapların bakiyesi 01.01.2026 dönemine taşındı ve listede, Genel Bakış'ta bugünün döneminin bakiyesi gösterilir.",
       },
