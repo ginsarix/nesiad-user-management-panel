@@ -325,7 +325,10 @@ describe("GET /api/dashboard", () => {
     expect(names).toEqual([...names].sort(compareTr));
     const listed = top.map((a: { id: number }) => a.id);
     expect(listed).not.toContain(passiveCashAccountId);
-    for (const a of top) expect(a.balance).toMatch(/^-?\d+\.\d{2}$/);
+    // null when none of the account's periods has started
+    for (const a of top) {
+      if (a.balance !== null) expect(a.balance).toMatch(/^-?\d+\.\d{2}$/);
+    }
     const rows = await db
       .select({ active: cashAccountTable.active })
       .from(cashAccountTable)
