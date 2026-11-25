@@ -6,11 +6,11 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, type Path, useForm } from "react-hook-form";
-import { AmountInput } from "@/components/amount-input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { isoToDisplay, todayInIstanbul } from "@/lib/dates";
 import {
   type CashAccount,
   createCashAccount,
@@ -25,15 +25,26 @@ import {
   cashAccountFormSchema,
   cashAccountToApi,
 } from "@/lib/zod-schemas/cash-account";
-
-const FIELDS = ["name", "openingBalance", "active"];
+import { PeriodsEditor } from "./periods-editor";
 
 /** The input an API error is about, when the form shows that input */
 function formField(error: unknown) {
   if (!(error instanceof ApiError) || !error.field) return null;
-  return FIELDS.includes(error.field)
-    ? (error.field as Path<CashAccountFormInput>)
-    : null;
+  // e.g. "periods.1.startDate", or "periods" for the whole list
+  if (error.field === "name" || error.field.startsWith("periods")) {
+    return error.field as Path<CashAccountFormInput>;
+  }
+  return null;
+}
+
+/** A new account starts with one period from 01.01 of this year */
+function newAccountPeriods() {
+  return [
+    {
+      startDate: isoToDisplay(`${todayInIstanbul().slice(0, 4)}-01-01`),
+      openingBalance: "",
+    },
+  ];
 }
 
 /** Create form without an account, edit form with one */
@@ -41,15 +52,21 @@ export function CashAccountForm({ account }: { account?: CashAccount }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const form = useForm({
+  const form = useForm<CashAccountFormInput, unknown, CashAccountFormValues>({
     resolver: zodResolver(cashAccountFormSchema),
     defaultValues: {
       name: account?.name ?? "",
-      openingBalance:
-        account && account.openingBalance !== "0.00"
-          ? amountToInput(account.openingBalance)
-          : "",
       active: account?.active ?? true,
+      periods: account
+        ? account.periods.map((period) => ({
+            id: period.id,
+            startDate: isoToDisplay(period.startDate),
+            openingBalance:
+              period.openingBalance === "0.00"
+                ? ""
+                : amountToInput(period.openingBalance),
+          }))
+        : newAccountPeriods(),
     },
   });
 
@@ -66,6 +83,7 @@ export function CashAccountForm({ account }: { account?: CashAccount }) {
         // ödemeler and tahsilatlar show the account's name
         queryClient.invalidateQueries({ queryKey: ["payments"] }),
         queryClient.invalidateQueries({ queryKey: ["collections"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
       router.push(`/cash-accounts/${id}`);
     },
@@ -126,28 +144,6 @@ export function CashAccountForm({ account }: { account?: CashAccount }) {
 
             <Controller
               control={form.control}
-              name="openingBalance"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={!!fieldState.error}>
-                  <FieldLabel htmlFor="openingBalance">
-                    Başlangıç Bakiyesi
-                  </FieldLabel>
-                  <AmountInput
-                    id="openingBalance"
-                    name={field.name}
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    aria-invalid={!!fieldState.error}
-                    allowNegative
-                  />
-                  <FieldError errors={[fieldState.error]} />
-                </Field>
-              )}
-            />
-
-            <Controller
-              control={form.control}
               name="active"
               render={({ field }) => (
                 <Field orientation="horizontal" className="self-end sm:pb-2">
@@ -162,11 +158,13 @@ export function CashAccountForm({ account }: { account?: CashAccount }) {
                 </Field>
               )}
             />
+          </div>
+        </section>
 
-            <p className="text-sm text-muted-foreground sm:col-span-2">
-              Boş bırakılırsa 0 olur. Bakiye, bu tutara hesabın tahsilatları
-              eklenip ödemeleri çıkarılarak hesaplanır.
-            </p>
+        <section className="rounded-lg border bg-card">
+          <h2 className="border-b px-4 py-2.5 text-sm font-medium">Dönemler</h2>
+          <div className="p-4">
+            <PeriodsEditor control={form.control} />
           </div>
         </section>
 

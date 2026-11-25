@@ -16,7 +16,7 @@ export function ToggleActiveButton({ account }: { account: CashAccount }) {
     mutationFn: () =>
       updateCashAccount(account.id, {
         name: account.name,
-        openingBalance: account.openingBalance,
+        // no periods: they're left as they are
         active: !account.active,
       }),
     // the Ödeme and Tahsilat forms only offer Aktif accounts
