@@ -21,13 +21,15 @@ import {
   periodEndDate,
   periodsAuditText,
 } from "@/lib/cash-account-periods";
-import { todayInIstanbul } from "@/lib/dates";
+import { isoToDisplay, todayInIstanbul } from "@/lib/dates";
+import { formatAmountText } from "@/lib/money";
 import { compareTr } from "@/lib/turkish";
 import {
+  carryOverSchema,
   cashAccountCreateSchema,
   cashAccountUpdateSchema,
 } from "@/lib/zod-schemas/cash-account";
-import { replacePeriods } from "./cash-account-period-writes";
+import { periodsOfAccount, replacePeriods } from "./cash-account-period-writes";
 import {
   cashAccountUsage,
   type PeriodBalanceRow,
@@ -50,6 +52,7 @@ import {
 const NOT_FOUND_ERROR = "Kasa - Banka bulunamadı";
 const DUPLICATE_NAME_ERROR = "Bu isimde bir Kasa - Banka zaten var";
 const PERIOD_NOT_FOUND_ERROR = "Dönem bulunamadı";
+const CARRY_ORDER_ERROR = "Kaynak dönem, hedef dönemden önce olmalı";
 
 const cashAccountAuditSpec: AuditSpec = {
   name: { label: "İsim", format: formatAudit.text },
@@ -275,6 +278,80 @@ export const cashAccountsRoute = new Hono<AppEnv>()
         }
         throw error;
       }
+    },
+  )
+  .post(
+    "/:id/carry-over",
+    zValidator("param", idParamSchema, respondWithFirstIssue),
+    zValidator("json", carryOverSchema, respondWithFirstField),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const { fromPeriodId, toPeriodId } = c.req.valid("json");
+
+      const result = await db.transaction(async (tx) => {
+        // locked: period edits and devir on one account go one at a time
+        const [account] = await tx
+          .select({ name: cashAccountTable.name })
+          .from(cashAccountTable)
+          .where(eq(cashAccountTable.id, id))
+          .for("update");
+        if (!account) return { status: 404, error: NOT_FOUND_ERROR } as const;
+
+        const periods = await periodsOfAccount(tx, id, [
+          fromPeriodId,
+          toPeriodId,
+        ]);
+        const from = periods.find((period) => period.id === fromPeriodId);
+        const to = periods.find((period) => period.id === toPeriodId);
+        if (!from || !to) {
+          return { status: 404, error: PERIOD_NOT_FOUND_ERROR } as const;
+        }
+        if (from.startDate >= to.startDate) {
+          return { status: 400, error: CARRY_ORDER_ERROR } as const;
+        }
+
+        const balances = await selectPeriodBalances(tx, [id]);
+        const amount = balances.find((row) => row.id === from.id)
+          ?.balance as string;
+        await tx
+          .update(cashAccountPeriodTable)
+          .set({
+            openingBalance: amount,
+            carriedFromPeriodId: from.id,
+            carriedAmount: amount,
+          })
+          .where(eq(cashAccountPeriodTable.id, to.id));
+
+        // written even when the amount didn't change: the devir happened
+        await recordAudit(tx, {
+          actor: actorOf(c),
+          action: "carry_over",
+          entityType: "cash_account",
+          entityId: id,
+          entityLabel: account.name,
+          details: [
+            { label: "Kaynak Dönem", value: isoToDisplay(from.startDate) },
+            { label: "Hedef Dönem", value: isoToDisplay(to.startDate) },
+            {
+              label: "Önceki Başlangıç Bakiyesi",
+              value: formatAmountText(to.openingBalance),
+            },
+            {
+              label: "Yeni Başlangıç Bakiyesi",
+              value: formatAmountText(amount),
+            },
+          ],
+        });
+        return { status: 200, amount } as const;
+      });
+
+      if (result.status !== 200) {
+        return c.json({ error: result.error }, result.status);
+      }
+      return c.json(
+        { message: "Devir yapıldı", openingBalance: result.amount },
+        200,
+      );
     },
   )
   .delete(

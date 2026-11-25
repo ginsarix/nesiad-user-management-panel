@@ -647,6 +647,110 @@ describe("PATCH /api/cash-accounts/:id periods", () => {
   });
 });
 
+describe("POST /api/cash-accounts/:id/carry-over", () => {
+  async function account(name: string, periods: PeriodInput[]) {
+    const { body } = await create({ name: `${name} ${suffix}`, periods });
+    const { body: detail } = await get(body.id);
+    return { id: body.id as number, periods: detail.periods };
+  }
+
+  async function carry(id: number, fromPeriodId: number, toPeriodId: number) {
+    return await cashAccountsRoute.request(
+      `/${id}/carry-over`,
+      json("POST", { fromPeriodId, toPeriodId }),
+    );
+  }
+
+  const YEARS: PeriodInput[] = [
+    { startDate: "2025-01-01", openingBalance: "100.00" },
+    { startDate: "2026-01-01", openingBalance: "0.00" },
+  ];
+
+  it("carries the source's Bakiye into the destination", async () => {
+    const { id, periods } = await account("__test__ Devir", YEARS);
+    const [a, b] = periods;
+    await addCollection(id, "50.00", "2025-06-01");
+
+    const res = await carry(id, a.id, b.id);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      message: "Devir yapıldı",
+      openingBalance: "150.00",
+    });
+    expect((await get(id)).body.periods[1]).toMatchObject({
+      openingBalance: "150.00",
+      carriedFromPeriodId: a.id,
+      carriedAmount: "150.00",
+      sourceBalance: "150.00",
+    });
+
+    const audit = await latestAudit(id, "carry_over");
+    expect(audit.details).toEqual([
+      { label: "Kaynak Dönem", value: "01.01.2025" },
+      { label: "Hedef Dönem", value: "01.01.2026" },
+      { label: "Önceki Başlangıç Bakiyesi", value: "0,00 TL" },
+      { label: "Yeni Başlangıç Bakiyesi", value: "150,00 TL" },
+    ]);
+  });
+
+  it("carries a negative Bakiye", async () => {
+    const { id, periods } = await account("__test__ Eksi Devir", YEARS);
+    await addPayment(id, "125.00", "2025-03-01");
+    await carry(id, periods[0].id, periods[1].id);
+    expect((await get(id)).body.periods[1].openingBalance).toBe("-25.00");
+  });
+
+  it("goes stale when the source changes", async () => {
+    const { id, periods } = await account("__test__ Bayat", YEARS);
+    await carry(id, periods[0].id, periods[1].id);
+    await addCollection(id, "10.00", "2025-12-31");
+    expect((await get(id)).body.periods[1]).toMatchObject({
+      carriedAmount: "100.00",
+      sourceBalance: "110.00",
+    });
+  });
+
+  it("is audited again when repeated without a change", async () => {
+    const { id, periods } = await account("__test__ Tekrar", YEARS);
+    await carry(id, periods[0].id, periods[1].id);
+    const first = await latestAudit(id, "carry_over");
+    await carry(id, periods[0].id, periods[1].id);
+    expect((await latestAudit(id, "carry_over")).id).toBeGreaterThan(first.id);
+  });
+
+  it("refuses a source that isn't earlier", async () => {
+    const { id, periods } = await account("__test__ Ters", YEARS);
+    for (const [from, to] of [
+      [periods[1].id, periods[0].id],
+      [periods[0].id, periods[0].id],
+    ]) {
+      const res = await carry(id, from, to);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(
+        "Kaynak dönem, hedef dönemden önce olmalı",
+      );
+    }
+    expect((await get(id)).body.periods[0].openingBalance).toBe("100.00");
+  });
+
+  it("refuses periods of another account", async () => {
+    const mine = await account("__test__ Benim", YEARS);
+    const other = await account("__test__ Onun", YEARS);
+    const res = await carry(mine.id, mine.periods[0].id, other.periods[1].id);
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("Dönem bulunamadı");
+  });
+
+  it("carries into a future period", async () => {
+    const { id, periods } = await account("__test__ İleri", [
+      { startDate: "2026-01-01", openingBalance: "7.00" },
+      { startDate: "2999-01-01", openingBalance: "0.00" },
+    ]);
+    expect((await carry(id, periods[0].id, periods[1].id)).status).toBe(200);
+    expect((await get(id)).body.periods[1].openingBalance).toBe("7.00");
+  });
+});
+
 describe("DELETE /api/cash-accounts/:id", () => {
   it("deletes an unused account and records it with its periods", async () => {
     const { body } = await create({

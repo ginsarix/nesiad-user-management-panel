@@ -76,6 +76,7 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     create: "Kasa - Banka eklendi",
     update: "Kasa - Banka güncellendi",
     delete: "Kasa - Banka silindi",
+    carry_over: "Kasa - Banka devri yapıldı",
   },
   counterparty: {
     create: "Cari eklendi",

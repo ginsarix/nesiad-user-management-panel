@@ -56,6 +56,16 @@ export async function updateCashAccount(
   if (!res.ok) await throwResponseError(res, "Kasa - Banka güncellenemedi");
 }
 
+/** Devir: the destination's Başlangıç Bakiyesi becomes the source's Bakiye */
+export async function carryOver(id: number, values: CarryOverValues) {
+  const res = await rpcClient.api["cash-accounts"][":id"]["carry-over"].$post({
+    param: { id: String(id) },
+    json: values,
+  });
+
+  if (!res.ok) await throwResponseError(res, "Devir yapılamadı");
+}
+
 export async function deleteCashAccount(id: number) {
   const res = await rpcClient.api["cash-accounts"][":id"].$delete({
     param: { id: String(id) },
