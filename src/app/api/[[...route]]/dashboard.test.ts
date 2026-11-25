@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   authorizedRepresentativeTable,
+  cashAccountTable,
   collectionTable,
   counterpartyTable,
   memberTable,
@@ -14,6 +15,7 @@ import {
   smsSendTable,
 } from "@/db/schema";
 import { ISO_FORMAT, parseIsoDate, todayInIstanbul } from "@/lib/dates";
+import { compareTr } from "@/lib/turkish";
 import {
   deleteTestCashAccounts,
   insertTestCashAccount,
@@ -22,6 +24,7 @@ import { dashboardRoute } from "./dashboard";
 
 // Kasa - Banka fixtures, deleted after the records using them
 const cashAccountIds: number[] = [];
+let passiveCashAccountId = 0;
 
 // unique per run: sector, parameter and cari names are unique
 const tag = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -131,6 +134,11 @@ beforeAll(async () => {
   const cashAccountId = await insertTestCashAccount(
     `__test__ Dashboard ${tag}`,
     cashAccountIds,
+  );
+  passiveCashAccountId = await insertTestCashAccount(
+    `__test__ Dashboard Pasif ${tag}`,
+    cashAccountIds,
+    { active: false, openingBalance: "999999.00" },
   );
 
   const [project] = await db
@@ -306,6 +314,24 @@ describe("GET /api/dashboard", () => {
     expect(
       money.activeProjects.find((c: { id: number }) => c.id === ids.project),
     ).toMatchObject({ count: 1, total: "100.00" });
+  });
+
+  it("lists at most 5 Aktif cash accounts in Turkish name order", async () => {
+    const { count, top } = (await getDashboard()).money.cashAccounts;
+    expect(top.length).toBeGreaterThan(0);
+    expect(top.length).toBeLessThanOrEqual(5);
+    expect(count).toBeGreaterThanOrEqual(top.length);
+    const names = top.map((a: { name: string }) => a.name);
+    expect(names).toEqual([...names].sort(compareTr));
+    const listed = top.map((a: { id: number }) => a.id);
+    expect(listed).not.toContain(passiveCashAccountId);
+    for (const a of top) expect(a.balance).toMatch(/^-?\d+\.\d{2}$/);
+    const rows = await db
+      .select({ active: cashAccountTable.active })
+      .from(cashAccountTable)
+      .where(inArray(cashAccountTable.id, listed));
+    expect(rows).toHaveLength(listed.length);
+    expect(rows.every((row) => row.active)).toBe(true);
   });
 
   it("lists Aktif yetkililer with no tahsilat this year", async () => {

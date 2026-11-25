@@ -18,6 +18,7 @@ import { db } from "@/db";
 import {
   auditLogTable,
   authorizedRepresentativeTable,
+  cashAccountTable,
   collectionTable,
   memberTable,
   parameterTable,
@@ -32,6 +33,7 @@ import {
   chartMonths,
   daysBefore,
   FAILED_SMS_DAYS,
+  firstCashAccounts,
   joinYears,
   RECENT_AUDIT_SIZE,
   seniorityBuckets,
@@ -42,6 +44,7 @@ import { MEMBER_STATUSES, type MemberStatus } from "@/lib/member-status";
 import { loadCelebrationsBetween } from "@/lib/sms/load-celebrations";
 import { getSmsSettings } from "@/lib/sms/settings";
 import { compareTr } from "@/lib/turkish";
+import { cashAccountBalance } from "./cash-account-queries";
 import { sumOfCollected } from "./collection-queries";
 import type { AppEnv } from "./env";
 import { sumOfAmounts } from "./payment-queries";
@@ -211,6 +214,19 @@ function activeProjects() {
     );
 }
 
+/** Aktif Kasa - Banka accounts with their Bakiye; the first few by name */
+async function activeCashAccounts() {
+  const accounts = await db
+    .select({
+      id: cashAccountTable.id,
+      name: cashAccountTable.name,
+      balance: cashAccountBalance(),
+    })
+    .from(cashAccountTable)
+    .where(eq(cashAccountTable.active, true));
+  return firstCashAccounts(accounts);
+}
+
 /** Aktif yetkililer without a tahsilat dated this year, by name */
 async function representativesWithoutCollection(from: string, to: string) {
   const representatives = await db
@@ -317,6 +333,7 @@ export const dashboardRoute = new Hono<AppEnv>().get("/", async (c) => {
     byCollectionCategory,
     byPaymentCategory,
     projects,
+    cashAccounts,
     withoutCollection,
     bySector,
     loginDates,
@@ -333,6 +350,7 @@ export const dashboardRoute = new Hono<AppEnv>().get("/", async (c) => {
     collectionsByCategory(from, to),
     paymentsByCategory(from, to),
     activeProjects(),
+    activeCashAccounts(),
     representativesWithoutCollection(from, to),
     membersBySector(),
     activeLoginDates(),
@@ -372,6 +390,7 @@ export const dashboardRoute = new Hono<AppEnv>().get("/", async (c) => {
       collectionsByCategory: byCollectionCategory,
       paymentsByCategory: byPaymentCategory,
       activeProjects: projects,
+      cashAccounts,
       representativesWithoutCollection: withoutCollection,
     },
     membership: {

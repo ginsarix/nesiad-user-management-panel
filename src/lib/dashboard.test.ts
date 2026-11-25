@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   chartMonths,
   daysBefore,
+  firstCashAccounts,
   joinYears,
   monthLabel,
   seniorityBuckets,
@@ -58,5 +59,34 @@ describe("dashboard helpers", () => {
     );
     expect(buckets.map((b) => b.count)).toEqual([3, 2, 1, 2]);
     expect(unknown).toBe(2);
+  });
+
+  it("keeps the first 5 cash accounts in Turkish name order, counting all", () => {
+    const names = [
+      "Ziraat",
+      "İş Bankası",
+      "Isparta",
+      "Çarşı Kasa",
+      "Cadde",
+      "Akbank",
+      "Vakıfbank",
+    ];
+    const { count, top } = firstCashAccounts(names.map((name) => ({ name })));
+    expect(count).toBe(7);
+    expect(top.map((a) => a.name)).toEqual([
+      "Akbank",
+      "Cadde",
+      "Çarşı Kasa",
+      "Isparta",
+      "İş Bankası",
+    ]);
+    expect(names[0]).toBe("Ziraat");
+  });
+
+  it("returns every cash account when there are 5 or fewer", () => {
+    expect(firstCashAccounts([])).toEqual({ count: 0, top: [] });
+    expect(
+      firstCashAccounts([{ name: "B" }, { name: "A" }]).top.map((a) => a.name),
+    ).toEqual(["A", "B"]);
   });
 });

@@ -1,6 +1,7 @@
 /** Client-safe: no db imports. Helpers for the dashboard (Genel Bakış). */
 import { addMonths, format, subDays } from "date-fns";
 import { ISO_FORMAT, membershipYears, parseIsoDate } from "./dates";
+import { compareTr } from "./turkish";
 
 /** How many days of celebrations "Yaklaşan kutlamalar" looks ahead, today included */
 export const CELEBRATION_DAYS = 7;
@@ -14,6 +15,21 @@ export const RECENT_AUDIT_SIZE = 3;
 export const CHART_MONTHS = 12;
 /** How many years "Yıllara göre yeni üyeler" covers, this year included */
 export const JOIN_YEARS = 10;
+/** How many Kasa - Banka accounts are listed */
+export const CASH_ACCOUNT_LIST_SIZE = 5;
+
+/**
+ * The first Kasa - Banka accounts by name, in the Kasa - Banka list's
+ * default order, with how many there are in all
+ */
+export function firstCashAccounts<T extends { name: string }>(accounts: T[]) {
+  return {
+    count: accounts.length,
+    top: accounts
+      .toSorted((a, b) => compareTr(a.name, b.name))
+      .slice(0, CASH_ACCOUNT_LIST_SIZE),
+  };
+}
 
 /** The calendar year of a yyyy-MM-dd day, as inclusive yyyy-MM-dd bounds */
 export function yearBounds(today: string) {
