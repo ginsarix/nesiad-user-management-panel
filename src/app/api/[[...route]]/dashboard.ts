@@ -27,6 +27,7 @@ import {
   sectorTable,
   smsSendTable,
 } from "@/db/schema";
+import { currentPeriodOf } from "@/lib/cash-account-periods";
 import {
   CANDIDATE_LIST_SIZE,
   CELEBRATION_DAYS,
@@ -44,7 +45,7 @@ import { MEMBER_STATUSES, type MemberStatus } from "@/lib/member-status";
 import { loadCelebrationsBetween } from "@/lib/sms/load-celebrations";
 import { getSmsSettings } from "@/lib/sms/settings";
 import { compareTr } from "@/lib/turkish";
-import { cashAccountBalance } from "./cash-account-queries";
+import { selectPeriodBalances } from "./cash-account-queries";
 import { sumOfCollected } from "./collection-queries";
 import type { AppEnv } from "./env";
 import { sumOfAmounts } from "./payment-queries";
@@ -214,17 +215,30 @@ function activeProjects() {
     );
 }
 
-/** Aktif Kasa - Banka accounts with their Bakiye; the first few by name */
+/** Aktif Kasa - Banka accounts with their current Bakiye; the first few by name */
 async function activeCashAccounts() {
   const accounts = await db
-    .select({
-      id: cashAccountTable.id,
-      name: cashAccountTable.name,
-      balance: cashAccountBalance(),
-    })
+    .select({ id: cashAccountTable.id, name: cashAccountTable.name })
     .from(cashAccountTable)
     .where(eq(cashAccountTable.active, true));
-  return firstCashAccounts(accounts);
+  const { count, top } = firstCashAccounts(accounts);
+  const periods = await selectPeriodBalances(
+    db,
+    top.map((account) => account.id),
+  );
+  const today = todayInIstanbul();
+  return {
+    count,
+    top: top.map((account) => ({
+      ...account,
+      // the Bakiye of the period today falls in
+      balance:
+        currentPeriodOf(
+          periods.filter((period) => period.cashAccountId === account.id),
+          today,
+        )?.balance ?? null,
+    })),
+  };
 }
 
 /** Aktif yetkililer without a tahsilat dated this year, by name */

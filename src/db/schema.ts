@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   date,
@@ -114,14 +115,6 @@ export const cashAccountTable = pgTable("cash_account", {
   name: text().notNull(),
   // Turkish lowercase name, so "İş Bankası" and "iş bankası" can't both exist
   nameKey: text("name_key").notNull().unique(),
-  // Başlangıç Bakiyesi; may be below zero
-  openingBalance: numeric("opening_balance", {
-    precision: 12,
-    scale: 2,
-    mode: "string",
-  })
-    .default("0")
-    .notNull(),
   active: boolean().default(true).notNull(),
 
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -132,6 +125,56 @@ export const cashAccountTable = pgTable("cash_account", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+/**
+ * Dönemler of a Kasa - Banka. A period runs from its start date up to the
+ * day before the next one's; the last is open-ended. Ödemeler and
+ * tahsilatlar fall into a period by their date (they don't point at it).
+ * Start dates are unique per account, checked by the API under a lock on
+ * the account row rather than by a constraint, so an edit can swap two
+ * periods' dates.
+ */
+export const cashAccountPeriodTable = pgTable(
+  "cash_account_period",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    cashAccountId: integer("cash_account_id")
+      .notNull()
+      .references(() => cashAccountTable.id, { onDelete: "cascade" }),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    // Başlangıç Bakiyesi; may be below zero
+    openingBalance: numeric("opening_balance", {
+      precision: 12,
+      scale: 2,
+      mode: "string",
+    }).notNull(),
+    // the last Devir into this period: its source and the amount it carried,
+    // so the page can tell when the source's Bakiye has moved since
+    carriedFromPeriodId: integer("carried_from_period_id").references(
+      (): AnyPgColumn => cashAccountPeriodTable.id,
+      { onDelete: "set null" },
+    ),
+    carriedAmount: numeric("carried_amount", {
+      precision: 12,
+      scale: 2,
+      mode: "string",
+    }),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("cash_account_period_account_idx").on(
+      table.cashAccountId,
+      table.startDate,
+    ),
+  ],
+);
 
 /**
  * Taahhütler: what a yetkili pledged to a proje, Adet × Tutar. A record

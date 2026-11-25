@@ -2,7 +2,12 @@ import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "@/db";
-import { cashAccountTable, collectionTable, paymentTable } from "@/db/schema";
+import {
+  cashAccountPeriodTable,
+  cashAccountTable,
+  collectionTable,
+  paymentTable,
+} from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
@@ -10,13 +15,24 @@ import {
   diffFields,
   formatAudit,
 } from "@/lib/audit-diff";
-import { formatAmount } from "@/lib/money";
+import {
+  currentPeriodOf,
+  periodEndDate,
+  periodsAuditText,
+} from "@/lib/cash-account-periods";
+import { todayInIstanbul } from "@/lib/dates";
 import { compareTr } from "@/lib/turkish";
 import {
-  type CashAccountApiValues,
-  cashAccountSchema,
+  cashAccountCreateSchema,
+  cashAccountUpdateSchema,
 } from "@/lib/zod-schemas/cash-account";
-import { cashAccountBalance, cashAccountUsage } from "./cash-account-queries";
+import {
+  cashAccountUsage,
+  type PeriodBalanceRow,
+  selectOutsidePeriods,
+  selectPeriodBalances,
+  selectPeriodsForAudit,
+} from "./cash-account-queries";
 import {
   FOREIGN_KEY_VIOLATION,
   pgErrorCode,
@@ -34,24 +50,46 @@ const DUPLICATE_NAME_ERROR = "Bu isimde bir Kasa - Banka zaten var";
 
 const cashAccountAuditSpec: AuditSpec = {
   name: { label: "İsim", format: formatAudit.text },
-  openingBalance: {
-    label: "Başlangıç Bakiyesi",
-    format: (value) => formatAmount(value as string),
-  },
   active: { label: "Durum", format: formatAudit.active },
 };
+
+const PERIODS_LABEL = "Dönemler";
 
 const cashAccountColumns = {
   id: cashAccountTable.id,
   name: cashAccountTable.name,
-  openingBalance: cashAccountTable.openingBalance,
   active: cashAccountTable.active,
-  balance: cashAccountBalance(),
   ...cashAccountUsage(),
 };
 
-function withNameKey(values: CashAccountApiValues) {
-  return { ...values, nameKey: values.name.toLocaleLowerCase("tr") };
+function withNameKey(values: { name: string; active: boolean }) {
+  return {
+    name: values.name,
+    active: values.active,
+    nameKey: values.name.toLocaleLowerCase("tr"),
+  };
+}
+
+/** Create/delete audit details: the fields plus the periods */
+function describeAccount(
+  account: { name: string; active: boolean },
+  periods: readonly { startDate: string; openingBalance: string }[],
+) {
+  return [
+    ...describeFields(cashAccountAuditSpec, account),
+    { label: PERIODS_LABEL, value: periodsAuditText(periods) },
+  ];
+}
+
+/** An account's period rows, grouped by account id */
+function groupByAccount(rows: readonly PeriodBalanceRow[]) {
+  const groups = new Map<number, PeriodBalanceRow[]>();
+  for (const row of rows) {
+    const group = groups.get(row.cashAccountId);
+    if (group) group.push(row);
+    else groups.set(row.cashAccountId, [row]);
+  }
+  return groups;
 }
 
 /**
@@ -80,7 +118,24 @@ function duplicateName(error: unknown) {
 export const cashAccountsRoute = new Hono<AppEnv>()
   .get("/", async (c) => {
     const accounts = await db.select(cashAccountColumns).from(cashAccountTable);
-    return c.json(accounts.sort((a, b) => compareTr(a.name, b.name)));
+    const periods = groupByAccount(await selectPeriodBalances(db));
+    const today = todayInIstanbul();
+    const items = accounts.map((account) => {
+      const own = periods.get(account.id) ?? [];
+      const current = currentPeriodOf(own, today);
+      return {
+        ...account,
+        // the Bakiye of the period today falls in
+        balance: current?.balance ?? null,
+        currentPeriodStart: current?.startDate ?? null,
+        periods: own.map(({ id, startDate, balance }) => ({
+          id,
+          startDate,
+          balance,
+        })),
+      };
+    });
+    return c.json(items.sort((a, b) => compareTr(a.name, b.name)));
   })
   .get(
     "/:id",
@@ -91,12 +146,37 @@ export const cashAccountsRoute = new Hono<AppEnv>()
         .from(cashAccountTable)
         .where(eq(cashAccountTable.id, c.req.valid("param").id));
       if (!account) return c.json({ error: NOT_FOUND_ERROR }, 404);
-      return c.json(account, 200);
+
+      const rows = await selectPeriodBalances(db, [account.id]);
+      const outside = await selectOutsidePeriods(db, account.id);
+      const current = currentPeriodOf(rows, todayInIstanbul());
+      const balanceOf = new Map(rows.map((row) => [row.id, row.balance]));
+      const periods = rows.map(
+        ({ cashAccountId: _, nextStartDate, ...period }) => ({
+          ...period,
+          endDate: periodEndDate(nextStartDate),
+          // the devir source's Bakiye now, to tell a stale devir
+          sourceBalance:
+            period.carriedFromPeriodId === null
+              ? null
+              : (balanceOf.get(period.carriedFromPeriodId) ?? null),
+        }),
+      );
+      return c.json(
+        {
+          ...account,
+          balance: current?.balance ?? null,
+          currentPeriodId: current?.id ?? null,
+          periods,
+          outside,
+        },
+        200,
+      );
     },
   )
   .post(
     "/",
-    zValidator("json", cashAccountSchema, respondWithFirstField),
+    zValidator("json", cashAccountCreateSchema, respondWithFirstField),
     async (c) => {
       const values = c.req.valid("json");
       try {
@@ -105,13 +185,22 @@ export const cashAccountsRoute = new Hono<AppEnv>()
             .insert(cashAccountTable)
             .values(withNameKey(values))
             .returning();
+          const periods = values.periods.map(
+            ({ startDate, openingBalance }) => ({ startDate, openingBalance }),
+          );
+          await tx.insert(cashAccountPeriodTable).values(
+            periods.map((period) => ({
+              ...period,
+              cashAccountId: account.id,
+            })),
+          );
           await recordAudit(tx, {
             actor: actorOf(c),
             action: "create",
             entityType: "cash_account",
             entityId: account.id,
             entityLabel: account.name,
-            details: describeFields(cashAccountAuditSpec, account),
+            details: describeAccount(account, periods),
           });
           return account.id;
         });
@@ -127,7 +216,7 @@ export const cashAccountsRoute = new Hono<AppEnv>()
   .patch(
     "/:id",
     zValidator("param", idParamSchema, respondWithFirstIssue),
-    zValidator("json", cashAccountSchema, respondWithFirstField),
+    zValidator("json", cashAccountUpdateSchema, respondWithFirstField),
     async (c) => {
       const { id } = c.req.valid("param");
       const values = c.req.valid("json");
@@ -188,6 +277,7 @@ export const cashAccountsRoute = new Hono<AppEnv>()
             return { refused: { paymentCount, collectionCount } };
           }
 
+          const periods = await selectPeriodsForAudit(tx, [id]);
           const [account] = await tx
             .delete(cashAccountTable)
             .where(eq(cashAccountTable.id, id))
@@ -200,7 +290,7 @@ export const cashAccountsRoute = new Hono<AppEnv>()
             entityType: "cash_account",
             entityId: id,
             entityLabel: account.name,
-            details: describeFields(cashAccountAuditSpec, account),
+            details: describeAccount(account, periods),
           });
           return { refused: undefined };
         })

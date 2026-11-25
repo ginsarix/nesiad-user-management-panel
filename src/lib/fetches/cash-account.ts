@@ -1,9 +1,16 @@
 import type { ClientRequestOptions } from "hono/client";
 import { rpcClient } from "../rpc-client";
-import type { CashAccountApiValues } from "../zod-schemas/cash-account";
+import type {
+  CarryOverValues,
+  CashAccountCreateValues,
+  CashAccountUpdateValues,
+} from "../zod-schemas/cash-account";
 import { throwResponseError } from "./errors";
 
-/** Sorted by name, each with its Bakiye and how many records use it */
+/**
+ * Sorted by name, each with its current Bakiye (null when no period has
+ * started), its periods' Bakiye and how many records use it
+ */
 export async function getCashAccounts(options?: ClientRequestOptions) {
   const res = await rpcClient.api["cash-accounts"].$get(undefined, options);
 
@@ -29,7 +36,7 @@ export async function getCashAccount(
 }
 
 /** Throws an ApiError whose `field` names the input it is about */
-export async function createCashAccount(values: CashAccountApiValues) {
+export async function createCashAccount(values: CashAccountCreateValues) {
   const res = await rpcClient.api["cash-accounts"].$post({ json: values });
 
   if (!res.ok) await throwResponseError(res, "Kasa - Banka kaydedilemedi");
@@ -39,7 +46,7 @@ export async function createCashAccount(values: CashAccountApiValues) {
 
 export async function updateCashAccount(
   id: number,
-  values: CashAccountApiValues,
+  values: CashAccountUpdateValues,
 ) {
   const res = await rpcClient.api["cash-accounts"][":id"].$patch({
     param: { id: String(id) },

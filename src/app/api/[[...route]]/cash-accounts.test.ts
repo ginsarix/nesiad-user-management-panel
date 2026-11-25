@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   auditLogTable,
   authorizedRepresentativeTable,
+  cashAccountTable,
   collectionTable,
   counterpartyTable,
   parameterTable,
@@ -85,57 +86,107 @@ afterAll(async () => {
     .where(inArray(parameterTable.id, parameterIds));
 });
 
-async function addPayment(cashAccountId: number, amount: string) {
+async function addPayment(
+  cashAccountId: number,
+  amount: string,
+  date = "2026-11-01",
+) {
   const [row] = await db
     .insert(paymentTable)
     .values({
       counterpartyId: cari,
       amount,
-      date: "2026-11-01",
+      date,
       categoryId: paymentCategory,
       cashAccountId,
     })
     .returning({ id: paymentTable.id });
   paymentIds.push(row.id);
+  return row.id;
 }
 
-async function addCollection(cashAccountId: number, amount: string) {
+async function addCollection(
+  cashAccountId: number,
+  amount: string,
+  date = "2026-11-01",
+) {
   const [row] = await db
     .insert(collectionTable)
     .values({
       representativeId: yetkili,
       amount,
-      date: "2026-11-01",
+      date,
       categoryId: collectionCategory,
       cashAccountId,
     })
     .returning({ id: collectionTable.id });
   collectionIds.push(row.id);
+  return row.id;
 }
+
+type PeriodInput = { startDate: string; openingBalance: string };
+
+const ONE_PERIOD: PeriodInput[] = [
+  { startDate: "2026-01-01", openingBalance: "0.00" },
+];
 
 async function create(values: Record<string, unknown>) {
   const res = await cashAccountsRoute.request(
     "/",
-    json("POST", { openingBalance: "0.00", active: true, ...values }),
+    json("POST", { active: true, periods: ONE_PERIOD, ...values }),
   );
   const body = await res.json();
   if (res.status === 201) accountIds.push(body.id);
   return { res, body };
 }
 
+type Period = {
+  id: number;
+  startDate: string;
+  endDate: string | null;
+  openingBalance: string;
+  collected: string;
+  paid: string;
+  balance: string;
+  carriedFromPeriodId: number | null;
+  carriedAmount: string | null;
+  sourceBalance: string | null;
+};
+
 type Account = {
   id: number;
   name: string;
-  openingBalance: string;
   active: boolean;
-  balance: string;
+  balance: string | null;
   paymentCount: number;
   collectionCount: number;
+  currentPeriodId: number | null;
+  periods: Period[];
+  outside: {
+    before: string | null;
+    collectionCount: number;
+    paymentCount: number;
+  };
+};
+
+type ListItem = {
+  id: number;
+  balance: string | null;
+  currentPeriodStart: string | null;
+  paymentCount: number;
+  collectionCount: number;
+  periods: { id: number; startDate: string; balance: string }[];
 };
 
 async function get(id: number) {
   const res = await cashAccountsRoute.request(`/${id}`);
   return { res, body: (await res.json()) as Account };
+}
+
+async function listItem(id: number) {
+  const res = await cashAccountsRoute.request("/");
+  const list = (await res.json()) as ListItem[];
+  return list.find((a) => a.id === id);
 }
 
 async function latestAudit(id: number, action: string) {
@@ -155,9 +206,13 @@ async function latestAudit(id: number, action: string) {
 }
 
 describe("POST /api/cash-accounts", () => {
-  it("creates with opening balance 0 and records it", async () => {
+  it("creates with its periods and records them", async () => {
     const { res, body } = await create({
       name: ` __test__ Merkez Kasa ${suffix} `,
+      periods: [
+        { startDate: "2026-01-01", openingBalance: "-50.00" },
+        { startDate: "2025-01-01", openingBalance: "1250.50" },
+      ],
     });
     expect(res.status).toBe(201);
     expect(body.message).toBe("Kasa - Banka kaydedildi");
@@ -165,33 +220,62 @@ describe("POST /api/cash-accounts", () => {
     const { body: account } = await get(body.id);
     expect(account).toMatchObject({
       name: `__test__ Merkez Kasa ${suffix}`,
-      openingBalance: "0.00",
-      balance: "0.00",
+      balance: "-50.00",
       active: true,
       paymentCount: 0,
       collectionCount: 0,
     });
+    expect(account.periods.map((p) => [p.startDate, p.openingBalance])).toEqual(
+      [
+        ["2025-01-01", "1250.50"],
+        ["2026-01-01", "-50.00"],
+      ],
+    );
 
     const audit = await latestAudit(body.id, "create");
     expect(audit.details).toEqual([
       { label: "İsim", value: `__test__ Merkez Kasa ${suffix}` },
-      { label: "Başlangıç Bakiyesi", value: "₺0,00" },
       { label: "Durum", value: "Aktif" },
+      {
+        label: "Dönemler",
+        value: "01.01.2025: 1.250,50 TL; 01.01.2026: -50,00 TL",
+      },
     ]);
   });
 
-  it("allows a negative opening balance", async () => {
-    const { body } = await create({
-      name: `__test__ Eksi ${suffix}`,
-      openingBalance: "-500.00",
+  it("refuses an account without periods", async () => {
+    const { res, body } = await create({
+      name: `__test__ Dönemsiz ${suffix}`,
+      periods: [],
     });
-    expect((await get(body.id)).body.balance).toBe("-500.00");
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("En az bir dönem olmalı");
+  });
+
+  it("refuses two periods with the same start date", async () => {
+    const { res, body } = await create({
+      name: `__test__ Çift ${suffix}`,
+      periods: [
+        { startDate: "2026-01-01", openingBalance: "0.00" },
+        { startDate: "2026-01-01", openingBalance: "5.00" },
+      ],
+    });
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("Aynı başlangıç tarihli iki dönem olamaz");
+  });
+
+  it("allows a period starting in the future", async () => {
+    const { res } = await create({
+      name: `__test__ Gelecek ${suffix}`,
+      periods: [{ startDate: "2999-01-01", openingBalance: "0.00" }],
+    });
+    expect(res.status).toBe(201);
   });
 
   it("refuses a malformed opening balance", async () => {
     const { res, body } = await create({
       name: `__test__ Bozuk ${suffix}`,
-      openingBalance: "1.250,00",
+      periods: [{ startDate: "2026-01-01", openingBalance: "1.250,00" }],
     });
     expect(res.status).toBe(400);
     expect(body.error).toBe("Geçerli bir tutar girin");
@@ -220,7 +304,7 @@ describe("Bakiye", () => {
   it("adds tahsilatlar and subtracts ödemeler, several of each", async () => {
     const { body } = await create({
       name: `__test__ Ziraat ${suffix}`,
-      openingBalance: "1000.00",
+      periods: [{ startDate: "2026-01-01", openingBalance: "1000.00" }],
     });
     await addCollection(body.id, "200.00");
     await addCollection(body.id, "300.50");
@@ -234,10 +318,7 @@ describe("Bakiye", () => {
       paymentCount: 3,
       collectionCount: 2,
     });
-
-    const res = await cashAccountsRoute.request("/");
-    const list = (await res.json()) as Account[];
-    expect(list.find((a) => a.id === body.id)).toMatchObject({
+    expect(await listItem(body.id)).toMatchObject({
       balance: "1325.25",
       paymentCount: 3,
       collectionCount: 2,
@@ -252,6 +333,110 @@ describe("Bakiye", () => {
     expect((await get(a.id)).body.balance).toBe("0.00");
     expect((await get(b.id)).body.balance).toBe("-65.00");
   });
+
+  it("counts records in the period their date falls in", async () => {
+    const { body } = await create({
+      name: `__test__ Dönemli ${suffix}`,
+      periods: [
+        { startDate: "2025-01-01", openingBalance: "100.00" },
+        { startDate: "2026-01-01", openingBalance: "1000.00" },
+      ],
+    });
+    await addCollection(body.id, "50.00", "2025-12-31");
+    await addCollection(body.id, "30.00", "2026-01-01");
+    await addPayment(body.id, "10.00", "2026-06-01");
+    await addCollection(body.id, "999.00", "2024-12-31");
+
+    const { body: account } = await get(body.id);
+    const [first, second] = account.periods;
+    expect(first).toMatchObject({
+      startDate: "2025-01-01",
+      endDate: "2025-12-31",
+      collected: "50.00",
+      paid: "0.00",
+      balance: "150.00",
+    });
+    expect(second).toMatchObject({
+      startDate: "2026-01-01",
+      endDate: null,
+      collected: "30.00",
+      paid: "10.00",
+      balance: "1020.00",
+    });
+    expect(account.balance).toBe("1020.00");
+    expect(account.currentPeriodId).toBe(second.id);
+    expect(account.outside).toEqual({
+      before: "2025-01-01",
+      collectionCount: 1,
+      paymentCount: 0,
+    });
+
+    const item = await listItem(body.id);
+    expect(item).toMatchObject({
+      balance: "1020.00",
+      currentPeriodStart: "2026-01-01",
+    });
+    expect(item?.periods).toEqual([
+      { id: first.id, startDate: "2025-01-01", balance: "150.00" },
+      { id: second.id, startDate: "2026-01-01", balance: "1020.00" },
+    ]);
+  });
+
+  it("moves a record between periods with its date", async () => {
+    const { body } = await create({
+      name: `__test__ Taşınan ${suffix}`,
+      periods: [
+        { startDate: "2025-01-01", openingBalance: "100.00" },
+        { startDate: "2026-01-01", openingBalance: "1000.00" },
+      ],
+    });
+    const id = await addCollection(body.id, "50.00", "2025-12-31");
+    expect((await get(body.id)).body.periods[0].balance).toBe("150.00");
+
+    await db
+      .update(collectionTable)
+      .set({ date: "2026-02-01" })
+      .where(eq(collectionTable.id, id));
+    const { body: account } = await get(body.id);
+    expect(account.periods.map((p) => p.balance)).toEqual([
+      "100.00",
+      "1050.00",
+    ]);
+  });
+
+  it("has no current Bakiye while every period is in the future", async () => {
+    const { body } = await create({
+      name: `__test__ Başlamamış ${suffix}`,
+      periods: [{ startDate: "2999-01-01", openingBalance: "5.00" }],
+    });
+    const { body: account } = await get(body.id);
+    expect(account.balance).toBeNull();
+    expect(account.currentPeriodId).toBeNull();
+    expect(await listItem(body.id)).toMatchObject({
+      balance: null,
+      currentPeriodStart: null,
+    });
+  });
+
+  it("an account without periods has no Bakiye", async () => {
+    const name = `__test__ Boş ${suffix}`;
+    const [row] = await db
+      .insert(cashAccountTable)
+      .values({ name, nameKey: name.toLocaleLowerCase("tr") })
+      .returning({ id: cashAccountTable.id });
+    accountIds.push(row.id);
+    await addCollection(row.id, "5.00");
+
+    const { res, body: account } = await get(row.id);
+    expect(res.status).toBe(200);
+    expect(account).toMatchObject({
+      balance: null,
+      currentPeriodId: null,
+      periods: [],
+      outside: { before: null, collectionCount: 0, paymentCount: 0 },
+    });
+    expect((await listItem(row.id))?.balance).toBeNull();
+  });
 });
 
 describe("PATCH /api/cash-accounts/:id", () => {
@@ -261,25 +446,21 @@ describe("PATCH /api/cash-accounts/:id", () => {
 
     const res = await cashAccountsRoute.request(
       `/${body.id}`,
-      json("PATCH", { name, openingBalance: "1250.00", active: false }),
+      json("PATCH", { name, active: false }),
     );
     expect(res.status).toBe(200);
     expect((await res.json()).message).toBe("Kasa - Banka güncellendi");
 
     const audit = await latestAudit(body.id, "update");
     expect(audit.changes).toEqual([
-      { label: "Başlangıç Bakiyesi", from: "₺0,00", to: "₺1.250,00" },
       { label: "Durum", from: "Aktif", to: "Pasif" },
     ]);
-    expect((await get(body.id)).body).toMatchObject({
-      balance: "1250.00",
-      active: false,
-    });
+    expect((await get(body.id)).body).toMatchObject({ active: false });
 
     // the same values again write nothing
     await cashAccountsRoute.request(
       `/${body.id}`,
-      json("PATCH", { name, openingBalance: "1250.00", active: false }),
+      json("PATCH", { name, active: false }),
     );
     expect((await latestAudit(body.id, "update")).id).toBe(audit.id);
   });
@@ -289,11 +470,7 @@ describe("PATCH /api/cash-accounts/:id", () => {
     const { body } = await create({ name: `__test__ Halk 2 ${suffix}` });
     const res = await cashAccountsRoute.request(
       `/${body.id}`,
-      json("PATCH", {
-        name: `__test__ HALK ${suffix}`,
-        openingBalance: "0.00",
-        active: true,
-      }),
+      json("PATCH", { name: `__test__ HALK ${suffix}`, active: true }),
     );
     expect(res.status).toBe(409);
     expect((await res.json()).field).toBe("name");
@@ -301,10 +478,10 @@ describe("PATCH /api/cash-accounts/:id", () => {
 });
 
 describe("DELETE /api/cash-accounts/:id", () => {
-  it("deletes an unused account and records it", async () => {
+  it("deletes an unused account and records it with its periods", async () => {
     const { body } = await create({
       name: `__test__ Silinecek ${suffix}`,
-      openingBalance: "10.00",
+      periods: [{ startDate: "2026-01-01", openingBalance: "10.00" }],
     });
     const res = await cashAccountsRoute.request(`/${body.id}`, {
       method: "DELETE",
@@ -315,8 +492,8 @@ describe("DELETE /api/cash-accounts/:id", () => {
 
     const audit = await latestAudit(body.id, "delete");
     expect(audit.details).toContainEqual({
-      label: "Başlangıç Bakiyesi",
-      value: "₺10,00",
+      label: "Dönemler",
+      value: "01.01.2026: 10,00 TL",
     });
   });
 
@@ -356,11 +533,7 @@ describe("unknown ids", () => {
       cashAccountsRoute.request(`/${id}`),
       cashAccountsRoute.request(
         `/${id}`,
-        json("PATCH", {
-          name: "__test__ yok",
-          openingBalance: "0.00",
-          active: true,
-        }),
+        json("PATCH", { name: "__test__ yok", active: true }),
       ),
       cashAccountsRoute.request(`/${id}`, { method: "DELETE" }),
     ]);
