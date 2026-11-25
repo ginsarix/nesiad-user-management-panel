@@ -60,7 +60,7 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [
       },
       {
         type: "new",
-        text: "Kasa - Banka dönemleri: her hesaba başlangıç tarihi ve başlangıç bakiyesi olan dönemler eklenebilir; hesap sayfasında her dönem kendi sekmesinde görünür.",
+        text: 'Kasa - Banka dönemleri: her hesaba başlangıç tarihi ve başlangıç bakiyesi olan dönemler eklenebilir; hesap sayfasında her dönem kendi sekmesinde görünür ve bir dönemin bakiyesi "Devir et" ile sonraki bir döneme aktarılabilir.',
       },
       {
         type: "changed",
