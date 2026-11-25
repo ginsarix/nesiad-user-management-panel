@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useMemo } from "react";
-import { Controller, type FieldPath, useForm } from "react-hook-form";
+import { Controller, type FieldPath, useForm, useWatch } from "react-hook-form";
 import { AmountInput } from "@/components/amount-input";
 import { CashAccountSection } from "@/components/cash-account-section";
 import { SearchCombobox } from "@/components/search-combobox";
@@ -155,6 +155,8 @@ export function CollectionForm({
       },
     },
   });
+  // the Kasa - Banka section shows the Bakiye of this date's period
+  const date = useWatch({ control: form.control, name: "date" });
 
   const backHref = from?.representative
     ? `/representatives/${from.representative}`
@@ -332,6 +334,7 @@ export function CollectionForm({
               onChange={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error}
+              date={date}
             />
           )}
         />

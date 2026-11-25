@@ -537,10 +537,10 @@ function CashAccounts({ data }: { data: DashboardData }) {
               <span
                 className={cn(
                   "shrink-0 tabular-nums",
-                  account.balance.startsWith("-") && "text-destructive",
+                  account.balance?.startsWith("-") && "text-destructive",
                 )}
               >
-                {formatAmount(account.balance)}
+                {account.balance === null ? "—" : formatAmount(account.balance)}
               </span>
             </li>
           ))}

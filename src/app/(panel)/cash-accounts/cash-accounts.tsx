@@ -49,8 +49,12 @@ const features = tableFeatures({
 const sortByName: SortFn<typeof features, CashAccountListItem> = (a, b) =>
   compareTr(a.original.name, b.original.name);
 
+/** Accounts with no current Bakiye (no period started yet) sort lowest */
 const sortByBalance: SortFn<typeof features, CashAccountListItem> = (a, b) => {
-  const difference = toKurus(a.original.balance) - toKurus(b.original.balance);
+  const x = a.original.balance;
+  const y = b.original.balance;
+  if (x === null || y === null) return x === y ? 0 : x === null ? -1 : 1;
+  const difference = toKurus(x) - toKurus(y);
   return difference === BigInt(0) ? 0 : difference < BigInt(0) ? -1 : 1;
 };
 
@@ -80,16 +84,20 @@ const columns = helper.columns([
     header: "Bakiye",
     sortFn: sortByBalance,
     sortDescFirst: true,
-    cell: (info) => (
-      <span
-        className={cn(
-          "block text-right tabular-nums",
-          info.getValue().startsWith("-") && "text-destructive",
-        )}
-      >
-        {formatAmount(info.getValue())}
-      </span>
-    ),
+    // the Bakiye of the period today falls in
+    cell: (info) => {
+      const balance = info.getValue();
+      return (
+        <span
+          className={cn(
+            "block text-right tabular-nums",
+            balance?.startsWith("-") && "text-destructive",
+          )}
+        >
+          {balance === null ? "—" : formatAmount(balance)}
+        </span>
+      );
+    },
   }),
   helper.accessor("active", {
     header: "Durum",
@@ -271,7 +279,8 @@ export function CashAccounts({
           <TableTotalFooter
             columnIds={visibleColumns.map((column) => column.id)}
             amountColumnId="balance"
-            amounts={rows.map((row) => row.original.balance)}
+            // no current Bakiye counts as 0
+            amounts={rows.map((row) => row.original.balance ?? "0.00")}
             alignRight
           />
         </Table>
