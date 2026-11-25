@@ -32,12 +32,12 @@ const NEW_ROW: AccrualFormRow = {
   amount: "",
 };
 
-// Yetkili | Aidat | Tutar | remove
+// Yetkili | Tahakkuk Türü | Tutar | remove
 const COLUMNS =
   "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_2.25rem] sm:gap-x-3";
 
 /**
- * The Tahakkuk rows: Yetkili, Aidat (a Tahsilat Türü) and Tutar, with the
+ * The Tahakkuk rows: Yetkili, Tahakkuk Türü (a Tahsilat Türü) and Tutar, with the
  * Genel Toplam of the Tutar under them, updated as the user types.
  * `current` are the saved rows: their Pasif yetkililer stay pickable.
  */
@@ -56,7 +56,7 @@ export function AccrualRowsEditor({
     queryKey: ["parameters"],
     queryFn: () => getParameters(),
   });
-  // Aidat is picked from the Tahsilat Türü list
+  // Tahakkuk Türü is picked from the Tahsilat Türü list
   const aidatItems = useMemo(
     () =>
       (parameters ?? [])
@@ -87,7 +87,7 @@ export function AccrualRowsEditor({
           aria-hidden
         >
           <span>Yetkili</span>
-          <span>Aidat</span>
+          <span>Tahakkuk Türü</span>
           <span>Tutar</span>
           <span />
         </div>
@@ -137,9 +137,9 @@ export function AccrualRowsEditor({
                     onChange={field.onChange}
                     onBlur={field.onBlur}
                     invalid={!!fieldState.error}
-                    placeholder="Aidat seçin"
+                    placeholder="Tahakkuk Türü seçin"
                     noItemsText="Ayarlar'da tahsilat türü yok."
-                    noMatchText="Aramanızla eşleşen aidat yok."
+                    noMatchText="Aramanızla eşleşen tahakkuk türü yok."
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>

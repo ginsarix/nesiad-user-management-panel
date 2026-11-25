@@ -35,11 +35,11 @@ export function parameterUsageNouns(kind: ParameterKind) {
     };
   }
   if (kind === "collection_category") {
-    // a Tahsilat Türü is also a tahakkuk row's Aidat
+    // a Tahsilat Türü is also a tahakkuk row's Tahakkuk Türü
     return {
       locative: "tahsilat veya tahakkuk kaydında",
       genitivePlural: "kayıtların",
-      field: `${field} / Aidat`,
+      field: `${field} / Tahakkuk Türü`,
     };
   }
   return { locative: "ödemede", genitivePlural: "ödemelerin", field };

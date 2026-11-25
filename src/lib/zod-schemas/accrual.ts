@@ -7,10 +7,10 @@ import {
   typedAmountSchema,
 } from "./shared";
 
-/** One tahakkuk row as the API takes it; Aidat is a Tahsilat Türü */
+/** One tahakkuk row as the API takes it; Tahakkuk Türü is a Tahsilat Türü */
 export const accrualRowSchema = z.object({
   representativeId: idSchema("Yetkili seçin"),
-  categoryId: idSchema("Aidat seçin"),
+  categoryId: idSchema("Tahakkuk Türü seçin"),
   amount: amountSchema,
 });
 export type AccrualRowInput = z.output<typeof accrualRowSchema>;
@@ -27,7 +27,7 @@ export const accrualBodySchema = z.object({
 /** A tahakkuk row as typed: Tutar the Turkish way */
 export const accrualFormRowSchema = z.object({
   representativeId: pickedSchema("Yetkili seçin"),
-  categoryId: pickedSchema("Aidat seçin"),
+  categoryId: pickedSchema("Tahakkuk Türü seçin"),
   amount: typedAmountSchema,
 });
 export type AccrualFormRow = z.input<typeof accrualFormRowSchema>;

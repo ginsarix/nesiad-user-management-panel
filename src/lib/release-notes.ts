@@ -53,6 +53,24 @@ export type ReleaseVersion = {
 export const RELEASE_VERSIONS: ReleaseVersion[] = [
   {
     date: "2026-11-25",
+    revision: 2,
+    entries: [
+      {
+        type: "changed",
+        text: "Tahakkuk sayfasında Aidat sütununun adı Tahakkuk Türü oldu.",
+      },
+      {
+        type: "changed",
+        text: "Üyeler tablosunda Yetkililer sütunu en başa, Ünvan'ın önüne alındı.",
+      },
+      {
+        type: "improved",
+        text: "Üyeler tablosunda Sektör sütunu daraltıldı; uzun sektör adlarının tamamı üzerine gelince görünüyor.",
+      },
+    ],
+  },
+  {
+    date: "2026-11-25",
     entries: [
       {
         type: "new",

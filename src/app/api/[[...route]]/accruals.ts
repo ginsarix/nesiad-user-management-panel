@@ -26,7 +26,7 @@ import { respondWithFirstField } from "./validation";
 export const ACCRUAL_CONFLICT_ERROR =
   "Tahakkuk siz düzenlerken başka biri tarafından değiştirildi. Değişikliklerinizi not alıp sayfayı yenileyin.";
 
-/** The list in the order entered, with each row's yetkili and Aidat */
+/** The list in the order entered, with each row's yetkili and Tahakkuk Türü */
 function loadAccruals(executor: Executor) {
   return executor
     .select({
@@ -61,7 +61,7 @@ function versionOf(rows: readonly AccrualRowInput[]) {
     .digest("hex");
 }
 
-/** Throws InvalidRowError unless every Aidat is a Tahsilat Türü */
+/** Throws InvalidRowError unless every Tahakkuk Türü is a Tahsilat Türü */
 async function assertAidatIsCollectionCategory(
   tx: Transaction,
   rows: readonly AccrualRowInput[],
@@ -160,7 +160,7 @@ export const accrualsRoute = new Hono<AppEnv>()
             400,
           );
         }
-        // a yetkili or Aidat deleted while the page was open
+        // a yetkili or Tahakkuk Türü deleted while the page was open
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
           return c.json(
             { error: "Seçilen yetkili veya aidat bulunamadı" },

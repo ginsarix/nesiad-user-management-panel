@@ -259,7 +259,7 @@ describe("Tahakkuk", () => {
     });
     expect(missing.status).toBe(400);
     expect(await missing.json()).toEqual({
-      error: "Aidat seçin",
+      error: "Tahakkuk Türü seçin",
       field: "rows.0.categoryId",
     });
   });

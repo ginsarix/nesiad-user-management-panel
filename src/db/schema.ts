@@ -218,7 +218,7 @@ export const projectPledgeTable = pgTable(
 );
 
 /**
- * Tahakkuk: one association-wide list of yetkili × Aidat × Tutar rows,
+ * Tahakkuk: one association-wide list of yetkili × Tahakkuk Türü × Tutar rows,
  * edited in place on its page. Totals are computed where shown, never stored.
  */
 export const accrualTable = pgTable(
@@ -231,7 +231,7 @@ export const accrualTable = pgTable(
       .references(() => authorizedRepresentativeTable.id, {
         onDelete: "restrict",
       }),
-    // Aidat: a collection_category parameter (Tahsilat Türü); one in use
+    // Tahakkuk Türü: a collection_category parameter (Tahsilat Türü); one in use
     // can't be deleted
     categoryId: integer("category_id")
       .notNull()

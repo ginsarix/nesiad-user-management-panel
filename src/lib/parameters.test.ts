@@ -18,11 +18,11 @@ describe("parameterUsageNouns", () => {
       genitivePlural: "ödemelerin",
       field: "Ödeme Türü",
     });
-    // a Tahsilat Türü is a tahakkuk row's Aidat too
+    // a Tahsilat Türü is a tahakkuk row's Tahakkuk Türü too
     expect(parameterUsageNouns("collection_category")).toEqual({
       locative: "tahsilat veya tahakkuk kaydında",
       genitivePlural: "kayıtların",
-      field: "Tahsilat Türü / Aidat",
+      field: "Tahsilat Türü / Tahakkuk Türü",
     });
     expect(parameterUsageNouns("association_role")).toEqual({
       locative: "organizasyon kaydında",

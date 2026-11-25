@@ -11,7 +11,7 @@ export default async function AccrualsPage() {
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // prefetch the list and what its rows pick from: yetkililer, Aidatlar
+  // prefetch the list and what its rows pick from: yetkililer, Tahakkuk Türleri
   await Promise.all([
     queryClient
       .query({ queryKey: ["accruals"], queryFn: () => getAccruals(options) })

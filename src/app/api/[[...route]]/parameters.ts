@@ -50,7 +50,7 @@ function collectionsUsing(id: typeof parameterTable.id | number) {
 }
 
 /**
- * How many payments, tahsilatlar, tahakkuk rows (Aidat) and Organizasyon
+ * How many payments, tahsilatlar, tahakkuk rows (Tahakkuk Türü) and Organizasyon
  * rows use the entry. One query at a time: inside a transaction they share
  * one connection.
  */

@@ -64,6 +64,20 @@ const sortByValue: SortFn<typeof features, MemberListItem> = (
 const helper = createColumnHelper<typeof features, MemberListItem>();
 
 const columns = helper.columns([
+  helper.accessor(
+    (member) => member.representatives.map((r) => r.name).join(", "),
+    {
+      id: "representatives",
+      header: "Yetkililer",
+      enableSorting: false,
+      // long lists are cut off; the full list shows on hover
+      cell: (info) => (
+        <span className="block max-w-64 truncate" title={info.getValue()}>
+          {orDash(info.getValue())}
+        </span>
+      ),
+    },
+  ),
   helper.accessor("title", {
     header: "Ünvan",
     enableHiding: false,
@@ -98,22 +112,21 @@ const columns = helper.columns([
   helper.accessor("sector", {
     header: "Sektör",
     sortFn: sortTr,
-    cell: (info) => orDash(info.getValue()),
+    // long sector names are cut off; the full name shows on hover
+    cell: (info) => (
+      <span
+        className="block max-w-40 truncate"
+        title={info.getValue() ?? undefined}
+      >
+        {orDash(info.getValue())}
+      </span>
+    ),
   }),
   helper.accessor("phone", {
     header: "Telefon",
     enableSorting: false,
     cell: (info) => orDash(info.getValue()),
   }),
-  helper.accessor(
-    (member) => member.representatives.map((r) => r.name).join(", "),
-    {
-      id: "representatives",
-      header: "Yetkililer",
-      enableSorting: false,
-      cell: (info) => orDash(info.getValue()),
-    },
-  ),
   helper.accessor((member) => member.memberLoginDate ?? undefined, {
     id: "memberLoginDate",
     header: "Üye Giriş Tarihi",
