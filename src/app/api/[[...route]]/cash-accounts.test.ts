@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   auditLogTable,
   authorizedRepresentativeTable,
+  cashAccountPeriodTable,
   cashAccountTable,
   collectionTable,
   counterpartyTable,
@@ -474,6 +475,175 @@ describe("PATCH /api/cash-accounts/:id", () => {
     );
     expect(res.status).toBe(409);
     expect((await res.json()).field).toBe("name");
+  });
+});
+
+describe("PATCH /api/cash-accounts/:id periods", () => {
+  async function twoPeriods(name: string) {
+    const { body } = await create({
+      name: `${name} ${suffix}`,
+      periods: [
+        { startDate: "2025-01-01", openingBalance: "100.00" },
+        { startDate: "2026-01-01", openingBalance: "0.00" },
+      ],
+    });
+    const [a, b] = (await get(body.id)).body.periods;
+    return { id: body.id as number, name: `${name} ${suffix}`, a, b };
+  }
+
+  async function patch(id: number, values: Record<string, unknown>) {
+    return await cashAccountsRoute.request(`/${id}`, json("PATCH", values));
+  }
+
+  async function linkPeriods(toId: number, fromId: number, amount: string) {
+    await db
+      .update(cashAccountPeriodTable)
+      .set({ carriedFromPeriodId: fromId, carriedAmount: amount })
+      .where(eq(cashAccountPeriodTable.id, toId));
+  }
+
+  it("PATCH without periods leaves them alone", async () => {
+    const { id, name, a, b } = await twoPeriods("__test__ Dokunma");
+    expect((await patch(id, { name, active: false })).status).toBe(200);
+    const { body } = await get(id);
+    expect(body.periods.map((p) => p.id)).toEqual([a.id, b.id]);
+    expect((await latestAudit(id, "update")).changes).toEqual([
+      { label: "Durum", from: "Aktif", to: "Pasif" },
+    ]);
+  });
+
+  it("replaces periods: updates kept ids, inserts new, deletes missing", async () => {
+    const { id, name, a } = await twoPeriods("__test__ Değişen");
+    const res = await patch(id, {
+      name,
+      active: true,
+      periods: [
+        { id: a.id, startDate: "2025-01-01", openingBalance: "200.00" },
+        { startDate: "2027-01-01", openingBalance: "5.00" },
+      ],
+    });
+    expect(res.status).toBe(200);
+
+    const { body } = await get(id);
+    expect(body.periods.map((p) => [p.startDate, p.openingBalance])).toEqual([
+      ["2025-01-01", "200.00"],
+      ["2027-01-01", "5.00"],
+    ]);
+    expect(body.periods[0].id).toBe(a.id);
+    expect((await latestAudit(id, "update")).changes).toEqual([
+      {
+        label: "Dönemler",
+        from: "01.01.2025: 100,00 TL; 01.01.2026: 0,00 TL",
+        to: "01.01.2025: 200,00 TL; 01.01.2027: 5,00 TL",
+      },
+    ]);
+  });
+
+  it("swaps two periods' start dates", async () => {
+    const { id, name, a, b } = await twoPeriods("__test__ Takas");
+    const res = await patch(id, {
+      name,
+      active: true,
+      periods: [
+        { id: a.id, startDate: "2026-01-01", openingBalance: "100.00" },
+        { id: b.id, startDate: "2025-01-01", openingBalance: "0.00" },
+      ],
+    });
+    expect(res.status).toBe(200);
+    const { body } = await get(id);
+    expect(body.periods.map((p) => [p.id, p.startDate])).toEqual([
+      [b.id, "2025-01-01"],
+      [a.id, "2026-01-01"],
+    ]);
+  });
+
+  it("refuses a period of another account", async () => {
+    const { id, name, a } = await twoPeriods("__test__ Kendi");
+    const other = await twoPeriods("__test__ Başkası");
+    const res = await patch(id, {
+      name,
+      active: true,
+      periods: [
+        { id: a.id, startDate: "2025-01-01", openingBalance: "1.00" },
+        { id: other.b.id, startDate: "2026-01-01", openingBalance: "1.00" },
+      ],
+    });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "Dönem bulunamadı",
+      field: "periods",
+    });
+    expect((await get(id)).body.periods[0].openingBalance).toBe("100.00");
+    expect((await get(other.id)).body.periods).toHaveLength(2);
+  });
+
+  it("a hand-typed opening balance drops the devir link", async () => {
+    const { id, name, a, b } = await twoPeriods("__test__ Elle");
+    await linkPeriods(b.id, a.id, "100.00");
+    const periods = (bBalance: string) => [
+      { id: a.id, startDate: "2025-01-01", openingBalance: "100.00" },
+      { id: b.id, startDate: "2026-01-01", openingBalance: bBalance },
+    ];
+
+    await patch(id, { name, active: true, periods: periods("0.00") });
+    expect((await get(id)).body.periods[1]).toMatchObject({
+      carriedFromPeriodId: a.id,
+      carriedAmount: "100.00",
+    });
+
+    await patch(id, { name, active: true, periods: periods("120.00") });
+    expect((await get(id)).body.periods[1]).toMatchObject({
+      carriedFromPeriodId: null,
+      carriedAmount: null,
+    });
+  });
+
+  it("moving a period before its devir source drops the link", async () => {
+    const { id, name, a, b } = await twoPeriods("__test__ Geri");
+    await linkPeriods(b.id, a.id, "100.00");
+    await patch(id, {
+      name,
+      active: true,
+      periods: [
+        { id: a.id, startDate: "2025-01-01", openingBalance: "100.00" },
+        { id: b.id, startDate: "2024-01-01", openingBalance: "0.00" },
+      ],
+    });
+    const moved = (await get(id)).body.periods.find((p) => p.id === b.id);
+    expect(moved).toMatchObject({
+      carriedFromPeriodId: null,
+      carriedAmount: null,
+    });
+  });
+
+  it("deleting a devir source clears the link", async () => {
+    const { id, name, a, b } = await twoPeriods("__test__ Kaynaksız");
+    await linkPeriods(b.id, a.id, "100.00");
+    await patch(id, {
+      name,
+      active: true,
+      periods: [{ id: b.id, startDate: "2026-01-01", openingBalance: "0.00" }],
+    });
+    expect((await get(id)).body.periods).toEqual([
+      expect.objectContaining({
+        id: b.id,
+        carriedFromPeriodId: null,
+        carriedAmount: null,
+      }),
+    ]);
+  });
+
+  it("PATCH without changes writes no audit entry", async () => {
+    const { id, name, a, b } = await twoPeriods("__test__ Aynı");
+    await patch(id, {
+      name,
+      active: true,
+      periods: [
+        { id: a.id, startDate: "2025-01-01", openingBalance: "100.00" },
+        { id: b.id, startDate: "2026-01-01", openingBalance: "0.00" },
+      ],
+    });
+    expect(await latestAudit(id, "update")).toBeUndefined();
   });
 });
 

@@ -11,6 +11,7 @@ import {
 import { recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
+  change,
   describeFields,
   diffFields,
   formatAudit,
@@ -26,6 +27,7 @@ import {
   cashAccountCreateSchema,
   cashAccountUpdateSchema,
 } from "@/lib/zod-schemas/cash-account";
+import { replacePeriods } from "./cash-account-period-writes";
 import {
   cashAccountUsage,
   type PeriodBalanceRow,
@@ -47,6 +49,7 @@ import {
 
 const NOT_FOUND_ERROR = "Kasa - Banka bulunamadı";
 const DUPLICATE_NAME_ERROR = "Bu isimde bir Kasa - Banka zaten var";
+const PERIOD_NOT_FOUND_ERROR = "Dönem bulunamadı";
 
 const cashAccountAuditSpec: AuditSpec = {
   name: { label: "İsim", format: formatAudit.text },
@@ -221,19 +224,29 @@ export const cashAccountsRoute = new Hono<AppEnv>()
       const { id } = c.req.valid("param");
       const values = c.req.valid("json");
       try {
-        const found = await db.transaction(async (tx) => {
+        const result = await db.transaction(async (tx) => {
+          // locked: period edits and devir on one account go one at a time
           const [existing] = await tx
             .select()
             .from(cashAccountTable)
-            .where(eq(cashAccountTable.id, id));
-          if (!existing) return false;
+            .where(eq(cashAccountTable.id, id))
+            .for("update");
+          if (!existing) return "not found";
+
+          const changes = diffFields(cashAccountAuditSpec, existing, values);
+          if (values.periods) {
+            // checks every id before writing anything
+            const periods = await replacePeriods(tx, id, values.periods);
+            if (periods === "unknown period") return "unknown period";
+            changes.push(
+              ...change(PERIODS_LABEL, periods.before, periods.after),
+            );
+          }
 
           await tx
             .update(cashAccountTable)
             .set(withNameKey(values))
             .where(eq(cashAccountTable.id, id));
-
-          const changes = diffFields(cashAccountAuditSpec, existing, values);
           if (changes.length > 0) {
             await recordAudit(tx, {
               actor: actorOf(c),
@@ -244,9 +257,17 @@ export const cashAccountsRoute = new Hono<AppEnv>()
               changes,
             });
           }
-          return true;
+          return "saved";
         });
-        if (!found) return c.json({ error: NOT_FOUND_ERROR }, 404);
+        if (result === "not found") {
+          return c.json({ error: NOT_FOUND_ERROR }, 404);
+        }
+        if (result === "unknown period") {
+          return c.json(
+            { error: PERIOD_NOT_FOUND_ERROR, field: "periods" },
+            409,
+          );
+        }
         return c.json({ id, message: "Kasa - Banka güncellendi" }, 200);
       } catch (error) {
         if (duplicateName(error)) {
