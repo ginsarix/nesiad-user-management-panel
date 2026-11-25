@@ -44,7 +44,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-4 pt-4 pb-5 group-data-[collapsible=icon]:px-2">
         <Link
-          href="/members"
+          href="/"
           // When collapsed, crop the logo down to its gear emblem
           className="block overflow-hidden group-data-[collapsible=icon]:w-8"
         >
