@@ -3,15 +3,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
-import { CollectionsSection } from "@/components/collections-section";
 import { InfoFields, PassiveTag } from "@/components/info-fields";
-import { PaymentsSection } from "@/components/payments-section";
 import { buttonVariants } from "@/components/ui/button";
+import { isoToDisplay } from "@/lib/dates";
 import { getCashAccount } from "@/lib/fetches/cash-account";
 import { listHref } from "@/lib/list-href";
 import { formatAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { CarryOverBox } from "./carry-over-box";
 import { DeleteCashAccountButton } from "./delete-cash-account-button";
+import { OutsidePeriodsNotice } from "./outside-periods-notice";
+import { PeriodTabs } from "./period-tabs";
 import { ToggleActiveButton } from "./toggle-active-button";
 
 export function CashAccountDetails({ id }: { id: number }) {
@@ -19,6 +21,10 @@ export function CashAccountDetails({ id }: { id: number }) {
     queryKey: ["cash-accounts", id],
     queryFn: () => getCashAccount(id),
   });
+
+  const currentStart = account?.periods.find(
+    (period) => period.id === account.currentPeriodId,
+  )?.startDate;
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,11 +55,14 @@ export function CashAccountDetails({ id }: { id: number }) {
                 <span
                   className={cn(
                     "text-xl font-semibold tabular-nums text-foreground",
-                    account.balance.startsWith("-") && "text-destructive",
+                    account.balance?.startsWith("-") && "text-destructive",
                   )}
                 >
-                  {formatAmount(account.balance)}
+                  {account.balance === null
+                    ? "—"
+                    : formatAmount(account.balance)}
                 </span>
+                {currentStart && <> ({isoToDisplay(currentStart)} dönemi)</>}
               </p>
             </div>
             <div className="ml-auto flex gap-2">
@@ -77,10 +86,6 @@ export function CashAccountDetails({ id }: { id: number }) {
               <InfoFields
                 fields={[
                   {
-                    label: "Başlangıç Bakiyesi",
-                    value: formatAmount(account.openingBalance),
-                  },
-                  {
                     label: "Durum",
                     value: account.active ? "Aktif" : "Pasif",
                   },
@@ -89,18 +94,12 @@ export function CashAccountDetails({ id }: { id: number }) {
             </div>
           </section>
 
-          <div className="grid items-start gap-4 xl:grid-cols-2">
-            <CollectionsSection
-              of="cashAccount"
-              id={account.id}
-              canAdd={account.active}
-            />
-            <PaymentsSection
-              of="cashAccount"
-              id={account.id}
-              canAdd={account.active}
-            />
-          </div>
+          <OutsidePeriodsNotice account={account} />
+          <CarryOverBox
+            key={account.periods.map((period) => period.id).join()}
+            account={account}
+          />
+          <PeriodTabs account={account} />
         </>
       )}
     </div>

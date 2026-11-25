@@ -18,32 +18,41 @@ export default async function CashAccountPage({
 
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
-  const collectionFilters = { ...NO_COLLECTION_FILTERS, cashAccount: id };
-  const paymentFilters = { ...NO_PAYMENT_FILTERS, cashAccount: id };
-
-  // prefetch the account and its tahsilatlar and ödemeler
-  const [account] = await Promise.all([
-    queryClient
-      .query({
-        queryKey: ["cash-accounts", id],
-        queryFn: () => getCashAccount(id, options),
-      })
-      .catch(console.error),
-    queryClient
-      .query({
-        queryKey: ["collections", "list", collectionFilters],
-        queryFn: () => getCollections(collectionFilters, options),
-      })
-      .catch(console.error),
-    queryClient
-      .query({
-        queryKey: ["payments", "list", paymentFilters],
-        queryFn: () => getPayments(paymentFilters, options),
-      })
-      .catch(console.error),
-  ]);
-
+  const account = await queryClient
+    .query({
+      queryKey: ["cash-accounts", id],
+      queryFn: () => getCashAccount(id, options),
+    })
+    .catch(console.error);
   if (account === null) notFound();
+
+  // the tab the page opens on: the current period, else the first
+  const period =
+    account?.periods.find((p) => p.id === account.currentPeriodId) ??
+    account?.periods[0];
+  if (period) {
+    const range = { from: period.startDate, to: period.endDate };
+    const collectionFilters = {
+      ...NO_COLLECTION_FILTERS,
+      ...range,
+      cashAccount: id,
+    };
+    const paymentFilters = { ...NO_PAYMENT_FILTERS, ...range, cashAccount: id };
+    await Promise.all([
+      queryClient
+        .query({
+          queryKey: ["collections", "list", collectionFilters],
+          queryFn: () => getCollections(collectionFilters, options),
+        })
+        .catch(console.error),
+      queryClient
+        .query({
+          queryKey: ["payments", "list", paymentFilters],
+          queryFn: () => getPayments(paymentFilters, options),
+        })
+        .catch(console.error),
+    ]);
+  }
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>

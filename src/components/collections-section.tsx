@@ -31,15 +31,20 @@ export function CollectionsSection({
   of,
   id,
   canAdd,
+  from = null,
+  to = null,
 }: {
   of: "representative" | "project" | "cashAccount";
   id: number;
   /** A new tahsilat needs an Aktif yetkili, proje or Kasa - Banka */
   canAdd: boolean;
+  /** Only tahsilatlar dated in this range (yyyy-MM-dd, inclusive), e.g. a period's */
+  from?: string | null;
+  to?: string | null;
 }) {
   const filters: CollectionFilters = {
-    from: null,
-    to: null,
+    from,
+    to,
     representative: of === "representative" ? id : null,
     category: null,
     cashAccount: of === "cashAccount" ? id : null,

@@ -157,17 +157,15 @@ export const cashAccountsRoute = new Hono<AppEnv>()
       const outside = await selectOutsidePeriods(db, account.id);
       const current = currentPeriodOf(rows, todayInIstanbul());
       const balanceOf = new Map(rows.map((row) => [row.id, row.balance]));
-      const periods = rows.map(
-        ({ cashAccountId: _, nextStartDate, ...period }) => ({
-          ...period,
-          endDate: periodEndDate(nextStartDate),
-          // the devir source's Bakiye now, to tell a stale devir
-          sourceBalance:
-            period.carriedFromPeriodId === null
-              ? null
-              : (balanceOf.get(period.carriedFromPeriodId) ?? null),
-        }),
-      );
+      const periods = rows.map(({ cashAccountId: _, ...period }) => ({
+        ...period,
+        endDate: periodEndDate(period.nextStartDate),
+        // the devir source's Bakiye now, to tell a stale devir
+        sourceBalance:
+          period.carriedFromPeriodId === null
+            ? null
+            : (balanceOf.get(period.carriedFromPeriodId) ?? null),
+      }));
       return c.json(
         {
           ...account,

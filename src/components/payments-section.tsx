@@ -31,14 +31,21 @@ export function PaymentsSection({
   of,
   id,
   canAdd = true,
+  from = null,
+  to = null,
 }: {
   of: "counterparty" | "cashAccount";
   id: number;
   /** A new ödeme needs an Aktif Kasa - Banka */
   canAdd?: boolean;
+  /** Only ödemeler dated in this range (yyyy-MM-dd, inclusive), e.g. a period's */
+  from?: string | null;
+  to?: string | null;
 }) {
   const filters: PaymentFilters = {
     ...NO_PAYMENT_FILTERS,
+    from,
+    to,
     counterparty: of === "counterparty" ? id : null,
     cashAccount: of === "cashAccount" ? id : null,
   };
