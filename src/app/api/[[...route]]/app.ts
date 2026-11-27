@@ -7,6 +7,7 @@ import { applicationsRoute } from "./applications";
 import { auditLogsRoute } from "./audit-logs";
 import { cashAccountsRoute } from "./cash-accounts";
 import { collectionsRoute } from "./collections";
+import { companiesRoute } from "./companies";
 import { counterpartiesRoute } from "./counterparties";
 import { cronRoute } from "./cron";
 import { dashboardRoute } from "./dashboard";
@@ -49,6 +50,7 @@ export const app = new Hono<AppEnv>()
   .use(requireSession)
   .route("/dashboard", dashboardRoute)
   .route("/members", membersRoute)
+  .route("/companies", companiesRoute)
   .route("/sectors", sectorsRoute)
   .route("/parameters", parametersRoute)
   .route("/counterparties", counterpartiesRoute)

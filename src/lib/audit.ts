@@ -8,6 +8,7 @@ export type AuditActor = { id: string; name: string; email: string } | null;
 
 export type AuditEntityType =
   | "member"
+  | "company"
   | "representative"
   | Organization
   | "sector"

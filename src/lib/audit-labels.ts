@@ -2,6 +2,7 @@ import type { AuditEntityTypeFilter } from "./audit-filters";
 
 export const ENTITY_TYPE_LABELS: Record<AuditEntityTypeFilter, string> = {
   member: "Üyeler",
+  company: "Firma",
   representative: "Yetkililer",
   management_board: "Yönetim",
   committee: "Komiteler",
@@ -33,6 +34,11 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     application_notice: "Başvuru bildirimi gönderildi",
     // the one-time migration that turned yetkililer into members
     conversion: "Dönüştürme",
+  },
+  company: {
+    create: "Firma eklendi",
+    update: "Firma güncellendi",
+    delete: "Firma silindi",
   },
   representative: {
     create: "Yetkili eklendi",

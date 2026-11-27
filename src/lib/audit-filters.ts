@@ -4,6 +4,7 @@ export const AUDIT_PAGE_SIZE = 50;
 
 export const AUDIT_ENTITY_TYPES = [
   "member",
+  "company",
   "representative",
   "management_board",
   "committee",
