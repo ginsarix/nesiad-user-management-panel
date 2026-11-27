@@ -52,6 +52,27 @@ export type ReleaseVersion = {
  */
 export const RELEASE_VERSIONS: ReleaseVersion[] = [
   {
+    date: "2026-11-27",
+    entries: [
+      {
+        type: "changed",
+        text: "Üyeler artık kişilerdir; firma bilgileri üyenin içinde, Firma bölümünde girilir ve bir firma birden fazla üyede kullanılabilir.",
+      },
+      {
+        type: "changed",
+        text: "Tahsilat, Taahhüt, Tahakkuk ve Organizasyon kayıtları artık üyeye bağlıdır.",
+      },
+      {
+        type: "removed",
+        text: "Yetkililer sayfası kaldırıldı; yetkililer üye oldu.",
+      },
+      {
+        type: "changed",
+        text: "Tahsilat bildirim şablonlarında {yetkili} yerine {uye} kullanılır.",
+      },
+    ],
+  },
+  {
     date: "2026-11-25",
     revision: 2,
     entries: [
