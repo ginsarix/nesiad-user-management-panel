@@ -56,7 +56,7 @@ export const RELEASE_VERSIONS: ReleaseVersion[] = [
     entries: [
       {
         type: "changed",
-        text: "Üyeler artık kişilerdir; firma bilgileri üyenin içinde, Firma bölümünde girilir ve bir firma birden fazla üyede kullanılabilir.",
+        text: "Üyeler artık şahısdır; firma bilgileri üyenin içinde, Firma bölümünde girilir ve bir firma birden fazla üyede kullanılabilir.",
       },
       {
         type: "changed",
