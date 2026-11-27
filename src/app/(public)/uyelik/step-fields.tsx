@@ -70,14 +70,14 @@ function Label({
 }
 
 type TextName =
-  | "applicantFirstName"
-  | "applicantLastName"
+  | "firstName"
+  | "lastName"
   | "birthPlace"
   | "nationalId"
   | "mobilePhone"
   | "email"
   | "title"
-  | "applicantRole"
+  | "companyRole"
   | "employeeCount"
   | "phone"
   | "website"
@@ -130,13 +130,13 @@ export function PersonalStep({ form }: { form: Form }) {
     <div className="grid gap-4 sm:grid-cols-2">
       <TextField
         form={form}
-        name="applicantFirstName"
+        name="firstName"
         label="Ad"
         autoComplete="given-name"
       />
       <TextField
         form={form}
-        name="applicantLastName"
+        name="lastName"
         label="Soyad"
         autoComplete="family-name"
       />
@@ -263,7 +263,7 @@ export function CompanyStep({ form }: { form: Form }) {
       <TextField form={form} name="title" label="Firma Adı" />
       <TextField
         form={form}
-        name="applicantRole"
+        name="companyRole"
         label="Göreviniz ve Ünvanınız"
       />
       <TextField

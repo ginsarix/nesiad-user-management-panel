@@ -10,9 +10,10 @@ import { SMS_MAX_LENGTH } from "./zod-schemas/sms";
 export type NoticeOutcome = "sent" | "failed" | "skipped" | "unknown";
 
 export type NoticeApplicant = {
-  title: string;
-  applicantFirstName: string | null;
-  applicantLastName: string | null;
+  /** The member's "Ad Soyad" (may be blank); `{ad}` in the templates */
+  name: string;
+  /** The member's company; "" when they have none; `{firma}` */
+  companyTitle: string;
   email: string | null;
   mobilePhone: string | null;
 };
@@ -120,10 +121,8 @@ export async function sendApplicationNotices(
   try {
     const settings = await getApplicationNoticeSettings();
     // staff can blank the names later; "Sayın , …" would read badly
-    const ad =
-      `${applicant.applicantFirstName ?? ""} ${applicant.applicantLastName ?? ""}`.trim() ||
-      applicant.title;
-    const values = { ad, firma: applicant.title };
+    const ad = applicant.name.trim() || applicant.companyTitle;
+    const values = { ad, firma: applicant.companyTitle };
 
     const smsTemplate = settings[`${kind}Sms`];
     const subjectTemplate = settings[`${kind}EmailSubject`];

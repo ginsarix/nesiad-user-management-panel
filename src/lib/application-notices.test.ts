@@ -15,9 +15,8 @@ vi.mock("@/lib/sms/netgsm", async (importOriginal) => {
 });
 
 const applicant = {
-  title: "__test__ Bildirim A.Ş.",
-  applicantFirstName: "Ayşe",
-  applicantLastName: "Yılmaz",
+  name: "Ayşe Yılmaz",
+  companyTitle: "__test__ Bildirim A.Ş.",
   email: "ayse@example.com",
   mobilePhone: "0532 111 22 33",
 };
@@ -52,7 +51,7 @@ describe("sendApplicationNotices", () => {
     netgsm.client = fakeClient(okAnswer);
     mail.sendEmail.mockResolvedValue(undefined);
     const settings = await getApplicationNoticeSettings();
-    const values = { ad: "Ayşe Yılmaz", firma: applicant.title };
+    const values = { ad: "Ayşe Yılmaz", firma: applicant.companyTitle };
 
     const accepted = await sendApplicationNotices("accepted", applicant);
     expect(accepted).toEqual({ email: "sent", sms: "sent" });
@@ -123,7 +122,7 @@ describe("sendApplicationNotices", () => {
         "123",
       );
       const logged = JSON.stringify(log.mock.calls);
-      for (const secret of ["5321112233", "Ayşe", applicant.title]) {
+      for (const secret of ["5321112233", "Ayşe", applicant.companyTitle]) {
         expect(logged).not.toContain(secret);
       }
     } finally {
@@ -167,12 +166,14 @@ describe("sendApplicationNotices", () => {
     netgsm.client = fakeClient(okAnswer);
     mail.sendEmail.mockResolvedValue(undefined);
     const settings = await getApplicationNoticeSettings();
-    const values = { ad: applicant.title, firma: applicant.title };
+    const values = {
+      ad: applicant.companyTitle,
+      firma: applicant.companyTitle,
+    };
 
     await sendApplicationNotices("accepted", {
       ...applicant,
-      applicantFirstName: null,
-      applicantLastName: "  ",
+      name: "  ",
     });
 
     expect(sent[0].msg).toBe(fillTemplate(settings.acceptedSms, values));
@@ -197,7 +198,7 @@ describe("sendApplicationNotices", () => {
       const settings = await getApplicationNoticeSettings();
       const text = fillTemplate(settings.acceptedSms, {
         ad: "Ayşe Yılmaz",
-        firma: applicant.title,
+        firma: applicant.companyTitle,
       });
 
       // NetGSM unreachable, with an error that echoes the request
@@ -242,7 +243,7 @@ describe("sendApplicationNotices", () => {
       expect(
         await sendApplicationNotices("accepted", {
           ...applicant,
-          applicantFirstName: longName,
+          name: longName,
         }),
       ).toEqual({ email: "sent", sms: "failed" });
       expect(sent).toHaveLength(0);

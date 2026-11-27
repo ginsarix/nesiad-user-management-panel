@@ -24,8 +24,8 @@ import { APPLICATION_STEPS, stepOfField } from "./steps";
 const CONTACT_LINE = "0 (384) 212 36 50 · nesiad@nesiad.org.tr";
 
 const DEFAULT_VALUES: ApplicationFormInput = {
-  applicantFirstName: "",
-  applicantLastName: "",
+  firstName: "",
+  lastName: "",
   birthDate: "",
   birthPlace: "",
   nationalId: "",
@@ -34,7 +34,7 @@ const DEFAULT_VALUES: ApplicationFormInput = {
   mobilePhone: "",
   email: "",
   title: "",
-  applicantRole: "",
+  companyRole: "",
   employeeCount: "",
   address: "",
   phone: "",

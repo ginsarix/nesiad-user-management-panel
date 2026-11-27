@@ -6,8 +6,8 @@ import {
 } from "./application";
 
 const values: ApplicationUpload = {
-  applicantFirstName: "Ayşe",
-  applicantLastName: "Yılmaz",
+  firstName: "Ayşe",
+  lastName: "Yılmaz",
   birthDate: "25.03.1985",
   birthPlace: "Nevşehir",
   nationalId: "10000000146",
@@ -16,7 +16,7 @@ const values: ApplicationUpload = {
   mobilePhone: "05321234567",
   email: "ayse@example.com",
   title: "__test__ Firma",
-  applicantRole: "Yönetici",
+  companyRole: "Yönetici",
   employeeCount: "12",
   address: "Adres",
   phone: "03842123650",

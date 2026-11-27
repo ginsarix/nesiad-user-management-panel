@@ -9,8 +9,8 @@ export const APPLICATION_STEPS: readonly {
     id: "personal",
     title: "Kişisel",
     fields: [
-      "applicantFirstName",
-      "applicantLastName",
+      "firstName",
+      "lastName",
       "birthDate",
       "birthPlace",
       "nationalId",
@@ -25,7 +25,7 @@ export const APPLICATION_STEPS: readonly {
     title: "Firma",
     fields: [
       "title",
-      "applicantRole",
+      "companyRole",
       "employeeCount",
       "address",
       "phone",

@@ -1,11 +1,13 @@
 import { zValidator } from "@hono/zod-validator";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { db } from "@/db";
-import { memberTable } from "@/db/schema";
+import { companyTable, memberTable } from "@/db/schema";
 import { notifyPanelUsersOfApplication } from "@/lib/application-emails";
 import { sendApplicationNotices } from "@/lib/application-notices";
 import { deleteFiles } from "@/lib/file-storage";
+import { memberName } from "@/lib/member-name";
 import { createRateLimiter } from "@/lib/rate-limit";
 import {
   DOCUMENT_MIME_TYPES,
@@ -15,6 +17,7 @@ import {
 } from "@/lib/uploads";
 import { applicationApiSchema } from "@/lib/zod-schemas/application";
 import { MAX_REQUEST_SIZE } from "@/lib/zod-schemas/member";
+import { applyMemberCompany } from "./company-writes";
 import { pgErrorCode } from "./db-errors";
 import { respondWithFirstField } from "./validation";
 
@@ -58,7 +61,17 @@ export const applicationsRoute = new Hono().post(
       activityDocument,
       ...fields
     } = c.req.valid("form");
-    const { consentRules: _rules, consentData: _data, ...values } = fields;
+    const {
+      consentRules: _rules,
+      consentData: _data,
+      title,
+      address,
+      phone,
+      website,
+      employeeCount,
+      companyIntro,
+      ...person
+    } = fields;
 
     // a bot filled the hidden field: look successful, save nothing
     if (leaveBlank) return c.json({ message: "Başvurunuz alındı" }, 201);
@@ -117,18 +130,45 @@ export const applicationsRoute = new Hono().post(
         names[field] = name;
       }
 
-      const [member] = await db
-        .insert(memberTable)
-        .values({
-          ...values,
-          logo: names.logo,
-          logoOriginal: names.logoOriginal ?? null,
-          identityDocument: names.identityDocument,
-          activityDocument: names.activityDocument,
-          status: "candidate",
-          consentedAt: new Date(),
-        })
-        .returning({ id: memberTable.id });
+      // the person and their new company in one step. An Ünvan that matches
+      // an existing company still gets its own: staff merge, never the form
+      const member = await db.transaction(async (tx) => {
+        const { companyId } = await applyMemberCompany(
+          tx,
+          {
+            mode: "new",
+            fields: {
+              title,
+              address,
+              phone,
+              website,
+              employeeCount,
+              companyIntro,
+            },
+          },
+          null,
+        );
+        if (companyId === null) throw new Error("Company was not created");
+        await tx
+          .update(companyTable)
+          .set({
+            logo: names.logo,
+            logoOriginal: names.logoOriginal ?? null,
+            activityDocument: names.activityDocument,
+          })
+          .where(eq(companyTable.id, companyId));
+        const [row] = await tx
+          .insert(memberTable)
+          .values({
+            ...person,
+            companyId,
+            identityDocument: names.identityDocument,
+            status: "candidate",
+            consentedAt: new Date(),
+          })
+          .returning({ id: memberTable.id });
+        return row;
+      });
 
       void notifyPanelUsersOfApplication(member.id).catch(console.error);
       // "Başvurunuz alındı" to the applicant. Not awaited, so the applicant
@@ -136,11 +176,10 @@ export const applicationsRoute = new Hono().post(
       // submission itself, writes no audit entry. Sending to unverified contact
       // details is an accepted risk
       void sendApplicationNotices("received", {
-        title: values.title,
-        applicantFirstName: values.applicantFirstName,
-        applicantLastName: values.applicantLastName,
-        email: values.email,
-        mobilePhone: values.mobilePhone,
+        name: memberName(person),
+        companyTitle: title,
+        email: person.email,
+        mobilePhone: person.mobilePhone,
       });
 
       return c.json({ message: "Başvurunuz alındı" }, 201);

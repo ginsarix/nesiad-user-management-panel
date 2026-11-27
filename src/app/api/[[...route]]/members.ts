@@ -982,9 +982,8 @@ export const membersRoute = new Hono<AppEnv>()
 
       const { member, companyTitle } = result;
       const notices = await sendApplicationNotices(rule.notice, {
-        title: companyTitle ?? "",
-        applicantFirstName: member.firstName,
-        applicantLastName: member.lastName,
+        name: memberName(member),
+        companyTitle: companyTitle ?? "",
         email: member.email,
         mobilePhone: member.mobilePhone,
       });

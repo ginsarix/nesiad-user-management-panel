@@ -1533,6 +1533,31 @@ describe("POST /api/members/:id/decision", () => {
     );
   }
 
+  it("acceptance notice uses the member name and company title", async () => {
+    fakeNetgsm();
+    const settings = await getApplicationNoticeSettings();
+    const withCompany = await createApplicant("candidate");
+
+    expect((await decide(withCompany, ACCEPT)).status).toBe(200);
+    expect(sentSms[0].msg).toBe(
+      fillTemplate(settings.acceptedSms, {
+        ad: "__test__ Ayşe Yılmaz",
+        firma: FIRM,
+      }),
+    );
+
+    // no company: {firma} is empty, {ad} still the member's name
+    sentSms.length = 0;
+    const alone = await createApplicant("candidate", { companyId: null });
+    expect((await decide(alone, ACCEPT)).status).toBe(200);
+    expect(sentSms[0].msg).toBe(
+      fillTemplate(settings.acceptedSms, {
+        ad: "__test__ Ayşe Yılmaz",
+        firma: "",
+      }),
+    );
+  });
+
   it("accepts a candidate", async () => {
     fakeNetgsm();
     const sector = await createDecisionSector();

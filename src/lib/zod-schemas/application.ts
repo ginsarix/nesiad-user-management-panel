@@ -167,12 +167,12 @@ const publicLogoFormSchema = z
 
 /** Fields whose rules are the same on the form and on the server */
 const sharedFields = {
-  applicantFirstName: singleLine("Ad", 100, { noLinks: true }),
-  applicantLastName: singleLine("Soyad", 100, { noLinks: true }),
+  firstName: singleLine("Ad", 100, { noLinks: true }),
+  lastName: singleLine("Soyad", 100, { noLinks: true }),
   birthPlace: singleLine("Doğum yeri", 100),
   education: educationSchema,
   title: singleLine("Firma adı", 200, { noLinks: true }),
-  applicantRole: singleLine("Görev ve ünvan", 200),
+  companyRole: singleLine("Görev ve ünvan", 200),
   address: multiLine("İş adresi", 1000),
   phone: singleLine("İş telefonu", 30),
   companyIntro: multiLine("Firma tanıtım yazısı", 5000, {
@@ -197,8 +197,8 @@ const CONSENT_MESSAGE = "Devam etmek için onaylamanız gerekir";
 
 /** Multipart fields as the server receives them (dates yyyy-aa-gg, consents "true") */
 export const applicationApiSchema = z.object({
-  applicantFirstName: sharedFields.applicantFirstName,
-  applicantLastName: sharedFields.applicantLastName,
+  firstName: sharedFields.firstName,
+  lastName: sharedFields.lastName,
   birthDate: requiredDate(parseIsoDate),
   birthPlace: sharedFields.birthPlace,
   nationalId: sharedFields.nationalId,
@@ -208,7 +208,7 @@ export const applicationApiSchema = z.object({
   email: sharedFields.email,
 
   title: sharedFields.title,
-  applicantRole: sharedFields.applicantRole,
+  companyRole: sharedFields.companyRole,
   employeeCount: employeeCountTextSchema.transform(Number),
   address: sharedFields.address,
   phone: sharedFields.phone,
@@ -235,8 +235,8 @@ export const applicationApiSchema = z.object({
 
 /** Client-side form values (date as gg.aa.yyyy, files as chosen) */
 export const applicationFormSchema = z.object({
-  applicantFirstName: sharedFields.applicantFirstName,
-  applicantLastName: sharedFields.applicantLastName,
+  firstName: sharedFields.firstName,
+  lastName: sharedFields.lastName,
   birthDate: requiredDate(parseDisplayDate),
   birthPlace: sharedFields.birthPlace,
   nationalId: sharedFields.nationalId,
@@ -246,7 +246,7 @@ export const applicationFormSchema = z.object({
   email: sharedFields.email,
 
   title: sharedFields.title,
-  applicantRole: sharedFields.applicantRole,
+  companyRole: sharedFields.companyRole,
   employeeCount: employeeCountTextSchema,
   address: sharedFields.address,
   phone: sharedFields.phone,

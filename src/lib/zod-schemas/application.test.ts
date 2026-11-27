@@ -10,8 +10,8 @@ const png = () =>
   new File([new Uint8Array([1])], "a.png", { type: "image/png" });
 
 const validFormValues = {
-  applicantFirstName: "Ayşe",
-  applicantLastName: "Yılmaz",
+  firstName: "Ayşe",
+  lastName: "Yılmaz",
   birthDate: "01.02.1990",
   birthPlace: "Nevşehir",
   nationalId: "10000000146",
@@ -20,7 +20,7 @@ const validFormValues = {
   mobilePhone: "0532 123 45 67",
   email: "ayse@example.com",
   title: "Örnek AŞ",
-  applicantRole: "Yönetim Kurulu Başkanı",
+  companyRole: "Yönetim Kurulu Başkanı",
   employeeCount: "12",
   address: "Nevşehir",
   phone: "0384 213 00 00",
@@ -44,8 +44,8 @@ describe("applicationFormSchema", () => {
   it("requires everything except otherAssociations", () => {
     const blank = {
       ...validFormValues,
-      applicantFirstName: "",
-      applicantLastName: "",
+      firstName: "",
+      lastName: "",
       birthDate: "",
       birthPlace: "",
       nationalId: "",
@@ -54,7 +54,7 @@ describe("applicationFormSchema", () => {
       mobilePhone: "",
       email: "",
       title: "",
-      applicantRole: "",
+      companyRole: "",
       employeeCount: "",
       address: "",
       phone: "",
@@ -171,7 +171,7 @@ describe("link-like names", () => {
     "ornek.web.tr",
     "ornek.co/kampanya",
   ])("refuses %s in the name, surname and company", (value) => {
-    for (const field of ["applicantFirstName", "applicantLastName", "title"]) {
+    for (const field of ["firstName", "lastName", "title"]) {
       const result = withName(field, value);
       expect(result.success).toBe(false);
       expect(result.error?.issues[0]).toMatchObject({ path: [field] });

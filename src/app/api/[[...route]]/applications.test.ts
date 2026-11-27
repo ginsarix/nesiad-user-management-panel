@@ -1,11 +1,17 @@
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
-import { auditLogTable, memberTable, userTable } from "@/db/schema";
+import {
+  auditLogTable,
+  companyTable,
+  memberTable,
+  userTable,
+} from "@/db/schema";
 import { getApplicationNoticeSettings } from "@/lib/application-notice-settings";
 import { deleteFile, readStoredFile } from "@/lib/file-storage";
 import { sendEmail } from "@/lib/mail";
 import { fillTemplate } from "@/lib/sms/templates";
+import { foldTr } from "@/lib/turkish";
 import { MAX_REQUEST_SIZE } from "@/lib/zod-schemas/member";
 import { applicationsRoute } from "./applications";
 
@@ -95,7 +101,15 @@ const titles: string[] = [];
 
 afterAll(async () => {
   if (titles.length) {
-    await db.delete(memberTable).where(inArray(memberTable.title, titles));
+    const companies = await db
+      .select({ id: companyTable.id })
+      .from(companyTable)
+      .where(inArray(companyTable.title, titles));
+    const ids = companies.map((company) => company.id);
+    if (ids.length) {
+      await db.delete(memberTable).where(inArray(memberTable.companyId, ids));
+      await db.delete(companyTable).where(inArray(companyTable.id, ids));
+    }
   }
   if (userIds.length) {
     await db.delete(userTable).where(inArray(userTable.id, userIds));
@@ -122,8 +136,8 @@ function newIp() {
 
 function fields(title: string, overrides: Record<string, string | File> = {}) {
   return {
-    applicantFirstName: "Ayşe",
-    applicantLastName: "Yılmaz",
+    firstName: "Ayşe",
+    lastName: "Yılmaz",
     birthDate: "1990-02-01",
     birthPlace: "Nevşehir",
     nationalId: "10000000146",
@@ -132,7 +146,7 @@ function fields(title: string, overrides: Record<string, string | File> = {}) {
     mobilePhone: "0532 123 45 67",
     email: "ayse@example.com",
     title,
-    applicantRole: "Başkan",
+    companyRole: "Başkan",
     employeeCount: "12",
     address: "Nevşehir Merkez",
     phone: "0384 213 00 00",
@@ -162,11 +176,19 @@ function submit(
   });
 }
 
+/** The member whose company has this title, with that company */
 async function findByTitle(title: string) {
   const [row] = await db
-    .select()
+    .select({ member: memberTable, company: companyTable })
     .from(memberTable)
-    .where(eq(memberTable.title, title));
+    .innerJoin(companyTable, eq(memberTable.companyId, companyTable.id))
+    .where(eq(companyTable.title, title));
+  return row ? { ...row.member, company: row.company } : undefined;
+}
+
+async function mustFindByTitle(title: string) {
+  const row = await findByTitle(title);
+  if (!row) throw new Error(`No application with company ${title}`);
   return row;
 }
 
@@ -177,11 +199,11 @@ describe("POST /api/applications", () => {
     const res = await submit(fields(title, { otherAssociations: "  " }));
 
     expect(res.status).toBe(201);
-    const member = await findByTitle(title);
+    const member = await mustFindByTitle(title);
     expect(member).toMatchObject({
       status: "candidate",
-      applicantFirstName: "Ayşe",
-      applicantLastName: "Yılmaz",
+      firstName: "Ayşe",
+      lastName: "Yılmaz",
       birthDate: "1990-02-01",
       birthPlace: "Nevşehir",
       nationalId: "10000000146",
@@ -189,23 +211,78 @@ describe("POST /api/applications", () => {
       education: "Lisans",
       mobilePhone: "0532 123 45 67",
       email: "ayse@example.com",
-      applicantRole: "Başkan",
+      companyRole: "Başkan",
+      referenceName: "Mehmet Demir",
+      otherAssociations: null,
+    });
+    expect(member.company).toMatchObject({
+      title,
       employeeCount: 12,
       address: "Nevşehir Merkez",
       phone: "0384 213 00 00",
       website: "https://ornek.com",
-      referenceName: "Mehmet Demir",
-      otherAssociations: null,
     });
     expect(member.consentedAt).toBeInstanceOf(Date);
     for (const file of [
-      member.logo,
+      member.company.logo,
       member.identityDocument,
-      member.activityDocument,
+      member.company.activityDocument,
     ]) {
       expect(file).toBeTruthy();
       expect(await readStoredFile(file as string)).not.toBeNull();
     }
+  });
+
+  it("application creates an Aday member and a new company", async () => {
+    const title = newTitle();
+
+    expect((await submit(fields(title))).status).toBe(201);
+
+    const member = await mustFindByTitle(title);
+    expect(member.status).toBe("candidate");
+    expect(member.companyId).toBe(member.company.id);
+    expect(member.company.titleKey).toBe(foldTr(title).replace(/\s+/g, " "));
+    // the company holds the firm's data, the member only the person's
+    const columns = member as Record<string, unknown>;
+    for (const legacy of [
+      "legacyTitle",
+      "legacyLogo",
+      "legacyAddress",
+      "legacyPhone",
+      "legacyWebsite",
+      "legacyEmployeeCount",
+      "legacyCompanyIntro",
+      "legacyActivityDocument",
+    ]) {
+      expect(columns[legacy] ?? null).toBeNull();
+    }
+  });
+
+  it("application with an existing Ünvan creates a separate company", async () => {
+    const title = newTitle();
+
+    expect((await submit(fields(title))).status).toBe(201);
+    expect((await submit(fields(title, { firstName: "Veli" }))).status).toBe(
+      201,
+    );
+
+    const companies = await db
+      .select()
+      .from(companyTable)
+      .where(eq(companyTable.title, title));
+    expect(companies).toHaveLength(2);
+    const members = await db
+      .select({ companyId: memberTable.companyId })
+      .from(memberTable)
+      .where(
+        inArray(
+          memberTable.companyId,
+          companies.map((c) => c.id),
+        ),
+      );
+    expect(members.map((m) => m.companyId).sort()).toEqual(
+      companies.map((c) => c.id).sort(),
+    );
   });
 
   it("writes no audit entry", async () => {
@@ -231,7 +308,7 @@ describe("POST /api/applications", () => {
 
     await submit(fields(title, { status: "active" }));
 
-    expect((await findByTitle(title)).status).toBe("candidate");
+    expect((await mustFindByTitle(title)).status).toBe("candidate");
   });
 
   it("reports the failing field", async () => {
@@ -265,10 +342,12 @@ describe("POST /api/applications", () => {
     const res = await submit(fields(title, { logoOriginal: pdf("logo.pdf") }));
 
     expect(res.status).toBe(201);
-    const member = await findByTitle(title);
-    expect(member.logo).toMatch(/^logo_.+\.png$/);
-    expect(member.logoOriginal).toMatch(/^logo_.+\.pdf$/);
-    expect(await readStoredFile(member.logoOriginal as string)).not.toBeNull();
+    const member = await mustFindByTitle(title);
+    expect(member.company.logo).toMatch(/^logo_.+\.png$/);
+    expect(member.company.logoOriginal).toMatch(/^logo_.+\.pdf$/);
+    expect(
+      await readStoredFile(member.company.logoOriginal as string),
+    ).not.toBeNull();
   });
 
   it("stores an SVG logo's original next to its image", async () => {
@@ -282,8 +361,8 @@ describe("POST /api/applications", () => {
     const res = await submit(fields(title, { logoOriginal: svg }));
 
     expect(res.status).toBe(201);
-    const member = await findByTitle(title);
-    expect(member.logoOriginal).toMatch(/^logo_.+\.svg$/);
+    const member = await mustFindByTitle(title);
+    expect(member.company.logoOriginal).toMatch(/^logo_.+\.svg$/);
   });
 
   it("refuses a logo PDF that isn't a PDF and keeps nothing", async () => {
@@ -324,7 +403,7 @@ describe("POST /api/applications", () => {
     const ip = newIp();
     const before = storedFiles.length;
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    const spy = vi.spyOn(db, "insert").mockImplementationOnce(() => {
+    const spy = vi.spyOn(db, "transaction").mockImplementationOnce(() => {
       throw new Error("insert ... params: 10000000146, 0532 123 45 67");
     });
 
@@ -431,9 +510,9 @@ describe("POST /api/applications", () => {
     const statuses = responses.map((res) => res.status).sort();
     expect(statuses).toEqual([201, 201, 201, 201, 201, 429, 429]);
     const rows = await db
-      .select({ title: memberTable.title })
-      .from(memberTable)
-      .where(inArray(memberTable.title, burst));
+      .select({ title: companyTable.title })
+      .from(companyTable)
+      .where(inArray(companyTable.title, burst));
     expect(rows).toHaveLength(5);
     expect(storedFiles.length - before).toBe(15);
   });
@@ -512,7 +591,7 @@ describe("POST /api/applications", () => {
     const title = newTitle();
 
     expect((await submit(fields(title))).status).toBe(201);
-    const member = await findByTitle(title);
+    const member = await mustFindByTitle(title);
 
     const mine = (list: string[]) =>
       vi
