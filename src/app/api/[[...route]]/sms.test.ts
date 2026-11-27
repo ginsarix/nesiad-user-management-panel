@@ -1,11 +1,7 @@
 import { and, eq, gt, inArray, max } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
-import {
-  auditLogTable,
-  authorizedRepresentativeTable,
-  memberTable,
-} from "@/db/schema";
+import { auditLogTable, companyTable, memberTable } from "@/db/schema";
 import type { NetgsmClient } from "@/lib/sms/netgsm";
 import { smsRoute } from "./sms";
 
@@ -27,7 +23,7 @@ afterEach(() => {
 });
 
 const createdMemberIds: number[] = [];
-const createdRepresentativeIds: number[] = [];
+const createdCompanyIds: number[] = [];
 
 afterAll(async () => {
   if (createdMemberIds.length) {
@@ -35,12 +31,10 @@ afterAll(async () => {
       .delete(memberTable)
       .where(inArray(memberTable.id, createdMemberIds));
   }
-  if (createdRepresentativeIds.length) {
+  if (createdCompanyIds.length) {
     await db
-      .delete(authorizedRepresentativeTable)
-      .where(
-        inArray(authorizedRepresentativeTable.id, createdRepresentativeIds),
-      );
+      .delete(companyTable)
+      .where(inArray(companyTable.id, createdCompanyIds));
   }
 });
 
@@ -50,22 +44,30 @@ async function createMember(
 ) {
   const [member] = await db
     .insert(memberTable)
-    .values({ title: "__test__ SMS Üyesi", phone, ...extra })
+    .values({
+      firstName: "__test__ SMS",
+      lastName: "Üyesi",
+      mobilePhone: phone,
+      ...extra,
+    })
     .returning({ id: memberTable.id });
   createdMemberIds.push(member.id);
   return member.id;
 }
 
-async function createRepresentative(
-  phone: string | null,
-  extra: Partial<typeof authorizedRepresentativeTable.$inferInsert> = {},
-) {
-  const [representative] = await db
-    .insert(authorizedRepresentativeTable)
-    .values({ name: "__test__ SMS Yetkilisi", phone, ...extra })
-    .returning({ id: authorizedRepresentativeTable.id });
-  createdRepresentativeIds.push(representative.id);
-  return representative.id;
+async function createCompany(phone: string | null, foundingDate: string) {
+  const title = `__test__ SMS Firması ${createdCompanyIds.length}-${Date.now()}`;
+  const [company] = await db
+    .insert(companyTable)
+    .values({
+      title,
+      titleKey: title.toLocaleLowerCase("tr"),
+      phone,
+      foundingDate,
+    })
+    .returning({ id: companyTable.id });
+  createdCompanyIds.push(company.id);
+  return company.id;
 }
 
 function send(body: unknown) {
@@ -77,14 +79,13 @@ function send(body: unknown) {
 }
 
 describe("POST /api/sms/send", () => {
-  it("sends to the picked member and yetkili and writes the audit row", async () => {
+  it("manual recipients are members", async () => {
     const memberId = await createMember("0 (535) 406 82 92");
-    const representativeId = await createRepresentative("0532 000 00 01");
+    const otherId = await createMember("0532 000 00 01");
 
     const res = await send({
       message: "__test__ Toplantı yarın 10:00'da",
-      memberIds: [memberId],
-      representativeIds: [representativeId],
+      memberIds: [memberId, otherId],
     });
     const body = await res.json();
 
@@ -102,6 +103,9 @@ describe("POST /api/sms/send", () => {
         ),
       );
     expect(audit.action).toBe("send");
+    expect(audit.details?.find((d) => d.label === "Alıcılar")?.value).toContain(
+      "(Üye, ",
+    );
     expect(audit.details).toContainEqual({
       label: "Alıcı sayısı",
       value: "2",
@@ -114,7 +118,6 @@ describe("POST /api/sms/send", () => {
     const res = await send({
       message: "__test__ Telefonsuz",
       memberIds: [memberId],
-      representativeIds: [],
     });
 
     expect(res.status).toBe(400);
@@ -134,7 +137,6 @@ describe("POST /api/sms/send", () => {
     const res = await send({
       message,
       memberIds: [memberId],
-      representativeIds: [],
     });
 
     expect(res.status).toBe(502);
@@ -166,7 +168,6 @@ describe("POST /api/sms/send", () => {
     const res = await send({
       message: "__test__ Zaman aşımı",
       memberIds: [memberId],
-      representativeIds: [],
     });
 
     expect(res.status).toBe(502);
@@ -177,7 +178,6 @@ describe("POST /api/sms/send", () => {
     const res = await send({
       message: "__test__ Boş",
       memberIds: [],
-      representativeIds: [],
     });
 
     expect(res.status).toBe(400);
@@ -186,27 +186,23 @@ describe("POST /api/sms/send", () => {
 });
 
 describe("GET /api/sms/celebrations", () => {
-  it("lists active members' founding dates and yetkililer's birthdays", async () => {
-    const foundedId = await createMember("0532 000 00 11", {
-      foundingDate: "2012-02-29",
+  it("lists active members' birthdays and their companies' founding dates", async () => {
+    const companyId = await createCompany("0384 213 11 11", "2012-02-29");
+    const bornId = await createMember("0532 000 00 11", {
+      birthDate: "1980-02-28",
+      companyId,
     });
+    const sameCompanyId = await createMember("0532 000 00 16", { companyId });
     const passiveId = await createMember("0532 000 00 12", {
-      foundingDate: "2012-02-29",
+      birthDate: "1980-02-28",
       status: "passive",
     });
     const candidateId = await createMember("0532 000 00 14", {
-      foundingDate: "2012-02-29",
+      birthDate: "1980-02-28",
       status: "candidate",
     });
-    const rejectedId = await createMember("0532 000 00 15", {
-      foundingDate: "2012-02-29",
-      status: "rejected",
-    });
     const otherDayId = await createMember("0532 000 00 13", {
-      foundingDate: "2012-03-01",
-    });
-    const bornId = await createRepresentative("0535 000 00 11", {
-      dateOfBirth: "1980-02-28",
+      birthDate: "1980-03-01",
     });
 
     const res = await smsRoute.request("/celebrations?date=2027-02-28");
@@ -214,42 +210,43 @@ describe("GET /api/sms/celebrations", () => {
 
     expect(res.status).toBe(200);
     expect(body.date).toBe("2027-02-28");
+    const memberIds = [
+      bornId,
+      sameCompanyId,
+      passiveId,
+      candidateId,
+      otherDayId,
+    ];
     const ours = body.celebrations.filter(
       (c: { contact: { kind: string; id: number } }) =>
         c.contact.kind === "member"
-          ? [
-              foundedId,
-              passiveId,
-              candidateId,
-              rejectedId,
-              otherDayId,
-            ].includes(c.contact.id)
-          : c.contact.id === bornId,
+          ? memberIds.includes(c.contact.id)
+          : c.contact.id === companyId,
     );
     expect(ours).toEqual([
       {
         kind: "founding",
         contact: {
-          kind: "member",
-          id: foundedId,
-          name: "__test__ SMS Üyesi",
-          phone: "0532 000 00 11",
+          kind: "company",
+          id: companyId,
+          name: expect.stringContaining("__test__ SMS Firması"),
+          phone: "0384 213 11 11",
         },
         date: "2012-02-29",
         years: 15,
-        phone: { ok: true, phone: "5320000011" },
+        phone: { ok: false, reason: "invalid" },
       },
       {
         kind: "birthday",
         contact: {
-          kind: "representative",
+          kind: "member",
           id: bornId,
-          name: "__test__ SMS Yetkilisi",
-          phone: "0535 000 00 11",
+          name: "__test__ SMS Üyesi",
+          phone: "0532 000 00 11",
         },
         date: "1980-02-28",
         years: 47,
-        phone: { ok: true, phone: "5350000011" },
+        phone: { ok: true, phone: "5320000011" },
       },
     ]);
   });

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   anniversaryYears,
+  type CelebrationCompany,
   type CelebrationMember,
-  type CelebrationRepresentative,
   celebrationLabel,
   celebrationsOn,
 } from "./celebrations";
@@ -42,7 +42,7 @@ describe("celebrationLabel", () => {
 });
 
 // PLAN.md Level 4 done check: 2027-02-28 and 2028-02-29
-const members: CelebrationMember[] = [
+const companies: CelebrationCompany[] = [
   {
     id: 1,
     name: "Zeta Gıda",
@@ -69,30 +69,30 @@ const members: CelebrationMember[] = [
     foundingDate: "2027-02-28",
   },
 ];
-const representatives: CelebrationRepresentative[] = [
+const members: CelebrationMember[] = [
   {
     id: 1,
     name: "Şule Kaya",
     phone: "0535 000 00 01",
-    dateOfBirth: "1980-02-29",
+    birthDate: "1980-02-29",
   },
   {
     id: 2,
     name: "Ahmet Yılmaz",
     phone: "0535 000 00 02",
-    dateOfBirth: "1975-02-28",
+    birthDate: "1975-02-28",
   },
   {
     id: 3,
     name: "İpek Demir",
     phone: "0535 000 00 03",
-    dateOfBirth: "1990-02-27",
+    birthDate: "1990-02-27",
   },
-  { id: 4, name: "Ömer Ak", phone: "", dateOfBirth: "1988-02-29" },
+  { id: 4, name: "Ömer Ak", phone: "", birthDate: "1988-02-29" },
 ];
 
 const summary = (date: string) =>
-  celebrationsOn(date, members, representatives).map((c) => ({
+  celebrationsOn(date, companies, members).map((c) => ({
     who: `${c.contact.kind}:${c.contact.id}`,
     label: celebrationLabel(c),
     phone: c.phone,
@@ -102,27 +102,27 @@ describe("celebrationsOn", () => {
   it("2027-02-28: 28 and 29 Şubat, foundings first, by Turkish name order", () => {
     expect(summary("2027-02-28")).toEqual([
       {
-        who: "member:2",
+        who: "company:2",
         label: "15. kuruluş yıl dönümü",
         phone: { ok: false, reason: "invalid" },
       },
       {
-        who: "member:1",
+        who: "company:1",
         label: "12. kuruluş yıl dönümü",
         phone: { ok: true, phone: "5320000001" },
       },
       {
-        who: "representative:2",
+        who: "member:2",
         label: "52. yaş günü",
         phone: { ok: true, phone: "5350000002" },
       },
       {
-        who: "representative:4",
+        who: "member:4",
         label: "39. yaş günü",
         phone: { ok: false, reason: "no_phone" },
       },
       {
-        who: "representative:1",
+        who: "member:1",
         label: "47. yaş günü",
         phone: { ok: true, phone: "5350000001" },
       },
@@ -131,25 +131,25 @@ describe("celebrationsOn", () => {
 
   it("2028-02-29: only 29 Şubat", () => {
     expect(summary("2028-02-29").map((c) => [c.who, c.label])).toEqual([
-      ["member:2", "16. kuruluş yıl dönümü"],
-      ["representative:4", "40. yaş günü"],
-      ["representative:1", "48. yaş günü"],
+      ["company:2", "16. kuruluş yıl dönümü"],
+      ["member:4", "40. yaş günü"],
+      ["member:1", "48. yaş günü"],
     ]);
   });
 
   it("2028-02-28: only 28 Şubat, since 29 Şubat comes the next day", () => {
     expect(summary("2028-02-28").map((c) => [c.who, c.label])).toEqual([
-      ["member:5", "1. kuruluş yıl dönümü"],
-      ["member:1", "13. kuruluş yıl dönümü"],
-      ["representative:2", "53. yaş günü"],
+      ["company:5", "1. kuruluş yıl dönümü"],
+      ["company:1", "13. kuruluş yıl dönümü"],
+      ["member:2", "53. yaş günü"],
     ]);
   });
 
   it("keeps the stored date and contact", () => {
-    const [first] = celebrationsOn("2026-03-01", members, representatives);
+    const [first] = celebrationsOn("2026-03-01", companies, members);
     expect(first).toEqual({
       kind: "founding",
-      contact: { kind: "member", id: 3, name: "Beta Tekstil", phone: null },
+      contact: { kind: "company", id: 3, name: "Beta Tekstil", phone: null },
       date: "2010-03-01",
       years: 16,
       phone: { ok: false, reason: "no_phone" },
@@ -157,6 +157,6 @@ describe("celebrationsOn", () => {
   });
 
   it("returns nobody on a day without celebrations", () => {
-    expect(celebrationsOn("2027-06-15", members, representatives)).toEqual([]);
+    expect(celebrationsOn("2027-06-15", companies, members)).toEqual([]);
   });
 });

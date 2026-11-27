@@ -26,9 +26,8 @@ export const smsSendSchema = z
   .object({
     message: smsMessageSchema,
     memberIds: idsSchema,
-    representativeIds: idsSchema,
   })
-  .refine((v) => v.memberIds.length + v.representativeIds.length > 0, {
+  .refine((v) => v.memberIds.length > 0, {
     message: "En az bir alıcı seçin",
   });
 

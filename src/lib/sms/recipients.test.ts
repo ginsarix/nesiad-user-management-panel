@@ -7,10 +7,10 @@ const member = (id: number, phone: string | null): Contact => ({
   name: `Üye ${id}`,
   phone,
 });
-const representative = (id: number, phone: string | null): Contact => ({
-  kind: "representative",
+const company = (id: number, phone: string | null): Contact => ({
+  kind: "company",
   id,
-  name: `Yetkili ${id}`,
+  name: `Firma ${id}`,
   phone,
 });
 
@@ -22,11 +22,11 @@ const contacts: Contact[] = [
   member(4, "0384 213 11 11"), // landline
   member(5, "5051112233"),
   member(6, "+90 542 000 00 01"),
-  representative(1, "+90 535 406 82 92"), // member 1's number, typed differently
-  representative(2, "0 (533) 765 43 21"),
-  representative(3, null),
-  representative(4, "905449998877"),
-  representative(5, "0090 555 444 33 22"),
+  company(1, "+90 535 406 82 92"), // member 1's number, typed differently
+  company(2, "0 (533) 765 43 21"),
+  company(3, null),
+  company(4, "905449998877"),
+  company(5, "0090 555 444 33 22"),
 ];
 
 describe("buildRecipients", () => {

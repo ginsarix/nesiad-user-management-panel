@@ -35,9 +35,9 @@ function birthday(phone: string | null): Celebration {
   return {
     kind: "birthday",
     contact: {
-      kind: "representative",
+      kind: "member",
       id,
-      name: `__test__ Oto Yetkili ${-id}`,
+      name: `__test__ Oto Üye ${-id}`,
       phone,
     },
     date: "1980-06-15",

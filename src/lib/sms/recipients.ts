@@ -1,8 +1,11 @@
 import { normalizePhone } from "./phone";
 
-/** A member or yetkili picked on the Manuel tab, as stored in the panel */
+/**
+ * Who an SMS goes to: a member (the Manuel tab picks members only) or, for a
+ * founding anniversary, a company (once per firma)
+ */
 export type Contact = {
-  kind: "member" | "representative";
+  kind: "member" | "company";
   id: number;
   name: string;
   phone: string | null;

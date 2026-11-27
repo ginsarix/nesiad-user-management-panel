@@ -3,7 +3,8 @@ import { type Contact, checkPhone, type PhoneCheck } from "./recipients";
 
 export type CelebrationKind = "founding" | "birthday";
 
-export type CelebrationMember = {
+/** A company (firma) with its founding date; it is celebrated once */
+export type CelebrationCompany = {
   id: number;
   name: string;
   phone: string | null;
@@ -11,12 +12,13 @@ export type CelebrationMember = {
   foundingDate: string | null;
 };
 
-export type CelebrationRepresentative = {
+/** A member (üye) with their birth date */
+export type CelebrationMember = {
   id: number;
   name: string;
   phone: string | null;
   /** yyyy-MM-dd */
-  dateOfBirth: string | null;
+  birthDate: string | null;
 };
 
 export type Celebration = {
@@ -69,47 +71,43 @@ export function anniversaryYears(stored: string, date: string) {
 }
 
 /**
- * Who gets an automatic SMS on `date` (yyyy-MM-dd): members on their founding
- * date's anniversary, yetkililer on their birthday. Pass only active ones.
+ * Who gets an automatic SMS on `date` (yyyy-MM-dd): companies on their
+ * founding date's anniversary, members on their birthday. Pass only the
+ * ones that count (companies with an Aktif member, Aktif members).
  * Founding dates come first, then birthdays, each sorted by name.
  */
 export function celebrationsOn(
   date: string,
+  companies: CelebrationCompany[],
   members: CelebrationMember[],
-  representatives: CelebrationRepresentative[],
 ): Celebration[] {
   const byName = (a: Celebration, b: Celebration) =>
     compareTr(a.contact.name, b.contact.name);
 
-  const foundings = members.flatMap((m): Celebration[] => {
-    const years = m.foundingDate && anniversaryYears(m.foundingDate, date);
-    if (!m.foundingDate || !years) return [];
+  const foundings = companies.flatMap((c): Celebration[] => {
+    const years = c.foundingDate && anniversaryYears(c.foundingDate, date);
+    if (!c.foundingDate || !years) return [];
     return [
       {
         kind: "founding",
-        contact: { kind: "member", id: m.id, name: m.name, phone: m.phone },
-        date: m.foundingDate,
+        contact: { kind: "company", id: c.id, name: c.name, phone: c.phone },
+        date: c.foundingDate,
         years,
-        phone: checkPhone(m.phone),
+        phone: checkPhone(c.phone),
       },
     ];
   });
 
-  const birthdays = representatives.flatMap((r): Celebration[] => {
-    const years = r.dateOfBirth && anniversaryYears(r.dateOfBirth, date);
-    if (!r.dateOfBirth || !years) return [];
+  const birthdays = members.flatMap((m): Celebration[] => {
+    const years = m.birthDate && anniversaryYears(m.birthDate, date);
+    if (!m.birthDate || !years) return [];
     return [
       {
         kind: "birthday",
-        contact: {
-          kind: "representative",
-          id: r.id,
-          name: r.name,
-          phone: r.phone,
-        },
-        date: r.dateOfBirth,
+        contact: { kind: "member", id: m.id, name: m.name, phone: m.phone },
+        date: m.birthDate,
         years,
-        phone: checkPhone(r.phone),
+        phone: checkPhone(m.phone),
       },
     ];
   });

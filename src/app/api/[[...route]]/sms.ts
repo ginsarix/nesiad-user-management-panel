@@ -4,7 +4,6 @@ import { Hono } from "hono";
 import { db } from "@/db";
 import {
   applicationNoticeSettingsTable,
-  authorizedRepresentativeTable,
   collectionNoticeSettingsTable,
   memberTable,
   smsSendTable,
@@ -37,61 +36,32 @@ import {
   smsSettingsSchema,
 } from "@/lib/zod-schemas/sms";
 import { type AppEnv, actorOf } from "./env";
+import { memberNameSql } from "./member-rows";
 import { respondWithFirstIssue } from "./validation";
 
-/** Active members and yetkililer; `ids` limits them to those */
-async function loadContacts(ids?: {
-  memberIds: number[];
-  representativeIds: number[];
-}): Promise<Contact[]> {
-  const [members, representatives] = await Promise.all([
-    ids?.memberIds.length === 0
-      ? []
-      : db
-          .select({
-            id: memberTable.id,
-            name: memberTable.title,
-            phone: memberTable.phone,
-          })
-          .from(memberTable)
-          .where(
-            and(
-              eq(memberTable.status, "active"),
-              ids ? inArray(memberTable.id, ids.memberIds) : undefined,
-            ),
-          ),
-    ids?.representativeIds.length === 0
-      ? []
-      : db
-          .select({
-            id: authorizedRepresentativeTable.id,
-            name: authorizedRepresentativeTable.name,
-            phone: authorizedRepresentativeTable.phone,
-          })
-          .from(authorizedRepresentativeTable)
-          .where(
-            and(
-              eq(authorizedRepresentativeTable.active, true),
-              ids
-                ? inArray(
-                    authorizedRepresentativeTable.id,
-                    ids.representativeIds,
-                  )
-                : undefined,
-            ),
-          ),
-  ]);
+/** Active members; `memberIds` limits them to those */
+async function loadContacts(memberIds?: number[]): Promise<Contact[]> {
+  if (memberIds?.length === 0) return [];
+  const members = await db
+    .select({
+      id: memberTable.id,
+      name: memberNameSql(),
+      phone: memberTable.mobilePhone,
+    })
+    .from(memberTable)
+    .where(
+      and(
+        eq(memberTable.status, "active"),
+        memberIds ? inArray(memberTable.id, memberIds) : undefined,
+      ),
+    );
 
-  const byName = (a: Contact, b: Contact) => compareTr(a.name, b.name);
-  return [
-    ...members.map((m) => ({ kind: "member" as const, ...m })).sort(byName),
-    ...representatives
-      .map((r) => ({ kind: "representative" as const, ...r }))
-      .sort(byName),
-  ];
+  return members
+    .map((m) => ({ kind: "member" as const, ...m }))
+    .sort((a, b) => compareTr(a.name, b.name));
 }
 
-const KIND_LABELS = { member: "Üye", representative: "Yetkili" } as const;
+const KIND_LABELS = { member: "Üye", company: "Firma" } as const;
 
 const settingsAuditSpec: AuditSpec = {
   autoEnabled: {
@@ -310,8 +280,8 @@ export const smsRoute = new Hono<AppEnv>()
     "/send",
     zValidator("json", smsSendSchema, respondWithFirstIssue),
     async (c) => {
-      const { message, memberIds, representativeIds } = c.req.valid("json");
-      const contacts = await loadContacts({ memberIds, representativeIds });
+      const { message, memberIds } = c.req.valid("json");
+      const contacts = await loadContacts(memberIds);
       const { recipients, skipped } = buildRecipients(contacts);
 
       if (recipients.length === 0) {

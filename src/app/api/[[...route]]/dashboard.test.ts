@@ -1,6 +1,6 @@
 import { addDays, format } from "date-fns";
 import { inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   cashAccountTable,
@@ -14,7 +14,6 @@ import {
   sectorTable,
   smsSendTable,
 } from "@/db/schema";
-import { CELEBRATION_DAYS } from "@/lib/dashboard";
 import { ISO_FORMAT, parseIsoDate, todayInIstanbul } from "@/lib/dates";
 import { compareTr } from "@/lib/turkish";
 import {
@@ -22,13 +21,6 @@ import {
   insertTestCashAccount,
 } from "@/test/cash-accounts";
 import { dashboardRoute } from "./dashboard";
-
-// Who celebrates is the SMS code's business (and its tests'); here only how
-// the dashboard passes it on
-const celebrations = vi.hoisted(() => ({
-  loadCelebrationsBetween: vi.fn(),
-}));
-vi.mock("@/lib/sms/load-celebrations", () => celebrations);
 
 // Kasa - Banka fixtures, deleted after the records using them
 const cashAccountIds: number[] = [];
@@ -124,25 +116,13 @@ beforeAll(async () => {
     createdAt: new Date("1990-01-01T00:00:00Z"),
   });
   // two Aktif members and a Pasif one of a company in the sector
-  m.active = await insertMember({ companyId: company.id });
+  // born tomorrow (1984 is a leap year, so 29 Şubat works), no phone
+  m.active = await insertMember({
+    companyId: company.id,
+    birthDate: `1984-${tomorrow.slice(5)}`,
+  });
   m.paying = await insertMember({ companyId: company.id });
   m.passive = await insertMember({ status: "passive", companyId: company.id });
-
-  celebrations.loadCelebrationsBetween.mockResolvedValue([
-    {
-      on: tomorrow,
-      kind: "birthday",
-      contact: {
-        kind: "member",
-        id: m.active,
-        name: `__test__ Dashboard ${tag}`,
-        phone: null,
-      },
-      date: "1986-01-01",
-      years: 40,
-      phone: { ok: false, reason: "no_phone" },
-    },
-  ]);
 
   p.collectionCategory = await insertParameter("collection_category");
   p.paymentCategory = await insertParameter("payment_category");
@@ -270,11 +250,12 @@ describe("GET /api/dashboard", () => {
     const body = await getDashboard();
     const { celebrations: listed } = body.attention;
     expect(typeof listed.autoEnabled).toBe("boolean");
-    expect(celebrations.loadCelebrationsBetween).toHaveBeenCalledWith(
-      today,
-      CELEBRATION_DAYS,
+    // real members may celebrate too; look at this test's own
+    const ours = listed.items.filter(
+      (i: { contact: { kind: string; id: number } }) =>
+        i.contact.kind === "member" && i.contact.id === m.active,
     );
-    expect(listed.items).toEqual([
+    expect(ours).toEqual([
       {
         on: tomorrow,
         kind: "birthday",
@@ -283,7 +264,7 @@ describe("GET /api/dashboard", () => {
           id: m.active,
           name: `__test__ Dashboard ${tag}`,
         },
-        years: 40,
+        years: Number(tomorrow.slice(0, 4)) - 1984,
         phoneOk: false,
       },
     ]);

@@ -2,7 +2,7 @@ import type { Celebration, CelebrationKind } from "./celebrations";
 
 /** What a celebration message can contain, e.g. "{ad}" */
 export const TEMPLATE_PLACEHOLDERS = {
-  ad: "üyenin unvanı ya da yetkilinin adı",
+  ad: "firmanın unvanı ya da üyenin adı",
   yil: "kaçıncı yıl dönümü / yaş günü (sayı)",
 } as const;
 
