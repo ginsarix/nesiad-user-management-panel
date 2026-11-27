@@ -14,7 +14,7 @@ import { AmountInput } from "@/components/amount-input";
 import { SearchCombobox } from "@/components/search-combobox";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError } from "@/components/ui/field";
-import { useRepresentativeItems } from "@/components/use-representative-items";
+import { useMemberItems } from "@/components/use-member-items";
 import { typedAccrualTotal } from "@/lib/accruals";
 import { getParameters } from "@/lib/fetches/parameter";
 import { formatAmount } from "@/lib/money";
@@ -27,31 +27,31 @@ import type {
 const emptyRows: AccrualFormRow[] = [];
 
 const NEW_ROW: AccrualFormRow = {
-  representativeId: null,
+  memberId: null,
   categoryId: null,
   amount: "",
 };
 
-// Yetkili | Tahakkuk Türü | Tutar | remove
+// Üye | Tahakkuk Türü | Tutar | remove
 const COLUMNS =
   "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_10rem_2.25rem] sm:gap-x-3";
 
 /**
- * The Tahakkuk rows: Yetkili, Tahakkuk Türü (a Tahsilat Türü) and Tutar, with the
+ * The Tahakkuk rows: Üye, Tahakkuk Türü (a Tahsilat Türü) and Tutar, with the
  * Genel Toplam of the Tutar under them, updated as the user types.
- * `current` are the saved rows: their Pasif yetkililer stay pickable.
+ * `current` are the saved rows: their Pasif üyeler stay pickable.
  */
 export function AccrualRowsEditor({
   control,
   current,
 }: {
   control: Control<AccrualFormInput, unknown, AccrualFormValues>;
-  current: readonly { representativeId: number }[];
+  current: readonly { memberId: number }[];
 }) {
   const { fields, append, remove } = useFieldArray({ control, name: "rows" });
   const rows = useWatch({ control, name: "rows" }) ?? emptyRows;
 
-  const representativeItems = useRepresentativeItems(current);
+  const memberItems = useMemberItems(current.map((row) => row.memberId));
   const { data: parameters, isSuccess: parametersLoaded } = useQuery({
     queryKey: ["parameters"],
     queryFn: () => getParameters(),
@@ -86,7 +86,7 @@ export function AccrualRowsEditor({
           className={`hidden text-sm font-medium sm:grid ${COLUMNS}`}
           aria-hidden
         >
-          <span>Yetkili</span>
+          <span>Üye</span>
           <span>Tahakkuk Türü</span>
           <span>Tutar</span>
           <span />
@@ -101,22 +101,22 @@ export function AccrualRowsEditor({
           >
             <Controller
               control={control}
-              name={`rows.${index}.representativeId`}
+              name={`rows.${index}.memberId`}
               render={({ field, fieldState }) => (
                 <Field
                   data-invalid={!!fieldState.error}
                   className="col-span-2 sm:col-span-1"
                 >
                   <SearchCombobox
-                    id={`rows-${index}-representative`}
-                    items={representativeItems}
+                    id={`rows-${index}-member`}
+                    items={memberItems}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
                     invalid={!!fieldState.error}
-                    placeholder="Yetkili seçin"
-                    noItemsText="Seçilebilecek yetkili yok."
-                    noMatchText="Aramanızla eşleşen yetkili yok."
+                    placeholder="Üye seçin"
+                    noItemsText="Seçilebilecek üye yok."
+                    noMatchText="Aramanızla eşleşen üye yok."
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>

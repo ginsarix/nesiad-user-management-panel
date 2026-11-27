@@ -20,7 +20,7 @@ import {
 } from "@/lib/zod-schemas/accrual";
 import { AccrualRowsEditor } from "./accrual-rows-editor";
 
-const ROW_FIELD = /^rows\.\d+\.(representativeId|categoryId|amount)$/;
+const ROW_FIELD = /^rows\.\d+\.(memberId|categoryId|amount)$/;
 
 /** The row input an API error is about, if any */
 function rowField(error: unknown) {
@@ -82,13 +82,13 @@ function AccrualsForm({ list }: { list: AccrualList }) {
       setVersion(newVersion);
       setSavedAt(Date.now());
       void queryClient.invalidateQueries({ queryKey: ["accruals"] });
-      // yetkili pages count tahakkuk rows (the delete check)
-      void queryClient.invalidateQueries({ queryKey: ["representatives"] });
+      // member pages count tahakkuk rows (the delete check)
+      void queryClient.invalidateQueries({ queryKey: ["members"] });
       // a Tahsilat Türü used as a Tahakkuk Türü can't be deleted (Parametreler)
       void queryClient.invalidateQueries({ queryKey: ["parameters"] });
     },
     onError: (error) => {
-      // e.g. "Pasif yetkili eklenemez" under that row's Yetkili
+      // e.g. "Pasif üye eklenemez" under that row's Üye
       const field = rowField(error);
       if (field) form.setError(field, { message: error.message });
       // e.g. someone saved first: have their list ready for İptal

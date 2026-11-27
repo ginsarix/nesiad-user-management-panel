@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { useRepresentativeItems } from "@/components/use-representative-items";
+import { useMemberItems } from "@/components/use-member-items";
 import { formatAmount } from "@/lib/money";
 import {
   newPledgeRow,
@@ -43,14 +43,14 @@ import type { PledgeFormRow } from "@/lib/zod-schemas/project";
 
 const emptyRows: PledgeFormRow[] = [];
 
-// Yetkili | Adet | Tutar | Toplam | remove
+// Üye | Adet | Tutar | Toplam | remove
 const COLUMNS =
   "sm:grid-cols-[minmax(0,1fr)_5.5rem_9.5rem_9rem_2.25rem] sm:gap-x-3";
 
 /**
- * The Taahhütler rows of a form holding `pledges`: Yetkili, Adet, Tutar and
+ * The Taahhütler rows of a form holding `pledges`: Üye, Adet, Tutar and
  * the Toplam of each row, with the Genel Toplam under them, all updated as
- * the user types. `current` are the saved rows: their Pasif yetkililer
+ * the user types. `current` are the saved rows: their Pasif üyeler
  * stay pickable. While "Adet ve tutarı tüm satırlara uygula" is ticked, an
  * Adet or Tutar typed in one row goes into every row, and Cmd/Ctrl+Z puts
  * every row back (src/lib/spread-history.ts). `setValue` and `getValues`
@@ -65,7 +65,7 @@ export function PledgesEditor<T extends FieldValues>({
   control: Control<T>;
   setValue: UseFormSetValue<T>;
   getValues: UseFormGetValues<T>;
-  current: readonly { representativeId: number }[];
+  current: readonly { memberId: number }[];
 }) {
   // not saved: unticked on every page load
   const [applyToAll, setApplyToAll] = useState(false);
@@ -85,7 +85,7 @@ export function PledgesEditor<T extends FieldValues>({
       | PledgeFormRow[]
       | undefined) ?? emptyRows;
 
-  const representativeItems = useRepresentativeItems(current);
+  const memberItems = useMemberItems(current.map((row) => row.memberId));
 
   const fieldName = (index: number, field: keyof PledgeFormRow) =>
     `pledges.${index}.${field}` as Path<T>;
@@ -200,7 +200,7 @@ export function PledgesEditor<T extends FieldValues>({
           className={`hidden text-sm font-medium sm:grid ${COLUMNS}`}
           aria-hidden
         >
-          <span>Yetkili</span>
+          <span>Üye</span>
           <span>Adet</span>
           <span>Tutar</span>
           <span className="text-right">Toplam</span>
@@ -217,22 +217,22 @@ export function PledgesEditor<T extends FieldValues>({
           >
             <Controller
               control={control}
-              name={fieldName(index, "representativeId")}
+              name={fieldName(index, "memberId")}
               render={({ field, fieldState }) => (
                 <Field
                   data-invalid={!!fieldState.error}
                   className="col-span-2 sm:col-span-1"
                 >
                   <SearchCombobox
-                    id={`pledges-${index}-representative`}
-                    items={representativeItems}
+                    id={`pledges-${index}-member`}
+                    items={memberItems}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
                     invalid={!!fieldState.error}
-                    placeholder="Yetkili seçin"
-                    noItemsText="Seçilebilecek yetkili yok."
-                    noMatchText="Aramanızla eşleşen yetkili yok."
+                    placeholder="Üye seçin"
+                    noItemsText="Seçilebilecek üye yok."
+                    noMatchText="Aramanızla eşleşen üye yok."
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>

@@ -4,10 +4,10 @@ import { initialsTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
 
 /**
- * A yetkili's photo, or their initials without one. Always round, so people
+ * A member's photo, or their initials without one. Always round, so people
  * read apart from the square member logos.
  */
-export function RepresentativeAvatar({
+export function MemberAvatar({
   name,
   photo,
   size = "sm",

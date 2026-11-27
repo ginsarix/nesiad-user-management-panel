@@ -5,28 +5,24 @@ import {
 } from "@/components/prerequisites-notice";
 import { missingForCollections } from "@/lib/collection-prerequisites";
 
-/** Says what to add first when there's no Aktif yetkili, Tahsilat Türü or Aktif Kasa - Banka */
+/** Says what to add first when there's no Aktif üye, Tahsilat Türü or Aktif Kasa - Banka */
 export function MissingPrerequisitesNotice({
-  representatives,
+  members,
   parameters,
   cashAccounts,
 }: {
-  representatives: readonly { active: boolean }[] | undefined;
+  members: readonly { status: string }[] | undefined;
   parameters: readonly { kind: string }[] | undefined;
   cashAccounts: readonly { active: boolean }[] | undefined;
 }) {
-  const missing = missingForCollections(
-    representatives,
-    parameters,
-    cashAccounts,
-  );
+  const missing = missingForCollections(members, parameters, cashAccounts);
   const items: Prerequisite[] = [];
-  if (missing.representative) {
+  if (missing.member) {
     items.push({
-      href: "/representatives",
-      page: "Yetkililer",
-      from: "'nden",
-      what: "aktif yetkili",
+      href: "/members",
+      page: "Üyeler",
+      from: "'den",
+      what: "aktif üye",
     });
   }
   if (missing.parameters) {

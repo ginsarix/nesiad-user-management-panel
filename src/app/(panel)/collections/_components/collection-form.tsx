@@ -14,6 +14,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import { useMemberItems } from "@/components/use-member-items";
 import { initialCashAccountId } from "@/lib/cash-account-items";
 import { isoToDisplay, todayInIstanbul } from "@/lib/dates";
 import {
@@ -26,16 +27,12 @@ import {
   updateCollection,
 } from "@/lib/fetches/collection";
 import { ApiError } from "@/lib/fetches/errors";
+import { getMembers } from "@/lib/fetches/member";
 import { getParameters, type Parameter } from "@/lib/fetches/parameter";
 import { getProjects, type ProjectListItem } from "@/lib/fetches/project";
-import {
-  getRepresentatives,
-  type RepresentativeListItem,
-} from "@/lib/fetches/representative";
 import { listHref } from "@/lib/list-href";
 import { amountToInput } from "@/lib/money";
 import type { ParameterKind } from "@/lib/parameters";
-import { compareTr } from "@/lib/turkish";
 import {
   type CollectionFormInput,
   type CollectionFormValues,
@@ -45,14 +42,13 @@ import { DeleteCollectionButton } from "../[id]/edit/delete-collection-button";
 import { MissingPrerequisitesNotice } from "./missing-prerequisites-notice";
 import { ProjectSection } from "./project-section";
 
-const emptyRepresentatives: RepresentativeListItem[] = [];
 const emptyParameters: Parameter[] = [];
 const emptyProjects: ProjectListItem[] = [];
 const emptyCashAccounts: CashAccountListItem[] = [];
 
 // API field names the form can show an error under
 const FIELDS = new Set([
-  "representativeId",
+  "memberId",
   "categoryId",
   "cashAccountId",
   "amount",
@@ -70,7 +66,7 @@ function itemsOf(parameters: Parameter[], kind: ParameterKind) {
 }
 
 /**
- * Create form without a tahsilat, edit form with one. `from` is the yetkili,
+ * Create form without a tahsilat, edit form with one. `from` is the üye,
  * proje or Kasa - Banka page it was opened from: that one is preselected (when it can
  * be picked) and saving or cancelling returns there.
  */
@@ -79,14 +75,14 @@ export function CollectionForm({
   from,
 }: {
   collection?: Collection;
-  from?: { representative?: number; project?: number; cashAccount?: number };
+  from?: { member?: number; project?: number; cashAccount?: number };
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: loadedRepresentatives } = useQuery({
-    queryKey: ["representatives"],
-    queryFn: () => getRepresentatives(),
+  const { data: loadedMembers } = useQuery({
+    queryKey: ["members"],
+    queryFn: () => getMembers(),
   });
   const { data: loadedParameters } = useQuery({
     queryKey: ["parameters"],
@@ -101,31 +97,18 @@ export function CollectionForm({
     queryFn: () => getCashAccounts(),
   });
   const cashAccounts = loadedCashAccounts ?? emptyCashAccounts;
-  const representatives = loadedRepresentatives ?? emptyRepresentatives;
   const parameters = loadedParameters ?? emptyParameters;
 
-  // Aktif yetkililer, plus the tahsilat's own yetkili when editing
-  const representativeItems = useMemo(
-    () =>
-      representatives
-        .filter((r) => r.active || r.id === collection?.representativeId)
-        .map((r) => ({
-          value: r.id,
-          label: r.active ? r.name : `${r.name} (Pasif)`,
-        }))
-        .toSorted((a, b) => compareTr(a.label, b.label)),
-    [representatives, collection?.representativeId],
-  );
+  // Aktif members, plus the tahsilat's own member when editing
+  const memberItems = useMemberItems(collection ? [collection.memberId] : []);
   const categoryItems = useMemo(
     () => itemsOf(parameters, "collection_category"),
     [parameters],
   );
 
-  // a `?representative=` / `?project=` that can't be picked preselects nothing
-  const fromRepresentative = representativeItems.some(
-    (r) => r.value === from?.representative,
-  )
-    ? (from?.representative ?? null)
+  // a `?member=` / `?project=` that can't be picked preselects nothing
+  const fromMember = memberItems.some((r) => r.value === from?.member)
+    ? (from?.member ?? null)
     : null;
   const fromProject = projects.some((p) => p.id === from?.project && p.active)
     ? (from?.project ?? null)
@@ -136,7 +119,7 @@ export function CollectionForm({
   const form = useForm<CollectionFormInput, unknown, CollectionFormValues>({
     resolver: zodResolver(collectionFormSchema),
     defaultValues: {
-      representativeId: collection?.representativeId ?? fromRepresentative,
+      memberId: collection?.memberId ?? fromMember,
       categoryId: collection?.categoryId ?? null,
       cashAccountId: initialCashAccountId(
         cashAccounts,
@@ -158,8 +141,8 @@ export function CollectionForm({
   // the Kasa - Banka section shows the Bakiye of this date's period
   const date = useWatch({ control: form.control, name: "date" });
 
-  const backHref = from?.representative
-    ? `/representatives/${from.representative}`
+  const backHref = from?.member
+    ? `/members/${from.member}`
     : from?.project
       ? `/projects/${from.project}`
       : from?.cashAccount
@@ -174,9 +157,9 @@ export function CollectionForm({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["collections"] }),
-        // projeler show totals and may be new; yetkililer show their count
+        // projeler show totals and may be new; üyeler show their count
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
+        queryClient.invalidateQueries({ queryKey: ["members"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
         // the account's Bakiye moves
         queryClient.invalidateQueries({ queryKey: ["cash-accounts"] }),
@@ -205,8 +188,8 @@ export function CollectionForm({
         className="inline-flex w-fit items-center gap-1.5 text-sm text-primary hover:underline"
       >
         <ArrowLeft className="size-4" />
-        {from?.representative
-          ? "Yetkiliye dön"
+        {from?.member
+          ? "Üyeye dön"
           : from?.project
             ? "Projeye dön"
             : from?.cashAccount
@@ -215,7 +198,7 @@ export function CollectionForm({
       </Link>
 
       <MissingPrerequisitesNotice
-        representatives={loadedRepresentatives}
+        members={loadedMembers}
         parameters={loadedParameters}
         cashAccounts={loadedCashAccounts}
       />
@@ -233,23 +216,23 @@ export function CollectionForm({
           <div className="grid gap-x-5 gap-y-4 p-4 sm:grid-cols-2">
             <Controller
               control={form.control}
-              name="representativeId"
+              name="memberId"
               render={({ field, fieldState }) => (
                 <Field
                   data-invalid={!!fieldState.error}
                   className="sm:col-span-2"
                 >
-                  <Required htmlFor="representativeId">Yetkili</Required>
+                  <Required htmlFor="memberId">Üye</Required>
                   <SearchCombobox
-                    id="representativeId"
-                    items={representativeItems}
+                    id="memberId"
+                    items={memberItems}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
                     invalid={!!fieldState.error}
-                    placeholder="Yetkili seçin"
-                    noItemsText="Aktif yetkili yok."
-                    noMatchText="Aramanızla eşleşen yetkili yok."
+                    placeholder="Üye seçin"
+                    noItemsText="Aktif üye yok."
+                    noMatchText="Aramanızla eşleşen üye yok."
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>

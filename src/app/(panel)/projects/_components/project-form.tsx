@@ -27,7 +27,7 @@ import {
 } from "@/lib/zod-schemas/project";
 
 const FIELDS = ["name", "number", "active"];
-const PLEDGE_FIELD = /^pledges\.\d+\.(representativeId|quantity|amount)$/;
+const PLEDGE_FIELD = /^pledges\.\d+\.(memberId|quantity|amount)$/;
 
 /** Whether the rows read the same as the saved ones they started from */
 function samePledges(
@@ -38,7 +38,7 @@ function samePledges(
     rows.length === saved.length &&
     rows.every(
       (row, i) =>
-        row.representativeId === saved[i].representativeId &&
+        row.memberId === saved[i].memberId &&
         row.quantity === saved[i].quantity &&
         row.amount === saved[i].amount,
     )
@@ -85,13 +85,13 @@ export function ProjectForm({ project }: { project?: Project }) {
         queryClient.invalidateQueries({ queryKey: ["projects"] }),
         // tahsilatlar show the proje's name and number
         queryClient.invalidateQueries({ queryKey: ["collections"] }),
-        // yetkili pages count taahhütler (the delete check)
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
+        // üye pages count taahhütler (the delete check)
+        queryClient.invalidateQueries({ queryKey: ["members"] }),
       ]);
       router.push(`/projects/${id}`);
     },
     // e.g. "Bu proje numarası zaten var" under Proje Numarası, "Pasif
-    // yetkili eklenemez" under a taahhüt's Yetkili
+    // üye eklenemez" under a taahhüt's Üye
     onError: (error) => {
       const field = formField(error);
       if (field) form.setError(field, { message: error.message });

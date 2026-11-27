@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
 import { PassiveTag } from "@/components/info-fields";
-import { RepresentativeAvatar } from "@/components/representative-avatar";
+import { MemberAvatar } from "@/components/member-avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { getOrganizationGroup } from "@/lib/fetches/organization";
 import { listHref } from "@/lib/list-href";
@@ -72,7 +72,7 @@ export function GroupDetails({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
-                    <th className="px-4 py-2 font-medium">Yetkili</th>
+                    <th className="px-4 py-2 font-medium">Üye</th>
                     <th className="px-4 py-2 font-medium">Görev</th>
                   </tr>
                 </thead>
@@ -81,17 +81,17 @@ export function GroupDetails({
                     <tr key={person.id}>
                       <td className="px-4 py-2">
                         <span className="flex flex-wrap items-center gap-2">
-                          <RepresentativeAvatar
-                            name={person.representativeName}
-                            photo={person.representativePhoto}
+                          <MemberAvatar
+                            name={person.memberName}
+                            photo={person.memberPhoto}
                           />
                           <Link
-                            href={`/representatives/${person.representativeId}`}
+                            href={`/members/${person.memberId}`}
                             className="text-primary hover:underline"
                           >
-                            {person.representativeName}
+                            {person.memberName}
                           </Link>
-                          {!person.representativeActive && <PassiveTag />}
+                          {!person.memberActive && <PassiveTag />}
                         </span>
                       </td>
                       <td className="px-4 py-2">{person.roleName}</td>

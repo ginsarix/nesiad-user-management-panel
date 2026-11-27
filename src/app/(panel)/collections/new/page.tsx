@@ -11,10 +11,10 @@ export default async function NewCollectionPage({
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // `?representative=12` / `?project=3` / `?cashAccount=4` from a yetkili's, proje's or Kasa - Banka's "Tahsilat Ekle"
+  // `?member=12` / `?project=3` / `?cashAccount=4` from a üye's, proje's or Kasa - Banka's "Tahsilat Ekle"
   const params = await searchParams;
   const from = {
-    representative: idParam(params.representative),
+    member: idParam(params.member),
     project: idParam(params.project),
     cashAccount: idParam(params.cashAccount),
   };

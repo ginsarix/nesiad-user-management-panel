@@ -16,7 +16,7 @@ import {
   pledgesToForm,
 } from "@/lib/zod-schemas/project";
 
-const PLEDGE_FIELD = /^pledges\.\d+\.(representativeId|quantity|amount)$/;
+const PLEDGE_FIELD = /^pledges\.\d+\.(memberId|quantity|amount)$/;
 
 /** The taahhüt input an API error is about, if any */
 function pledgeField(error: unknown) {
@@ -52,10 +52,10 @@ export function ProjectPledges({ project }: { project: Project }) {
       });
       setSavedAt(Date.now());
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
-      // yetkili pages count taahhütler (the delete check)
-      void queryClient.invalidateQueries({ queryKey: ["representatives"] });
+      // üye pages count taahhütler (the delete check)
+      void queryClient.invalidateQueries({ queryKey: ["members"] });
     },
-    // e.g. "Pasif yetkili eklenemez" under that row's Yetkili
+    // e.g. "Pasif üye eklenemez" under that row's Üye
     onError: (error) => {
       const field = pledgeField(error);
       if (field) form.setError(field, { message: error.message });

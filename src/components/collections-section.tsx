@@ -23,7 +23,7 @@ import { formatAmount, sumAmounts } from "@/lib/money";
 import { projectLabel } from "@/lib/projects";
 
 /**
- * The tahsilatlar of one yetkili, proje or Kasa - Banka, with their count
+ * The tahsilatlar of one üye, proje or Kasa - Banka, with their count
  * and total. `of` picks which; that column is left out since it's always
  * the same.
  */
@@ -34,9 +34,9 @@ export function CollectionsSection({
   from = null,
   to = null,
 }: {
-  of: "representative" | "project" | "cashAccount";
+  of: "member" | "project" | "cashAccount";
   id: number;
-  /** A new tahsilat needs an Aktif yetkili, proje or Kasa - Banka */
+  /** A new tahsilat needs an Aktif üye, proje or Kasa - Banka */
   canAdd: boolean;
   /** Only tahsilatlar dated in this range (yyyy-MM-dd, inclusive), e.g. a period's */
   from?: string | null;
@@ -45,7 +45,7 @@ export function CollectionsSection({
   const filters: CollectionFilters = {
     from,
     to,
-    representative: of === "representative" ? id : null,
+    member: of === "member" ? id : null,
     category: null,
     cashAccount: of === "cashAccount" ? id : null,
     project: of === "project" ? id : null,
@@ -96,7 +96,7 @@ export function CollectionsSection({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tarih</TableHead>
-                    {of !== "representative" && <TableHead>Yetkili</TableHead>}
+                    {of !== "member" && <TableHead>Üye</TableHead>}
                     <TableHead className="text-right">Tutar</TableHead>
                     <TableHead>Tahsilat Türü</TableHead>
                     {of !== "cashAccount" && (
@@ -117,13 +117,13 @@ export function CollectionsSection({
                           {formatDate(collection.date)}
                         </Link>
                       </TableCell>
-                      {of !== "representative" && (
+                      {of !== "member" && (
                         <TableCell>
                           <Link
-                            href={`/representatives/${collection.representativeId}`}
+                            href={`/members/${collection.memberId}`}
                             className="hover:underline"
                           >
-                            {collection.representativeName}
+                            {collection.memberName}
                           </Link>
                         </TableCell>
                       )}
@@ -164,7 +164,7 @@ export function CollectionsSection({
                 <TableTotalFooter
                   columnIds={[
                     "date",
-                    ...(of !== "representative" ? ["representative"] : []),
+                    ...(of !== "member" ? ["member"] : []),
                     "amount",
                     "category",
                     ...(of !== "cashAccount" ? ["cashAccount"] : []),

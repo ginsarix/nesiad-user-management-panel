@@ -10,7 +10,12 @@ import {
 } from "@/components/ui/combobox";
 import { foldTr } from "@/lib/turkish";
 
-export type SearchComboboxItem = { value: number; label: string };
+export type SearchComboboxItem = {
+  value: number;
+  label: string;
+  /** A second line under the label, e.g. a member's company; searched too */
+  description?: string;
+};
 
 /**
  * Picks one of `items`, or none. Typing only searches the list (Turkish-
@@ -51,7 +56,9 @@ export function SearchCombobox({
       onValueChange={(item) => onChange(item?.value ?? null)}
       isItemEqualToValue={(item, other) => item.value === other.value}
       filter={(item: SearchComboboxItem, query) =>
-        foldTr(item.label).includes(foldTr(query.trim()))
+        foldTr(`${item.label} ${item.description ?? ""}`).includes(
+          foldTr(query.trim()),
+        )
       }
     >
       <ComboboxInput
@@ -69,7 +76,16 @@ export function SearchCombobox({
         <ComboboxList>
           {(item: SearchComboboxItem) => (
             <ComboboxItem key={item.value} value={item}>
-              {item.label}
+              {item.description ? (
+                <span className="flex flex-col">
+                  <span>{item.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.description}
+                  </span>
+                </span>
+              ) : (
+                item.label
+              )}
             </ComboboxItem>
           )}
         </ComboboxList>

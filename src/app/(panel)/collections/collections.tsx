@@ -24,6 +24,7 @@ import { TableTotalFooter } from "@/components/table-total-footer";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { useMemberItems } from "@/components/use-member-items";
 import { usePersistedColumnVisibility } from "@/hooks/use-persisted-column-visibility";
 import { cashAccountItems } from "@/lib/cash-account-items";
 import {
@@ -39,12 +40,9 @@ import {
   collectionsExportHref,
   getCollections,
 } from "@/lib/fetches/collection";
+import { getMembers } from "@/lib/fetches/member";
 import { getParameters, type Parameter } from "@/lib/fetches/parameter";
 import { getProjects, type ProjectListItem } from "@/lib/fetches/project";
-import {
-  getRepresentatives,
-  type RepresentativeListItem,
-} from "@/lib/fetches/representative";
 import { rememberListSearch } from "@/lib/list-href";
 import { formatAmount, sumAmounts } from "@/lib/money";
 import { projectLabel } from "@/lib/projects";
@@ -98,15 +96,15 @@ const columns = helper.columns([
       </Link>
     ),
   }),
-  helper.accessor("representativeName", {
-    header: "Yetkili",
+  helper.accessor("memberName", {
+    header: "Üye",
     sortFn: sortByText,
     cell: ({ row }) => (
       <Link
-        href={`/representatives/${row.original.representativeId}`}
+        href={`/members/${row.original.memberId}`}
         className="hover:underline"
       >
-        {row.original.representativeName}
+        {row.original.memberName}
       </Link>
     ),
   }),
@@ -162,7 +160,7 @@ const DEFAULT_COLUMN_VISIBILITY = {};
 
 const SORTABLE_COLUMNS = [
   "date",
-  "representativeName",
+  "memberName",
   "amount",
   "categoryName",
   "cashAccountName",
@@ -186,7 +184,6 @@ function serializeSort([sort]: SortingState) {
 const NO_PROJECT_ITEM = -1;
 
 const emptyCollections: CollectionRow[] = [];
-const emptyRepresentatives: RepresentativeListItem[] = [];
 const emptyParameters: Parameter[] = [];
 const emptyProjects: ProjectListItem[] = [];
 
@@ -250,9 +247,9 @@ export function Collections({
   });
   const collections = data?.collections ?? emptyCollections;
 
-  const { data: loadedRepresentatives } = useQuery({
-    queryKey: ["representatives"],
-    queryFn: () => getRepresentatives(),
+  const { data: loadedMembers } = useQuery({
+    queryKey: ["members"],
+    queryFn: () => getMembers(),
   });
   const { data: loadedParameters } = useQuery({
     queryKey: ["parameters"],
@@ -262,17 +259,11 @@ export function Collections({
     queryKey: ["projects"],
     queryFn: () => getProjects(),
   });
-  const representatives = loadedRepresentatives ?? emptyRepresentatives;
   const parameters = loadedParameters ?? emptyParameters;
 
-  // Aktif yetkililer, plus the one being filtered by (it may be Pasif now)
-  const representativeItems = useMemo(
-    () =>
-      representatives
-        .filter((r) => r.active || r.id === filters.representative)
-        .map((r) => ({ value: r.id, label: r.name }))
-        .toSorted((a, b) => compareTr(a.label, b.label)),
-    [representatives, filters.representative],
+  // Aktif members, plus the one being filtered by (it may be Pasif now)
+  const memberItems = useMemberItems(
+    filters.member === null ? [] : [filters.member],
   );
   const categoryItems = useMemo(
     () =>
@@ -322,7 +313,7 @@ export function Collections({
   return (
     <div className="flex flex-col gap-3">
       <MissingPrerequisitesNotice
-        representatives={loadedRepresentatives}
+        members={loadedMembers}
         parameters={loadedParameters}
         cashAccounts={loadedCashAccounts}
       />
@@ -351,13 +342,13 @@ export function Collections({
         </div>
         <div className="w-56 [&_input]:bg-card">
           <SearchCombobox
-            id="collections-representative"
-            items={representativeItems}
-            value={filters.representative}
-            onChange={(representative) => updateFilters({ representative })}
-            placeholder="Tüm yetkililer"
-            noItemsText="Aktif yetkili yok."
-            noMatchText="Aramanızla eşleşen yetkili yok."
+            id="collections-member"
+            items={memberItems}
+            value={filters.member}
+            onChange={(member) => updateFilters({ member })}
+            placeholder="Tüm üyeler"
+            noItemsText="Aktif üye yok."
+            noMatchText="Aramanızla eşleşen üye yok."
           />
         </div>
         <div className="w-44 [&_input]:bg-card">

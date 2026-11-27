@@ -14,7 +14,7 @@ export default async function NewOrganizationGroupPage({
   if (!organization) notFound();
 
   const queryClient = getQueryClient();
-  // prefetch (the yetkililer and görevler to pick)
+  // prefetch (the üyeler and görevler to pick)
   await prefetchGroupFormOptions(queryClient, await forwardedRequestOptions());
 
   return (

@@ -48,7 +48,7 @@ export function DeleteGroupButton({
           queryKey: ["organizations", organization],
           exact: true,
         }),
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
+        queryClient.invalidateQueries({ queryKey: ["members"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
       ]);
       router.push(listHref(organizationHref(organization)));
@@ -76,7 +76,7 @@ export function DeleteGroupButton({
           <AlertDialogTitle>“{group.name}” silinsin mi?</AlertDialogTitle>
           <AlertDialogDescription>
             {ORGANIZATION_INFO[organization].singular} ve kişi listesi kalıcı
-            olarak silinir. Yetkililer silinmez. Bu işlem geri alınamaz.
+            olarak silinir. Üyeler silinmez. Bu işlem geri alınamaz.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && <FieldError>{error.message}</FieldError>}

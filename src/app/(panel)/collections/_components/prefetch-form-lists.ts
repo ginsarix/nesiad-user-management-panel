@@ -1,11 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ClientRequestOptions } from "hono/client";
 import { getCashAccounts } from "@/lib/fetches/cash-account";
+import { getMembers } from "@/lib/fetches/member";
 import { getParameters } from "@/lib/fetches/parameter";
 import { getProjects } from "@/lib/fetches/project";
-import { getRepresentatives } from "@/lib/fetches/representative";
 
-/** The yetkililer, parameters, Kasa - Banka accounts and projeler the tahsilat form and filters pick from */
+/** The üyeler, parameters, Kasa - Banka accounts and projeler the tahsilat form and filters pick from */
 export function prefetchFormLists(
   queryClient: QueryClient,
   options: ClientRequestOptions,
@@ -19,8 +19,8 @@ export function prefetchFormLists(
       .catch(console.error),
     queryClient
       .query({
-        queryKey: ["representatives"],
-        queryFn: () => getRepresentatives(options),
+        queryKey: ["members"],
+        queryFn: () => getMembers(options),
       })
       .catch(console.error),
     queryClient
@@ -35,7 +35,7 @@ export function prefetchFormLists(
   ]);
 }
 
-/** Positive integer id from `?representative=12` / `?project=3`, else undefined */
+/** Positive integer id from `?member=12` / `?project=3`, else undefined */
 export function idParam(value: string | string[] | undefined) {
   const id = Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : undefined;

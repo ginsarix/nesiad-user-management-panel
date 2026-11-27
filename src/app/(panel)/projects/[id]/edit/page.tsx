@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getProject } from "@/lib/fetches/project";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
-import { prefetchRepresentatives } from "../../_components/prefetch-representatives";
+import { prefetchMembers } from "../../_components/prefetch-members";
 import { EditProject } from "./edit-project";
 
 export default async function EditProjectPage({
@@ -16,7 +16,7 @@ export default async function EditProjectPage({
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // prefetch the proje and the yetkililer of its taahhütler
+  // prefetch the proje and the üyeler of its taahhütler
   const [project] = await Promise.all([
     queryClient
       .query({
@@ -24,7 +24,7 @@ export default async function EditProjectPage({
         queryFn: () => getProject(id, options),
       })
       .catch(console.error),
-    prefetchRepresentatives(queryClient, options),
+    prefetchMembers(queryClient, options),
   ]);
 
   if (project === null) notFound();

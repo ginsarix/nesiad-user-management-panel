@@ -17,6 +17,7 @@ import { SearchCombobox } from "@/components/search-combobox";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useMemberItems } from "@/components/use-member-items";
 import { ApiError } from "@/lib/fetches/errors";
 import {
   createOrganizationGroup,
@@ -24,24 +25,18 @@ import {
   updateOrganizationGroup,
 } from "@/lib/fetches/organization";
 import { getParameters, type Parameter } from "@/lib/fetches/parameter";
-import {
-  getRepresentatives,
-  type RepresentativeListItem,
-} from "@/lib/fetches/representative";
 import { listHref } from "@/lib/list-href";
 import {
   ORGANIZATION_INFO,
   type Organization,
   organizationHref,
 } from "@/lib/organizations";
-import { compareTr } from "@/lib/turkish";
 import {
   type OrganizationGroupFormInput,
   type OrganizationGroupFormValues,
   organizationGroupFormSchema,
 } from "@/lib/zod-schemas/organization";
 
-const emptyRepresentatives: RepresentativeListItem[] = [];
 const emptyParameters: Parameter[] = [];
 
 /** Create form without a group, edit form with one */
@@ -62,7 +57,7 @@ export function GroupForm({
       name: group?.name ?? "",
       people:
         group?.people.map((person) => ({
-          representativeId: person.representativeId,
+          memberId: person.memberId,
           roleId: person.roleId,
         })) ?? [],
     },
@@ -78,8 +73,8 @@ export function GroupForm({
     onSuccess: async (id) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["organizations"] }),
-        // yetkili pages list their groups, Parametreler counts görev usage
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
+        // üye pages list their groups, Parametreler counts görev usage
+        queryClient.invalidateQueries({ queryKey: ["members"] }),
         queryClient.invalidateQueries({ queryKey: ["parameters"] }),
       ]);
       router.push(organizationHref(organization, String(id)));
@@ -157,7 +152,7 @@ export function GroupForm({
   );
 }
 
-/** "Kişiler": one row per person, a yetkili and their Dernek Görevi */
+/** "Kişiler": one row per person, a üye and their Dernek Görevi */
 function People({
   control,
   group,
@@ -175,28 +170,15 @@ function People({
   });
   const { errors } = useFormState({ control, name: "people" });
 
-  const { data: representatives = emptyRepresentatives } = useQuery({
-    queryKey: ["representatives"],
-    queryFn: () => getRepresentatives(),
-  });
   const { data: parameters, isSuccess: parametersLoaded } = useQuery({
     queryKey: ["parameters"],
     queryFn: () => getParameters(),
   });
 
-  // Aktif yetkililer, plus Pasif ones already in the group: they stay
-  const representativeItems = useMemo(() => {
-    const currentIds = new Set(
-      group?.people.map((person) => person.representativeId),
-    );
-    return representatives
-      .filter((r) => r.active || currentIds.has(r.id))
-      .map((r) => ({
-        value: r.id,
-        label: r.active ? r.name : `${r.name} (Pasif)`,
-      }))
-      .toSorted((a, b) => compareTr(a.label, b.label));
-  }, [representatives, group]);
+  // Aktif members, plus Pasif ones already in the group: they stay
+  const memberItems = useMemberItems(
+    group?.people.map((person) => person.memberId) ?? [],
+  );
 
   const roleItems = useMemo(
     () =>
@@ -229,7 +211,7 @@ function People({
 
         {fields.length > 0 && (
           <div className="hidden grid-cols-[1fr_1fr_auto] gap-3 text-sm font-medium sm:grid">
-            <span>Yetkili</span>
+            <span>Üye</span>
             <span>Görev</span>
             <span className="w-8" />
           </div>
@@ -242,19 +224,19 @@ function People({
           >
             <Controller
               control={control}
-              name={`people.${index}.representativeId`}
+              name={`people.${index}.memberId`}
               render={({ field, fieldState }) => (
                 <Field data-invalid={!!fieldState.error}>
                   <SearchCombobox
-                    id={`people-${index}-representative`}
-                    items={representativeItems}
+                    id={`people-${index}-member`}
+                    items={memberItems}
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}
                     invalid={!!fieldState.error}
-                    placeholder="Yetkili seçin"
-                    noItemsText="Seçilebilecek yetkili yok."
-                    noMatchText="Aramanızla eşleşen yetkili yok."
+                    placeholder="Üye seçin"
+                    noItemsText="Seçilebilecek üye yok."
+                    noMatchText="Aramanızla eşleşen üye yok."
                   />
                   <FieldError errors={[fieldState.error]} />
                 </Field>
@@ -300,7 +282,7 @@ function People({
           variant="outline"
           size="sm"
           className="w-fit"
-          onClick={() => append({ representativeId: null, roleId: null })}
+          onClick={() => append({ memberId: null, roleId: null })}
         >
           <Plus />
           Kişi ekle

@@ -1,9 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ClientRequestOptions } from "hono/client";
+import { getMembers } from "@/lib/fetches/member";
 import { getParameters } from "@/lib/fetches/parameter";
-import { getRepresentatives } from "@/lib/fetches/representative";
 
-/** What the group form's pickers list: yetkililer and Dernek Görevleri */
+/** What the group form's pickers list: üyeler and Dernek Görevleri */
 export function prefetchGroupFormOptions(
   queryClient: QueryClient,
   options: ClientRequestOptions,
@@ -11,8 +11,8 @@ export function prefetchGroupFormOptions(
   return Promise.all([
     queryClient
       .query({
-        queryKey: ["representatives"],
-        queryFn: () => getRepresentatives(options),
+        queryKey: ["members"],
+        queryFn: () => getMembers(options),
       })
       .catch(console.error),
     queryClient
