@@ -267,7 +267,7 @@ beforeAll(async () => {
        (id, representative_sms, representative_email_subject, representative_email_body,
         staff_sms, staff_email_subject, staff_email_body)
      values (1, 'Sayın {yetkili}, {tutar} alındı', 'Tahsilat', 'Sayın {yetkili}',
-             '{yetkili}: {tutar}', 'Yeni tahsilat', '{yetkili} {yetkili}')
+             '{yetkili}: {tutar}', 'Yeni tahsilat', E'Yeni tahsilat.\\n\\nYetkili: {yetkili}\\nTutar: {tutar}\\n{yetkili}')
      on conflict (id) do update set representative_sms = excluded.representative_sms,
        representative_email_subject = excluded.representative_email_subject,
        representative_email_body = excluded.representative_email_body,
@@ -499,8 +499,13 @@ describe("member conversion migration", () => {
       representative_email_body: "Sayın {uye}",
       staff_sms: "{uye}: {tutar}",
       staff_email_subject: "Yeni tahsilat",
-      staff_email_body: "{uye} {uye}",
+      // the old "Yetkili:" label goes back to "Üye:"; a bare {yetkili} elsewhere
+      // just becomes {uye}
+      staff_email_body: "Yeni tahsilat.\n\nÜye: {uye}\nTutar: {tutar}\n{uye}",
     });
+    for (const [column, text] of Object.entries(settings)) {
+      expect(text, column).not.toMatch(/Yetkili|\{yetkili\}/);
+    }
   });
 
   it("legacy data is left in place", async () => {

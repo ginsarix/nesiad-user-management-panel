@@ -236,14 +236,16 @@ UPDATE sms_send SET contact_id = -contact_id
 WHERE kind = 'founding' AND contact_id < 0;
 --> statement-breakpoint
 
--- 8. Tahsilat notice templates: {yetkili} is now {uye}
+-- 8. Tahsilat notice templates: {yetkili} is now {uye}, and the staff email's
+-- "Yetkili: {yetkili}" line (put there by 20261113090136_collection_representative
+-- and the defaults of that time) is "Üye: {uye}" again
 UPDATE collection_notice_settings SET
   representative_sms = replace(representative_sms, '{yetkili}', '{uye}'),
   representative_email_subject = replace(representative_email_subject, '{yetkili}', '{uye}'),
   representative_email_body = replace(representative_email_body, '{yetkili}', '{uye}'),
   staff_sms = replace(staff_sms, '{yetkili}', '{uye}'),
   staff_email_subject = replace(staff_email_subject, '{yetkili}', '{uye}'),
-  staff_email_body = replace(staff_email_body, '{yetkili}', '{uye}');
+  staff_email_body = replace(replace(staff_email_body, 'Yetkili: {yetkili}', 'Üye: {uye}'), '{yetkili}', '{uye}');
 --> statement-breakpoint
 
 -- 9. Checks; any failure aborts the migration and the deploy
