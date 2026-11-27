@@ -4,7 +4,10 @@ import type { LogoUpload } from "../logo-upload";
 import type { MemberStatus } from "../member-status";
 import type { NoticeOutcomes } from "../notice-outcome";
 import { rpcClient } from "../rpc-client";
-import type { MemberFormValues } from "../zod-schemas/member";
+import type {
+  CompanyFormFields,
+  MemberFormValues,
+} from "../zod-schemas/member";
 import type { MemberDecisionInput } from "../zod-schemas/member-decision";
 import { throwResponseError } from "./errors";
 
@@ -50,40 +53,85 @@ export async function getMemberByRepresentative(
   return await res.json();
 }
 
-/** The member form's values with the picked logo made ready to send */
-export type MemberUpload = Omit<MemberFormValues, "logo"> & {
-  logo: LogoUpload | null;
-};
+/** A Firma section's fields as the API takes them: text, dates as yyyy-aa-gg */
+function companyFieldsText(fields: CompanyFormFields) {
+  return {
+    title: fields.title,
+    address: fields.address,
+    phone: fields.phone,
+    website: fields.website,
+    companyIntro: fields.companyIntro,
+    sectorId: fields.sectorId === null ? "" : String(fields.sectorId),
+    foundingDate: displayToIso(fields.foundingDate),
+    employeeCount: fields.employeeCount,
+  };
+}
+
+function companyInputOf(company: MemberFormValues["company"]) {
+  switch (company.mode) {
+    case "none":
+      return { mode: "none" };
+    case "existing":
+      return {
+        mode: "existing",
+        id: company.id,
+        fields: companyFieldsText(company.fields),
+      };
+    case "new":
+      return { mode: "new", fields: companyFieldsText(company.fields) };
+  }
+}
 
 /**
- * Text fields are always sent so clearing one in the form clears it in the DB.
- * The TC number and documents are sent only when given, so they keep their value.
+ * Text fields are always sent so clearing one in the form clears it in the
+ * DB, and so are the company choice and the Organizasyon rows (JSON text),
+ * which replace what is stored. The TC number and documents are sent only
+ * when given, so they keep their value. `logo` is the company section's
+ * picked logo made ready to send; it and the Faaliyet Belgesi go to the
+ * member's company, so they're left out without one.
  */
-function toMemberForm({
-  logo,
-  removeLogo,
-  status,
-  memberLoginDate,
-  foundingDate,
-  sectorId,
-  birthDate,
-  nationalId,
-  identityDocument,
-  activityDocument,
-  ...fields
-}: MemberUpload) {
+function toMemberForm(
+  {
+    company,
+    organizations,
+    companyRole,
+    memberLoginDate,
+    birthDate,
+    nationalId,
+    identityDocument,
+    photo,
+    removePhoto,
+    status,
+    ...text
+  }: MemberFormValues,
+  logo: LogoUpload | null,
+) {
   return {
-    ...fields,
-    sectorId: sectorId === null ? "" : String(sectorId),
+    ...text,
     // the form holds gg.aa.yyyy, the API takes yyyy-aa-gg
     memberLoginDate: displayToIso(memberLoginDate),
-    foundingDate: displayToIso(foundingDate),
     birthDate: displayToIso(birthDate),
+    // a görev at no company means nothing
+    companyRole: company.mode === "none" ? "" : companyRole,
+    company: JSON.stringify(companyInputOf(company)),
+    organizations: JSON.stringify(
+      organizations.map(({ organization, rowId, groupId, roleId }) => ({
+        organization,
+        rowId,
+        groupId,
+        roleId,
+      })),
+    ),
     ...(nationalId.trim() && { nationalId: nationalId.trim() }),
     ...(identityDocument && { identityDocument }),
-    ...(activityDocument && { activityDocument }),
     ...(status && { status }),
-    ...(logo ?? (removeLogo && { removeLogo: "true" })),
+    ...(photo ? { photo } : removePhoto && { removePhoto: "true" }),
+    ...(company.mode !== "none" && {
+      ...(logo ?? (company.removeLogo && { removeLogo: "true" })),
+      ...(company.activityDocument && {
+        activityDocument: company.activityDocument,
+      }),
+    }),
   };
 }
 
@@ -99,9 +147,12 @@ export async function getMemberNationalId(id: number) {
   return body.nationalId;
 }
 
-export async function createMember(values: MemberUpload) {
+export async function createMember(
+  values: MemberFormValues,
+  logo: LogoUpload | null,
+) {
   const res = await rpcClient.api.members.$post({
-    form: toMemberForm(values),
+    form: toMemberForm(values, logo),
   });
 
   if (!res.ok) await throwResponseError(res, "Üye kaydedilemedi");
@@ -109,10 +160,14 @@ export async function createMember(values: MemberUpload) {
   return (await res.json()) as { id: number };
 }
 
-export async function updateMember(id: number, values: MemberUpload) {
+export async function updateMember(
+  id: number,
+  values: MemberFormValues,
+  logo: LogoUpload | null,
+) {
   const res = await rpcClient.api.members[":id"].$patch({
     param: { id: String(id) },
-    form: toMemberForm(values),
+    form: toMemberForm(values, logo),
   });
 
   if (!res.ok) await throwResponseError(res, "Üye güncellenemedi");

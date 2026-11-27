@@ -2,8 +2,9 @@ import { z } from "zod";
 import { isValidNationalId } from "../national-id";
 import { ORGANIZATIONS } from "../organizations";
 import { checkPhone } from "../sms/recipients";
-import { memberCompanyInputSchema } from "./company";
+import { companyFormSchema, memberCompanyInputSchema } from "./company";
 import {
+  emailTextSchema,
   optionalDisplayDateSchema,
   optionalIsoDateSchema,
   optionalTextSchema,
@@ -52,8 +53,6 @@ export const logoFormFileSchema = z
       /\.(pdf|svg)$/i.test(f.name),
     "Sadece resim, PDF veya SVG dosyaları kabul edilir",
   );
-
-const titleSchema = z.string().trim().min(1, "Ünvan boş olamaz");
 
 const optionalEmailSchema = z
   .string()
@@ -220,41 +219,156 @@ export const updateMemberSchema = createMemberSchema.partial().extend({
   removeLogo: z.stringbool().optional(),
 });
 
-/** Client-side form values (dates as gg.aa.yyyy); sent to the API as multipart form data */
+/** The Firma section's fields as typed; the chosen mode decides which are checked */
+const companyFormFieldsSchema = z.object({
+  title: z.string(),
+  address: z.string(),
+  phone: z.string(),
+  website: z.string(),
+  companyIntro: z.string(),
+  sectorId: z.number().nullable(),
+  foundingDate: z.string(),
+  employeeCount: z.string(),
+});
+
+export type CompanyFormFields = z.infer<typeof companyFormFieldsSchema>;
+
+export const EMPTY_COMPANY_FIELDS: CompanyFormFields = {
+  title: "",
+  address: "",
+  phone: "",
+  website: "",
+  companyIntro: "",
+  sectorId: null,
+  foundingDate: "",
+  employeeCount: "",
+};
+
+export type CompanyMode = "none" | "existing" | "new";
+
+/**
+ * The Firma section: no company, an existing one (its fields editable in
+ * place, which changes it for every member on it) or a new one. Each mode
+ * keeps its own fields, so switching back and forth loses nothing. The logo
+ * and Faaliyet Belgesi go to whichever company the member ends up on.
+ */
+const memberCompanyFormSchema = z
+  .object({
+    mode: z.enum(["none", "existing", "new"]),
+    /** The picked company while the mode is existing; null until one is */
+    id: z.number().nullable(),
+    existing: companyFormFieldsSchema,
+    new: companyFormFieldsSchema,
+    logo: logoFormFileSchema.nullable(),
+    removeLogo: z.boolean(),
+    activityDocument: documentFileSchema.nullable(),
+  })
+  .superRefine((company, ctx) => {
+    if (company.mode === "none") return;
+    if (company.mode === "existing" && company.id === null) {
+      ctx.addIssue({ code: "custom", message: "Firma seçin", path: ["id"] });
+    }
+    const key = company.mode;
+    for (const issue of companyFormSchema.safeParse(company[key]).error
+      ?.issues ?? []) {
+      ctx.addIssue({
+        code: "custom",
+        message: issue.message,
+        path: [key, ...issue.path],
+      });
+    }
+  })
+  .transform((company) => {
+    const files = {
+      logo: company.logo,
+      removeLogo: company.removeLogo,
+      activityDocument: company.activityDocument,
+    };
+    if (company.mode === "existing" && company.id !== null) {
+      return {
+        mode: "existing" as const,
+        id: company.id,
+        fields: company.existing,
+        ...files,
+      };
+    }
+    if (company.mode === "new") {
+      return { mode: "new" as const, fields: company.new, ...files };
+    }
+    return { mode: "none" as const };
+  });
+
+const organizationFormRowSchema = z.object({
+  // the saved row this one edits; null for a row added in the form
+  rowId: z.number().nullable(),
+  // null while a newly added row has nothing picked yet
+  organization: z
+    .enum(ORGANIZATIONS)
+    .nullable()
+    .refine((organization) => organization !== null, "Organizasyon seçin"),
+  groupId: z
+    .number()
+    .nullable()
+    .refine((id) => id !== null, "Grup seçin"),
+  roleId: z
+    .number()
+    .nullable()
+    .refine((id) => id !== null, "Görev seçin"),
+});
+
+/**
+ * Client-side form values (dates as gg.aa.yyyy); sent to the API as
+ * multipart form data. Text is sent as typed, so blank clears the stored
+ * value; a blank TC number and no document keep what is stored.
+ */
 export const memberFormSchema = z.object({
-  title: titleSchema,
+  firstName: firstNameSchema,
+  lastName: lastNameSchema,
   memberLoginDate: optionalDisplayDateSchema,
   /** Left out for candidates and rejected members, whose status the form can't change */
   status: z.enum(["active", "passive"]).optional(),
-  address: z.string(),
-  phone: z.string(),
-  sectorId: z.number().nullable(),
-  foundingDate: optionalDisplayDateSchema,
-  logo: logoFormFileSchema.nullable(),
-  removeLogo: z.boolean(),
-
-  // Applicant fields. Text is sent as typed, so blank clears the stored value;
-  // a blank TC number and no document keep what is stored
-  applicantFirstName: z.string(),
-  applicantLastName: z.string(),
-  applicantRole: z.string(),
-  employeeCount: z.string(),
-  website: z.string(),
-  email: z.string(),
-  mobilePhone: z.string(),
+  email: emailTextSchema,
+  mobilePhone: z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || checkPhone(value).ok,
+      "Geçerli bir cep telefonu girin",
+    ),
   birthDate: optionalDisplayDateSchema,
+  notes: z.string(),
+  poPositiveCardNo: z.string(),
+  /** Already shrunk to the JPEG that is uploaded, when it was picked */
+  photo: z
+    .instanceof(File)
+    .refine((f) => f.size <= MAX_PHOTO_SIZE, PHOTO_TOO_LARGE_MESSAGE)
+    .nullable(),
+  removePhoto: z.boolean(),
+
   birthPlace: z.string(),
-  nationalId: z.string(),
+  nationalId: z
+    .string()
+    .trim()
+    .refine(
+      (value) => !value || isValidNationalId(value),
+      "Geçerli bir TC Kimlik No girin",
+    ),
   education: z.string(),
   otherAssociations: z.string(),
-  companyIntro: z.string(),
   gender: z.enum(["", "male", "female"]),
   referenceName: z.string(),
   identityDocument: documentFileSchema.nullable(),
-  activityDocument: documentFileSchema.nullable(),
+
+  /** Görev at the company; cleared when the member has none */
+  companyRole: z.string(),
+  company: memberCompanyFormSchema,
+  organizations: z.array(organizationFormRowSchema),
 });
 
-export type MemberFormValues = z.infer<typeof memberFormSchema>;
+/** What the form holds; pickers may still be null */
+export type MemberFormInput = z.input<typeof memberFormSchema>;
+/** What a valid form submits: the company as the chosen mode, every row picked */
+export type MemberFormValues = z.output<typeof memberFormSchema>;
 
 /** Logo Değiştir dialog on the member page; a new file is required */
 export const memberLogoFormSchema = z.object({

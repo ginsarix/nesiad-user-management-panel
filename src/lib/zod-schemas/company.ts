@@ -92,16 +92,25 @@ export const companyFieldsSchema = z.object({
 /** The fields as the API stores them */
 export type CompanyFields = Partial<z.output<typeof companyFieldsSchema>>;
 
-/** Form twin: dates as gg.aa.yyyy, text as typed */
+/** Typed text, with the issues the API's schema would find in it */
+function checkedLike(schema: z.ZodType) {
+  return z.string().superRefine((value, ctx) => {
+    for (const issue of schema.safeParse(value).error?.issues ?? []) {
+      ctx.addIssue({ code: "custom", message: issue.message });
+    }
+  });
+}
+
+/** Form twin: dates as gg.aa.yyyy, text as typed; checked like the API */
 export const companyFormSchema = z.object({
   title: titleSchema,
   address: z.string(),
   phone: z.string(),
-  website: z.string(),
+  website: checkedLike(optionalWebsiteSchema),
   companyIntro: z.string(),
   sectorId: z.number().nullable(),
   foundingDate: optionalDisplayDateSchema,
-  employeeCount: z.string(),
+  employeeCount: checkedLike(optionalEmployeeCountSchema),
 });
 
 export type CompanyFormValues = z.infer<typeof companyFormSchema>;

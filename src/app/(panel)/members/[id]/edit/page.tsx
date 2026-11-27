@@ -1,9 +1,9 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { notFound } from "next/navigation";
 import { getMember } from "@/lib/fetches/member";
-import { getSectors } from "@/lib/fetches/sector";
 import { getQueryClient } from "@/lib/query-client";
 import { forwardedRequestOptions, requireSession } from "@/lib/session";
+import { prefetchMemberFormOptions } from "../../_components/prefetch-member-form";
 import { EditMember } from "./edit-member";
 
 export default async function EditMemberPage({
@@ -16,7 +16,7 @@ export default async function EditMemberPage({
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
 
-  // prefetch (the sectors to pick from too)
+  // prefetch (what the pickers list too)
   const [member] = await Promise.all([
     queryClient
       .query({
@@ -24,12 +24,7 @@ export default async function EditMemberPage({
         queryFn: () => getMember(id, options),
       })
       .catch(console.error),
-    queryClient
-      .query({
-        queryKey: ["sectors"],
-        queryFn: () => getSectors(options),
-      })
-      .catch(console.error),
+    prefetchMemberFormOptions(queryClient, options),
   ]);
 
   if (member === null) notFound();
