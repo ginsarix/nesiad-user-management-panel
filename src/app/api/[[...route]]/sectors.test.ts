@@ -126,16 +126,6 @@ describe("GET /api/sectors member counts", () => {
     await createMember(sector.id, "passive");
     await createMember(sector.id, "candidate");
     await createMember(sector.id, "rejected");
-    // a legacy sector_id on the member itself counts for nothing
-    const [legacy] = await db
-      .insert(memberTable)
-      .values({
-        firstName: "__test__",
-        lastName: "Eski",
-        legacySectorId: sector.id,
-      })
-      .returning({ id: memberTable.id });
-    createdMemberIds.push(legacy.id);
 
     const listed = (await listSectors()).find((s) => s.id === sector.id);
     expect(listed?.memberCount).toBe(1);

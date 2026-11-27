@@ -9,7 +9,6 @@ import {
   jsonb,
   numeric,
   pgTable,
-  primaryKey,
   text,
   timestamp,
   unique,
@@ -387,28 +386,11 @@ export const memberTable = pgTable(
   "member",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    /** @deprecated dropped by the cleanup PR */
-    legacyTitle: text("title"),
 
     // kıdem (seniority) is calculated from this, not stored
     memberLoginDate: date("member_login_date", { mode: "string" }),
 
     status: text().$type<MemberStatus>().default("active").notNull(),
-
-    /** @deprecated dropped by the cleanup PR */
-    legacyLogo: text("logo"),
-    /** @deprecated dropped by the cleanup PR */
-    legacyLogoOriginal: text("logo_original"),
-    /** @deprecated dropped by the cleanup PR */
-    legacyAddress: text("address"),
-    /** @deprecated dropped by the cleanup PR */
-    legacyPhone: text("phone"),
-    /** @deprecated dropped by the cleanup PR */
-    legacySectorId: integer("sector_id").references(() => sectorTable.id, {
-      onDelete: "set null",
-    }),
-    /** @deprecated dropped by the cleanup PR */
-    legacyFoundingDate: date("founding_date", { mode: "string" }),
 
     // the person; their company (if any) is the company row
     firstName: text("first_name").notNull(),
@@ -425,10 +407,6 @@ export const memberTable = pgTable(
     companyId: integer("company_id").references(() => companyTable.id, {
       onDelete: "set null",
     }),
-    /** @deprecated dropped by the cleanup PR */
-    legacyEmployeeCount: integer("employee_count"),
-    /** @deprecated dropped by the cleanup PR */
-    legacyWebsite: text("website"),
     email: text(),
     mobilePhone: text("mobile_phone"),
     birthDate: date("birth_date", { mode: "string" }),
@@ -437,13 +415,9 @@ export const memberTable = pgTable(
     nationalId: text("national_id"),
     education: text(),
     otherAssociations: text("other_associations"),
-    /** @deprecated dropped by the cleanup PR */
-    legacyCompanyIntro: text("company_intro"),
     gender: text().$type<"male" | "female">(),
     referenceName: text("reference_name"),
     identityDocument: text("identity_document"),
-    /** @deprecated dropped by the cleanup PR */
-    legacyActivityDocument: text("activity_document"),
     consentedAt: timestamp("consented_at", { withTimezone: true }),
 
     // staff-only reason written when rejecting an application; cleared when
@@ -464,59 +438,6 @@ export const memberTable = pgTable(
       sql`${table.status} IN ('active','passive','candidate','rejected')`,
     ),
     index("member_company_idx").on(table.companyId),
-  ],
-);
-
-/** @deprecated dropped by the cleanup PR */
-export const authorizedRepresentativeTable = pgTable(
-  "authorized_representative",
-  {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    name: text().notNull(),
-
-    dateOfBirth: date("date_of_birth", { mode: "string" }),
-    phone: text(),
-    email: text(),
-    notes: text(),
-    // Petrol Ofisi Positive Card (a fuel rewards card) number, as typed
-    poPositiveCardNo: text("po_positive_card_no"),
-    // a JPEG the uploader's browser shrank to 800px; stored like member logos
-    photo: text(),
-
-    active: boolean().default(true).notNull(),
-
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .$onUpdate(() => new Date())
-      .notNull(),
-  },
-);
-
-/** @deprecated dropped by the cleanup PR */
-export const membersRepresentativesTable = pgTable(
-  "members_representatives",
-  {
-    memberId: integer("member_id")
-      .notNull()
-      .references(() => memberTable.id, { onDelete: "cascade" }),
-    authorizedRepresentativeId: integer("authorized_representative_id")
-      .notNull()
-      .references(() => authorizedRepresentativeTable.id, {
-        onDelete: "cascade",
-      }),
-
-    // görev: the yetkili's role at this member, e.g. "Genel Müdür"
-    role: text(),
-
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.memberId, table.authorizedRepresentativeId] }),
   ],
 );
 
