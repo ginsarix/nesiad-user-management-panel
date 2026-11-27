@@ -18,6 +18,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ColumnToggle } from "@/components/column-toggle";
 import { formatDate, orDash, StatusTag } from "@/components/info-fields";
+import { MemberAvatar as PersonAvatar } from "@/components/member-avatar";
 import { SortableTableHeader } from "@/components/sortable-table-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,10 @@ import { getSectors, type Sector } from "@/lib/fetches/sector";
 import { rememberListSearch } from "@/lib/list-href";
 import type { MemberStatus } from "@/lib/member-status";
 import { compareTr, foldTr } from "@/lib/turkish";
-import { MemberAvatar, SeniorityBadge } from "./_components/member-info";
+import {
+  MemberAvatar as CompanyLogo,
+  SeniorityBadge,
+} from "./_components/member-info";
 
 const features = tableFeatures({
   columnVisibilityFeature,
@@ -64,68 +68,74 @@ const sortByValue: SortFn<typeof features, MemberListItem> = (
 const helper = createColumnHelper<typeof features, MemberListItem>();
 
 const columns = helper.columns([
-  helper.accessor(
-    (member) => member.representatives.map((r) => r.name).join(", "),
-    {
-      id: "representatives",
-      header: "Yetkililer",
-      enableSorting: false,
-      // long lists are cut off; the full list shows on hover
-      cell: (info) => (
-        <span className="block max-w-64 truncate" title={info.getValue()}>
-          {orDash(info.getValue())}
-        </span>
-      ),
-    },
-  ),
-  helper.accessor("title", {
-    header: "Ünvan",
+  helper.accessor("name", {
+    header: "Ad Soyad",
     enableHiding: false,
     sortFn: sortTr,
     cell: ({ row }) => (
-      // long company names are cut off; the full name shows on hover
-      <span className="flex max-w-80 items-center gap-2">
-        <MemberAvatar title={row.original.title} logo={row.original.logo} />
+      // long names are cut off; the full name shows on hover
+      <span className="flex max-w-72 items-center gap-2">
+        <PersonAvatar name={row.original.name} photo={row.original.photo} />
         <Link
           href={`/members/${row.original.id}`}
-          title={row.original.title}
+          title={row.original.name}
           className="truncate font-medium text-primary hover:underline"
         >
-          {row.original.title}
+          {row.original.name}
         </Link>
         <StatusTag status={row.original.status} />
       </span>
     ),
   }),
-  helper.accessor(
-    (member) =>
-      [member.applicantFirstName, member.applicantLastName]
-        .filter(Boolean)
-        .join(" "),
-    {
-      id: "applicant",
-      header: "Başvuran",
-      sortFn: sortTr,
-      cell: (info) => orDash(info.getValue()),
+  helper.accessor((member) => member.company?.title ?? "", {
+    id: "company",
+    header: "Firma",
+    sortFn: sortTr,
+    cell: ({ row }) => {
+      const company = row.original.company;
+      if (!company) return orDash(null);
+      return (
+        <span className="flex max-w-80 items-center gap-2">
+          <CompanyLogo title={company.title} logo={company.logo} />
+          <span className="truncate" title={company.title}>
+            {company.title}
+          </span>
+        </span>
+      );
     },
-  ),
-  helper.accessor("sector", {
+  }),
+  helper.accessor("companyRole", {
+    header: "Görev",
+    sortFn: sortTr,
+    cell: (info) => orDash(info.getValue()),
+  }),
+  helper.accessor((member) => member.company?.sectorName ?? "", {
+    id: "sector",
     header: "Sektör",
     sortFn: sortTr,
     // long sector names are cut off; the full name shows on hover
     cell: (info) => (
       <span
         className="block max-w-40 truncate"
-        title={info.getValue() ?? undefined}
+        title={info.getValue() || undefined}
       >
         {orDash(info.getValue())}
       </span>
     ),
   }),
-  helper.accessor("phone", {
-    header: "Telefon",
+  helper.accessor("mobilePhone", {
+    header: "Cep Telefonu",
     enableSorting: false,
     cell: (info) => orDash(info.getValue()),
+  }),
+  helper.accessor("email", {
+    header: "E-posta",
+    enableSorting: false,
+    cell: (info) => (
+      <span className="block max-w-56 truncate" title={info.getValue() ?? ""}>
+        {orDash(info.getValue())}
+      </span>
+    ),
   }),
   helper.accessor((member) => member.memberLoginDate ?? undefined, {
     id: "memberLoginDate",
@@ -148,14 +158,11 @@ const columns = helper.columns([
       ),
     },
   ),
-  helper.accessor("address", {
-    header: "Adres",
-    enableSorting: false,
-    cell: (info) => orDash(info.getValue()),
-  }),
-  helper.accessor("foundingDate", {
-    header: "Kuruluş Tarihi",
-    enableSorting: false,
+  helper.accessor((member) => member.birthDate ?? undefined, {
+    id: "birthDate",
+    header: "Doğum Tarihi",
+    sortFn: sortByValue,
+    sortUndefined: "last",
     cell: (info) => formatDate(info.getValue()),
   }),
   helper.accessor("createdAt", {
@@ -165,14 +172,27 @@ const columns = helper.columns([
     // the timestamp shown as the Istanbul calendar day
     cell: (info) => formatDate(todayInIstanbul(new Date(info.getValue()))),
   }),
+  helper.accessor("poPositiveCardNo", {
+    header: "PO Positive Card No",
+    enableSorting: false,
+    cell: (info) => orDash(info.getValue()),
+  }),
+  helper.accessor("notes", {
+    header: "Notlar",
+    enableSorting: false,
+    cell: (info) => (
+      <span className="block max-w-64 truncate" title={info.getValue() ?? ""}>
+        {orDash(info.getValue())}
+      </span>
+    ),
+  }),
 ]);
 
 // Extra details that can be switched on from "Sütunlar"
 const DEFAULT_COLUMN_VISIBILITY = {
-  address: false,
-  foundingDate: false,
-  applicant: false,
   appliedAt: false,
+  poPositiveCardNo: false,
+  notes: false,
 };
 
 /**
@@ -180,15 +200,22 @@ const DEFAULT_COLUMN_VISIBILITY = {
  * saved choice: the member columns (login date, kıdem, sektör…) are empty for
  * an applicant. The saved cookie is left alone, so other filters keep it.
  */
-const APPLICATION_COLUMNS = ["title", "applicant", "phone", "appliedAt"];
+const APPLICATION_COLUMNS = [
+  "name",
+  "company",
+  "mobilePhone",
+  "email",
+  "appliedAt",
+];
 const ALL_COLUMNS = [
   ...APPLICATION_COLUMNS,
+  "companyRole",
   "sector",
-  "representatives",
   "memberLoginDate",
   "seniority",
-  "address",
-  "foundingDate",
+  "birthDate",
+  "poPositiveCardNo",
+  "notes",
 ];
 const APPLICATION_COLUMN_VISIBILITY: ColumnVisibilityState = Object.fromEntries(
   ALL_COLUMNS.map((id) => [id, APPLICATION_COLUMNS.includes(id)]),
@@ -218,9 +245,11 @@ function matchesStatus(member: MemberListItem, status: StatusFilter) {
 }
 
 const SORTABLE_COLUMNS = [
-  "title",
-  "applicant",
+  "name",
+  "company",
+  "companyRole",
   "sector",
+  "birthDate",
   "memberLoginDate",
   "seniority",
   "appliedAt",
@@ -230,7 +259,7 @@ const SORTABLE_COLUMNS = [
 function defaultSorting(status: StatusFilter): SortingState {
   return isApplicationStatus(status)
     ? [{ id: "appliedAt", desc: true }]
-    : [{ id: "title", desc: false }];
+    : [{ id: "name", desc: false }];
 }
 
 /** `?sort=title` / `?sort=-sector` <-> table sorting state */
@@ -344,14 +373,12 @@ export function Members({
         member,
         text: foldTr(
           [
-            member.title,
-            member.applicantFirstName,
-            member.applicantLastName,
-            member.sector,
-            member.phone,
-            // lets "2123650" match "212 36 50"
-            member.phone?.replace(/\D/g, ""),
-            ...member.representatives.map((r) => r.name),
+            member.name,
+            member.company?.title,
+            member.mobilePhone,
+            // lets "5321234567" match "0532 123 45 67"
+            member.mobilePhone?.replace(/\D/g, ""),
+            member.email,
           ]
             .filter(Boolean)
             .join(" "),
@@ -366,14 +393,14 @@ export function Members({
       .filter(
         ({ member, text }) =>
           matchesStatus(member, status) &&
-          (!sector || member.sectorId === sector) &&
+          (!sector || member.company?.sectorId === sector) &&
           (!needle || text.includes(needle)),
       )
       .map(({ member }) => member);
   }, [searchIndex, query, sector, status]);
 
   const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility(
-    "members",
+    "members-v2",
     DEFAULT_COLUMN_VISIBILITY,
     savedColumnVisibility,
   );
@@ -408,7 +435,7 @@ export function Members({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Ünvan, telefon, sektör veya yetkili ara"
+            placeholder="Ad, firma, telefon veya e-posta ara"
             aria-label="Üye ara"
             className="bg-card pl-8"
           />

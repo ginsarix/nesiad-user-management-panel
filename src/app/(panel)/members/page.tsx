@@ -10,7 +10,7 @@ export default async function MembersPage() {
   await requireSession();
   const options = await forwardedRequestOptions();
   const queryClient = getQueryClient();
-  const savedColumnVisibility = await getSavedColumnVisibility("members");
+  const savedColumnVisibility = await getSavedColumnVisibility("members-v2");
 
   // prefetch (the sectors are for the filter)
   await Promise.all([
