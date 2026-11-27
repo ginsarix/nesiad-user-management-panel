@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { db, type Executor, type Transaction } from "@/db";
@@ -10,7 +10,9 @@ import {
   collectionTable,
   companyTable,
   memberTable,
+  parameterTable,
   projectPledgeTable,
+  projectTable,
   representativeMemberMapTable,
   sectorTable,
 } from "@/db/schema";
@@ -232,12 +234,43 @@ async function recordCounts(executor: Executor, id: number) {
   return { collections, pledges, accruals };
 }
 
+/** The member's taahhütler, oldest proje first; totals are left to the page */
+function selectMemberPledges(id: number) {
+  return db
+    .select({
+      id: projectPledgeTable.id,
+      projectId: projectTable.id,
+      projectName: projectTable.name,
+      projectNumber: projectTable.number,
+      quantity: projectPledgeTable.quantity,
+      amount: projectPledgeTable.amount,
+    })
+    .from(projectPledgeTable)
+    .innerJoin(projectTable, eq(projectPledgeTable.projectId, projectTable.id))
+    .where(eq(projectPledgeTable.memberId, id))
+    .orderBy(asc(projectTable.id), asc(projectPledgeTable.position));
+}
+
+/** The member's rows of the Tahakkuk list, in the list's order */
+function selectMemberAccruals(id: number) {
+  return db
+    .select({
+      id: accrualTable.id,
+      categoryName: parameterTable.name,
+      amount: accrualTable.amount,
+    })
+    .from(accrualTable)
+    .innerJoin(parameterTable, eq(accrualTable.categoryId, parameterTable.id))
+    .where(eq(accrualTable.memberId, id))
+    .orderBy(asc(accrualTable.position), asc(accrualTable.id));
+}
+
 /** null counts when a record added during the delete stopped it */
 function hasRecordsError(counts: MemberRecordCounts) {
   return `Bu üyeye ait ${memberRecordsText(counts)} var. Silmek yerine pasif yapabilirsiniz.`;
 }
 
-/** The member with the application, company, groups and record counts */
+/** The member with the application, company, groups and money records */
 async function loadMemberDetail(id: number) {
   const counts = companyMemberCounts();
   const [row] = await db
@@ -257,24 +290,30 @@ async function loadMemberDetail(id: number) {
   if (!row) return null;
 
   const { company, sectorName, memberCount, nationalId, ...member } = row;
-  const [otherMembers, organizations, records] = await Promise.all([
-    company
-      ? db
-          .select({
-            id: memberTable.id,
-            firstName: memberTable.firstName,
-            lastName: memberTable.lastName,
-            status: memberTable.status,
-          })
-          .from(memberTable)
-          .where(
-            and(eq(memberTable.companyId, company.id), ne(memberTable.id, id)),
-          )
-      : [],
-    selectMemberOrganizations(id),
-    // a member with any of these can't be deleted; the page says so
-    recordCounts(db, id),
-  ]);
+  const [otherMembers, organizations, records, pledges, accruals] =
+    await Promise.all([
+      company
+        ? db
+            .select({
+              id: memberTable.id,
+              firstName: memberTable.firstName,
+              lastName: memberTable.lastName,
+              status: memberTable.status,
+            })
+            .from(memberTable)
+            .where(
+              and(
+                eq(memberTable.companyId, company.id),
+                ne(memberTable.id, id),
+              ),
+            )
+        : [],
+      selectMemberOrganizations(id),
+      // a member with any of these can't be deleted; the page says so
+      recordCounts(db, id),
+      selectMemberPledges(id),
+      selectMemberAccruals(id),
+    ]);
 
   return {
     ...member,
@@ -294,6 +333,8 @@ async function loadMemberDetail(id: number) {
     },
     organizations,
     recordCounts: records,
+    pledges,
+    accruals,
   };
 }
 

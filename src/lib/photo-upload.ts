@@ -1,5 +1,5 @@
 /**
- * Yetkili photos, shrunk in the uploader's browser before they go anywhere:
+ * Member photos, shrunk in the uploader's browser before they go anywhere:
  * at most 800px on the longest side, as a JPEG on white. Drawing it again
  * applies the camera's rotation and leaves the photo's metadata (including
  * GPS location) behind.

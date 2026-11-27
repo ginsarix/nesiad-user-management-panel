@@ -305,6 +305,10 @@ describe("records a tahakkuk row holds on to", () => {
 
     const detail = await (await membersRoute.request(`/${member.id}`)).json();
     expect(detail.recordCounts.accruals).toBe(1);
+    // the details page lists the rows with their Tahakkuk Türü
+    expect(detail.accruals).toEqual([
+      { id: expect.any(Number), categoryName: aidat.name, amount: "1.00" },
+    ]);
 
     const del = await membersRoute.request(`/${member.id}`, {
       method: "DELETE",

@@ -1,7 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ImageUp } from "lucide-react";
 import { useState } from "react";
 import { useController, useForm } from "react-hook-form";
@@ -18,6 +22,7 @@ import {
 import { Field, FieldError } from "@/components/ui/field";
 import {
   logoUrl,
+  type MemberCompany,
   type MemberDetails,
   setMemberLogo,
 } from "@/lib/fetches/member";
@@ -25,10 +30,20 @@ import { drawnLogoError, toLogoUpload } from "@/lib/logo-upload";
 import { memberLogoFormSchema } from "@/lib/zod-schemas/member";
 import { LogoDropZone } from "../_components/logo-drop-zone";
 
+/** Every page that shows a company's logo */
+export function invalidateLogoQueries(queryClient: QueryClient) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["members"] }),
+    queryClient.invalidateQueries({ queryKey: ["companies"] }),
+  ]);
+}
+
 export function ChangeLogoButton({
   member,
+  company,
 }: {
-  member: MemberDetails & { logo: string };
+  member: MemberDetails;
+  company: MemberCompany & { logo: string };
 }) {
   const [open, setOpen] = useState(false);
 
@@ -47,7 +62,11 @@ export function ChangeLogoButton({
           <DialogTitle>Logo Değiştir</DialogTitle>
         </DialogHeader>
         {/* the content unmounts when closed, so each opening starts fresh */}
-        <ChangeLogoForm member={member} onSaved={() => setOpen(false)} />
+        <ChangeLogoForm
+          member={member}
+          company={company}
+          onSaved={() => setOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -55,9 +74,11 @@ export function ChangeLogoButton({
 
 function ChangeLogoForm({
   member,
+  company,
   onSaved,
 }: {
-  member: MemberDetails & { logo: string };
+  member: MemberDetails;
+  company: MemberCompany & { logo: string };
   onSaved: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -71,11 +92,7 @@ function ChangeLogoForm({
     mutationFn: async (file: File) =>
       setMemberLogo(member.id, await toLogoUpload(file)),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["members"] }),
-        // yetkili pages show member logos
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
-      ]);
+      await invalidateLogoQueries(queryClient);
       onSaved();
     },
     onError: (error) => form.setError("logo", { message: error.message }),
@@ -103,7 +120,7 @@ function ChangeLogoForm({
         <LogoDropZone
           id="new-logo"
           file={logo.field.value}
-          currentUrl={logoUrl(member.logo)}
+          currentUrl={logoUrl(company.logo)}
           onPick={pick}
           // back to the current logo
           onRemove={logo.field.value ? () => pick(null) : undefined}

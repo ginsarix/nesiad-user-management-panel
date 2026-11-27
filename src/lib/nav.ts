@@ -2,7 +2,6 @@ import {
   Award,
   BookUser,
   Briefcase,
-  Building2,
   ClipboardCheck,
   Coins,
   FolderKanban,
@@ -69,12 +68,7 @@ export const navGroups: NavGroup[] = [
   {
     items: [
       { title: "Genel Bakış", href: "/", icon: LayoutDashboard },
-      { title: "Üyeler", href: "/members", icon: Building2 },
-      {
-        title: "Yetkililer",
-        href: "/representatives",
-        icon: UserCheck,
-      },
+      { title: "Üyeler", href: "/members", icon: UserCheck },
       {
         title: "Organizasyon",
         icon: Network,

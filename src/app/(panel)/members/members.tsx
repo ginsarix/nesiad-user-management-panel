@@ -37,10 +37,7 @@ import { getSectors, type Sector } from "@/lib/fetches/sector";
 import { rememberListSearch } from "@/lib/list-href";
 import type { MemberStatus } from "@/lib/member-status";
 import { compareTr, foldTr } from "@/lib/turkish";
-import {
-  MemberAvatar as CompanyLogo,
-  SeniorityBadge,
-} from "./_components/member-info";
+import { CompanyLogo, SeniorityBadge } from "./_components/member-info";
 
 const features = tableFeatures({
   columnVisibilityFeature,

@@ -59,9 +59,9 @@ export function AutoSms() {
           Bugün
         </Button>
         <p className="basis-full text-xs text-muted-foreground">
-          Bu tarihte otomatik SMS alacak aktif üyeler (kuruluş yıl dönümü) ve
-          yetkililer (doğum günü). 29 Şubat, artık yıl olmayan yıllarda 28
-          Şubat'ta kutlanır.{" "}
+          Bu tarihte otomatik SMS alacak firmalar (kuruluş yıl dönümü, en az bir
+          aktif üyesi olan) ve aktif üyeler (doğum günü). 29 Şubat, artık yıl
+          olmayan yıllarda 28 Şubat'ta kutlanır.{" "}
           {settings &&
             (settings.autoEnabled
               ? `Otomatik gönderim açık: her gün ${settings.sendTime}'dan sonra.`
@@ -135,12 +135,18 @@ function CelebrationGroup({
               className="flex flex-col gap-1 border-b px-3 py-2 text-sm last:border-b-0"
             >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                <Link
-                  href={`/${c.contact.kind === "member" ? "members" : "representatives"}/${c.contact.id}`}
-                  className="truncate hover:underline"
-                >
-                  {c.contact.name}
-                </Link>
+                {/* a founding day is the company's: it links to one of its
+                    members, and there is no companies page */}
+                {c.contact.linkMemberId == null ? (
+                  <span className="truncate">{c.contact.name}</span>
+                ) : (
+                  <Link
+                    href={`/members/${c.contact.linkMemberId}`}
+                    className="truncate hover:underline"
+                  >
+                    {c.contact.name}
+                  </Link>
+                )}
                 <span className="text-muted-foreground">
                   {celebrationLabel(c)} · {isoToDisplay(c.date)}
                 </span>

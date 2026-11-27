@@ -1184,6 +1184,18 @@ describe("DELETE /api/members/:id", () => {
       pledges: 1,
       accruals: 0,
     });
+    // the details page lists the taahhütler with their proje
+    expect(body.pledges).toEqual([
+      {
+        id: expect.any(Number),
+        projectId: project.id,
+        projectName: `__test__ Proje ${suffix}`,
+        projectNumber: `__test__ ${suffix}`,
+        quantity: 1,
+        amount: "50.00",
+      },
+    ]);
+    expect(body.accruals).toEqual([]);
   });
 
   it("deleting a member removes its Organizasyon rows and names them in the audit entry", async () => {

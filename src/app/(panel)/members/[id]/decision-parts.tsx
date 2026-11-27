@@ -25,7 +25,9 @@ export function useDecision() {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: ["members"] }),
         queryClient.invalidateQueries({ queryKey: ["sectors"] }),
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
+        // accepting may set the company's sector
+        queryClient.invalidateQueries({ queryKey: ["companies"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
         invalidateSmsQueries(queryClient),
       ]),
     onError: () => queryClient.invalidateQueries({ queryKey: ["members"] }),

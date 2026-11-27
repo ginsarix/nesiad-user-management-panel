@@ -12,23 +12,35 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { logoUrl, type MemberDetails } from "@/lib/fetches/member";
+import {
+  logoUrl,
+  type MemberCompany,
+  type MemberDetails,
+} from "@/lib/fetches/member";
 import { logoOriginalKind } from "@/lib/logo-original";
 import { cn } from "@/lib/utils";
-import { MemberAvatar } from "../_components/member-info";
+import { CompanyLogo } from "../_components/member-info";
 import { ChangeLogoButton } from "./change-logo-button";
 import { DeleteLogoButton } from "./delete-logo-button";
 
 /**
- * The member's avatar; a logo opens full size in a dialog when clicked. A
- * logo uploaded as PDF or SVG shows the image drawn from it and links the
- * uploaded file.
+ * The member's company logo; a logo opens full size in a dialog when
+ * clicked, where it can be changed or removed (the member's PATCH changes
+ * its company's logo). A logo uploaded as PDF or SVG shows the image drawn
+ * from it and links the uploaded file. Without one, a logo is added through
+ * Düzenle.
  */
-export function MemberLogo({ member }: { member: MemberDetails }) {
+export function MemberLogo({
+  member,
+  company,
+}: {
+  member: MemberDetails;
+  company: MemberCompany;
+}) {
   const [open, setOpen] = useState(false);
-  const { title, logo } = member;
+  const { title, logo } = company;
 
-  if (!logo) return <MemberAvatar title={title} size="lg" />;
+  if (!logo) return <CompanyLogo title={title} size="lg" />;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -41,7 +53,7 @@ export function MemberLogo({ member }: { member: MemberDetails }) {
           />
         }
       >
-        <MemberAvatar title={title} logo={logo} size="lg" />
+        <CompanyLogo title={title} logo={logo} size="lg" />
       </DialogTrigger>
       <DialogContent className="w-auto sm:max-w-3xl">
         <DialogHeader>
@@ -57,9 +69,9 @@ export function MemberLogo({ member }: { member: MemberDetails }) {
           className="mx-auto h-auto max-h-[65vh] w-auto max-w-full rounded-md border bg-white object-contain"
         />
         <DialogFooter>
-          {member.logoOriginal && (
+          {company.logoOriginal && (
             <a
-              href={logoUrl(member.logoOriginal)}
+              href={logoUrl(company.logoOriginal)}
               target="_blank"
               rel="noopener noreferrer"
               className={cn(
@@ -68,11 +80,15 @@ export function MemberLogo({ member }: { member: MemberDetails }) {
               )}
             >
               <FileText />
-              Orijinal {logoOriginalKind(member.logoOriginal)}
+              Orijinal {logoOriginalKind(company.logoOriginal)}
             </a>
           )}
-          <DeleteLogoButton member={member} onDeleted={() => setOpen(false)} />
-          <ChangeLogoButton member={{ ...member, logo }} />
+          <DeleteLogoButton
+            member={member}
+            company={company}
+            onDeleted={() => setOpen(false)}
+          />
+          <ChangeLogoButton member={member} company={{ ...company, logo }} />
         </DialogFooter>
       </DialogContent>
     </Dialog>

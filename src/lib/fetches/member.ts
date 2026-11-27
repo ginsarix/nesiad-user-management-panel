@@ -200,7 +200,26 @@ export async function decideMember(id: number, decision: MemberDecisionInput) {
   };
 }
 
-/** Replaces the logo; the API deletes the old file */
+/** Replaces the photo (already shrunk by `resizePhoto`); the API deletes the old file */
+export async function setMemberPhoto(id: number, photo: File) {
+  const res = await rpcClient.api.members[":id"].$patch({
+    param: { id: String(id) },
+    form: { photo },
+  });
+
+  if (!res.ok) await throwResponseError(res, "Fotoğraf kaydedilemedi");
+}
+
+export async function removeMemberPhoto(id: number) {
+  const res = await rpcClient.api.members[":id"].$patch({
+    param: { id: String(id) },
+    form: { removePhoto: "true" },
+  });
+
+  if (!res.ok) await throwResponseError(res, "Fotoğraf silinemedi");
+}
+
+/** Replaces the company's logo; the API deletes the old file */
 export async function setMemberLogo(id: number, logo: LogoUpload) {
   const res = await rpcClient.api.members[":id"].$patch({
     param: { id: String(id) },
@@ -229,3 +248,4 @@ export async function deleteMember(id: number) {
 
 export type MemberListItem = Awaited<ReturnType<typeof getMembers>>[number];
 export type MemberDetails = NonNullable<Awaited<ReturnType<typeof getMember>>>;
+export type MemberCompany = NonNullable<MemberDetails["company"]>;

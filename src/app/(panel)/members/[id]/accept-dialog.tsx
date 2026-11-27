@@ -11,7 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { displayToIso, isoToDisplay, todayInIstanbul } from "@/lib/dates";
 import type { MemberDetails } from "@/lib/fetches/member";
 import { noticeWarning } from "@/lib/notice-outcome";
@@ -60,8 +65,11 @@ function AcceptForm({
   const [loginDate, setLoginDate] = useState(() =>
     isoToDisplay(todayInIstanbul()),
   );
-  // the decision overwrites the stored sector, so start from it
-  const [sectorId, setSectorId] = useState<number | null>(member.sectorId);
+  // the decision overwrites the company's sector, so start from it; a
+  // member with no company has no sector to set
+  const [sectorId, setSectorId] = useState<number | null>(
+    member.company?.sectorId ?? null,
+  );
   const [validation, setValidation] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
 
@@ -98,7 +106,7 @@ function AcceptForm({
           <DialogTitle>Karar kaydedildi</DialogTitle>
         </DialogHeader>
         <SavedWithWarning
-          saved={`${member.title} aktif üye oldu. Karar kaydedildi, geri alınmadı.`}
+          saved={`${member.name} aktif üye oldu. Karar kaydedildi, geri alınmadı.`}
           warning={warning}
         />
         <DialogFooter>
@@ -116,8 +124,8 @@ function AcceptForm({
         </DialogTitle>
         <DialogDescription>
           {accepting
-            ? `${member.title} aktif üye olacak.`
-            : `${member.title} pasif üye olacak. Başvurana bildirim gönderilmez.`}
+            ? `${member.name} aktif üye olacak.`
+            : `${member.name} pasif üye olacak. Başvurana bildirim gönderilmez.`}
         </DialogDescription>
       </DialogHeader>
 
@@ -132,14 +140,22 @@ function AcceptForm({
         {validation && <FieldError>{validation}</FieldError>}
       </Field>
 
-      <Field>
-        <FieldLabel htmlFor="decision-sector">Sektör</FieldLabel>
-        <SectorCombobox
-          id="decision-sector"
-          value={sectorId}
-          onChange={setSectorId}
-        />
-      </Field>
+      {member.company && (
+        <Field>
+          <FieldLabel htmlFor="decision-sector">Sektör</FieldLabel>
+          <SectorCombobox
+            id="decision-sector"
+            value={sectorId}
+            onChange={setSectorId}
+          />
+          {member.company.memberCount > 1 && (
+            <FieldDescription>
+              {member.company.title} firmasının sektörüdür; firmanın diğer
+              üyelerinde de değişir.
+            </FieldDescription>
+          )}
+        </Field>
+      )}
 
       {accepting && <NoticeBox member={member} />}
 

@@ -6,7 +6,7 @@ import type { CollectionNoticeSettingsValues } from "../zod-schemas/collection-n
 import type { SmsSendValues, SmsSettingsValues } from "../zod-schemas/sms";
 import { throwResponseError } from "./errors";
 
-/** Active members, then active yetkililer, each sorted by name */
+/** Active members, sorted by name */
 export async function getSmsContacts(options?: ClientRequestOptions) {
   const res = await rpcClient.api.sms.contacts.$get(undefined, options);
 
@@ -40,7 +40,7 @@ export async function sendSms(values: SmsSendValues) {
 
 export type SmsSendResponse = Awaited<ReturnType<typeof sendSms>>;
 
-/** The SMS tabs list members and yetkililer; refresh them after changes to either */
+/** The SMS tabs list members and companies; refresh them after changes to either */
 export function invalidateSmsQueries(queryClient: QueryClient) {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: ["sms-contacts"] }),

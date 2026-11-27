@@ -94,9 +94,6 @@ export function ManualSms() {
         memberIds: selectedContacts
           .filter((c) => c.kind === "member")
           .map((c) => c.id),
-        representativeIds: selectedContacts
-          .filter((c) => c.kind === "representative")
-          .map((c) => c.id),
       }),
     onSuccess: async (result) => {
       setLastSend(result);
@@ -143,20 +140,12 @@ export function ManualSms() {
         {isError && (
           <p className="text-sm text-destructive">Kişiler yüklenemedi.</p>
         )}
-        <div className="grid gap-3 md:grid-cols-2">
-          <ContactGroup
-            title="Üyeler"
-            contacts={visible.filter((c) => c.kind === "member")}
-            selected={selected}
-            onToggle={toggle}
-          />
-          <ContactGroup
-            title="Yetkililer"
-            contacts={visible.filter((c) => c.kind === "representative")}
-            selected={selected}
-            onToggle={toggle}
-          />
-        </div>
+        <ContactGroup
+          title="Üyeler"
+          contacts={visible.filter((c) => c.kind === "member")}
+          selected={selected}
+          onToggle={toggle}
+        />
       </div>
 
       <form

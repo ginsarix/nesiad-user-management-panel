@@ -117,7 +117,7 @@ function RejectDialog({
               <AlertDialogTitle>Karar kaydedildi</AlertDialogTitle>
             </AlertDialogHeader>
             <SavedWithWarning
-              saved={`${member.title} başvurusu reddedildi. Karar kaydedildi, geri alınmadı.`}
+              saved={`${member.name} başvurusu reddedildi. Karar kaydedildi, geri alınmadı.`}
               warning={warning}
             />
             <AlertDialogFooter>
@@ -129,7 +129,7 @@ function RejectDialog({
             <AlertDialogHeader>
               <AlertDialogTitle>Başvuruyu reddet</AlertDialogTitle>
               <AlertDialogDescription>
-                {member.title} başvurusu reddedilecek. Kayıt silinmez,
+                {member.name} başvurusu reddedilecek. Kayıt silinmez,
                 &quot;Reddedilenler&quot; filtresinde kalır.
               </AlertDialogDescription>
             </AlertDialogHeader>

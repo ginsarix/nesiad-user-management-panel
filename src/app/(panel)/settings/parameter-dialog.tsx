@@ -84,9 +84,10 @@ function ParameterForm({
         // payments and tahsilatlar show the tür names
         queryClient.invalidateQueries({ queryKey: ["payments"] }),
         queryClient.invalidateQueries({ queryKey: ["collections"] }),
-        // Organizasyon and yetkili pages show the Dernek Görevi names
+        // Organizasyon and member pages show the Dernek Görevi names, and
+        // member pages the Tahakkuk Türü names
         queryClient.invalidateQueries({ queryKey: ["organizations"] }),
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
+        queryClient.invalidateQueries({ queryKey: ["members"] }),
       ]);
       onSaved();
     },

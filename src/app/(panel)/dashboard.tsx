@@ -62,7 +62,7 @@ export function Dashboard() {
           >
             <MoneyChart monthly={data.money.monthly} />
           </Panel>
-          <RepresentativesWithoutCollection data={data} />
+          <MembersWithoutCollection data={data} />
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <CashAccounts data={data} />
@@ -305,12 +305,20 @@ function Candidates({ data }: { data: DashboardData }) {
                 key={c.id}
                 className="flex items-baseline justify-between gap-3 py-1.5"
               >
-                <Link
-                  href={`/members/${c.id}`}
-                  className="min-w-0 truncate text-primary hover:underline"
-                >
-                  {c.title}
-                </Link>
+                <span className="min-w-0 truncate">
+                  <Link
+                    href={`/members/${c.id}`}
+                    className="text-primary hover:underline"
+                  >
+                    {c.name}
+                  </Link>
+                  {c.companyTitle && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {c.companyTitle}
+                    </span>
+                  )}
+                </span>
                 <span
                   className={cn(
                     "shrink-0 text-xs tabular-nums",
@@ -383,12 +391,18 @@ function Celebrations({ data }: { data: DashboardData }) {
                       key={`${c.kind}:${c.contact.id}`}
                       className="flex flex-col"
                     >
-                      <Link
-                        href={`/${c.contact.kind === "member" ? "members" : "representatives"}/${c.contact.id}`}
-                        className="truncate text-primary hover:underline"
-                      >
-                        {c.contact.name}
-                      </Link>
+                      {/* a founding day is the company's: it links to one
+                          of its members, and there is no companies page */}
+                      {c.contact.linkMemberId === null ? (
+                        <span className="truncate">{c.contact.name}</span>
+                      ) : (
+                        <Link
+                          href={`/members/${c.contact.linkMemberId}`}
+                          className="truncate text-primary hover:underline"
+                        >
+                          {c.contact.name}
+                        </Link>
+                      )}
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         {celebrationLabel(c)}
                         {!c.phoneOk && (
@@ -432,12 +446,16 @@ function FailedSms({ data }: { data: DashboardData }) {
           {shown.map((s) => (
             <li key={s.id} className="flex flex-col py-1.5">
               <div className="flex items-baseline justify-between gap-3">
-                <Link
-                  href={`/${s.kind === "founding" ? "members" : "representatives"}/${s.contactId}`}
-                  className="min-w-0 truncate text-primary hover:underline"
-                >
-                  {s.contactName}
-                </Link>
+                {s.linkMemberId === null ? (
+                  <span className="min-w-0 truncate">{s.contactName}</span>
+                ) : (
+                  <Link
+                    href={`/members/${s.linkMemberId}`}
+                    className="min-w-0 truncate text-primary hover:underline"
+                  >
+                    {s.contactName}
+                  </Link>
+                )}
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {isoToDisplay(s.celebrationDate)}
                 </span>
@@ -484,24 +502,24 @@ function MoneyTiles({ data }: { data: DashboardData }) {
   );
 }
 
-function RepresentativesWithoutCollection({ data }: { data: DashboardData }) {
-  const representatives = data.money.representativesWithoutCollection;
+function MembersWithoutCollection({ data }: { data: DashboardData }) {
+  const members = data.money.membersWithoutCollection;
   return (
     <Panel
-      title={`Bu yıl tahsilatı olmayan aktif yetkililer${representatives.length ? ` (${representatives.length})` : ""}`}
+      title={`Bu yıl tahsilatı olmayan aktif üyeler${members.length ? ` (${members.length})` : ""}`}
       note="Aidat borcu değil: yalnızca bu yıl hiç tahsilat girilmemiş olanlar"
     >
-      {representatives.length === 0 ? (
-        <EmptyNote>Her aktif yetkilinin bu yıl tahsilatı var</EmptyNote>
+      {members.length === 0 ? (
+        <EmptyNote>Her aktif üyenin bu yıl tahsilatı var</EmptyNote>
       ) : (
         <ul className="flex max-h-72 flex-col divide-y overflow-y-auto text-sm">
-          {representatives.map((r) => (
-            <li key={r.id} className="py-1.5">
+          {members.map((member) => (
+            <li key={member.id} className="py-1.5">
               <Link
-                href={`/representatives/${r.id}`}
+                href={`/members/${member.id}`}
                 className="block truncate text-primary hover:underline"
               >
-                {r.name}
+                {member.name}
               </Link>
             </li>
           ))}

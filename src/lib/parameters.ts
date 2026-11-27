@@ -3,8 +3,8 @@
 /**
  * The lists on the Parametreler tab besides Sektörler, in display order.
  * "Tür" is what the money is for (how it moves is its Kasa - Banka).
- * Dernek Görevleri is the Görev on the Organizasyon pages (not the yetkili
- * görev on a member link).
+ * Dernek Görevleri is the Görev on the Organizasyon pages (not a member's
+ * Görev at their company).
  */
 export const PARAMETER_KINDS = [
   "collection_category",

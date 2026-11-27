@@ -239,8 +239,8 @@ export function CompanySection({
         {shared && fieldsShown && (
           <p className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-900 dark:text-amber-200">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            Bu firma {memberCount} üyede kullanılıyor, değişiklik hepsinde
-            görünür.
+            Bu firma {otherMembers} başka üyede de kullanılıyor, değişiklik
+            onlarda da görünür.
           </p>
         )}
 

@@ -1,13 +1,8 @@
 import Image from "next/image";
-import Link from "next/link";
-import { orDash, PassiveTag } from "@/components/info-fields";
-import { MemberAvatar as PersonAvatar } from "@/components/member-avatar";
 import { seniorityBadge } from "@/lib/dates";
-import { logoUrl, type MemberListItem } from "@/lib/fetches/member";
+import { logoUrl } from "@/lib/fetches/member";
 import { initialsTr } from "@/lib/turkish";
 import { cn } from "@/lib/utils";
-
-type MemberRepresentative = MemberListItem["representatives"][number];
 
 /** "5 Yıl", "10 Yıl"… from Üye Giriş Tarihi; nothing under 5 years */
 export function SeniorityBadge({
@@ -29,8 +24,8 @@ export function SeniorityBadge({
   );
 }
 
-/** The member's logo, or their initials when there is none */
-export function MemberAvatar({
+/** A company's square logo, or its initials when there is none */
+export function CompanyLogo({
   title,
   logo,
   size = "sm",
@@ -68,50 +63,5 @@ export function MemberAvatar({
     >
       {initialsTr(title)}
     </span>
-  );
-}
-
-export function RepresentativeList({
-  representatives,
-}: {
-  representatives: MemberRepresentative[];
-}) {
-  if (representatives.length === 0) {
-    return <p className="text-sm text-muted-foreground">Yetkili eklenmemiş.</p>;
-  }
-
-  return (
-    <ul className="divide-y text-sm">
-      {representatives.map((representative) => (
-        <li
-          key={representative.id}
-          className="flex items-center justify-between gap-6 py-1.5 first:pt-0 last:pb-0"
-        >
-          <span className="flex flex-wrap items-center gap-x-2">
-            <PersonAvatar
-              name={representative.name}
-              photo={representative.photo}
-            />
-            <Link
-              href={`/representatives/${representative.id}`}
-              // rows of the members list toggle on click
-              onClick={(event) => event.stopPropagation()}
-              className="text-primary hover:underline"
-            >
-              {representative.name}
-            </Link>
-            {representative.role && (
-              <span className="text-muted-foreground">
-                {representative.role}
-              </span>
-            )}
-            {!representative.active && <PassiveTag />}
-          </span>
-          <span className="text-muted-foreground">
-            {orDash(representative.phone)}
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }

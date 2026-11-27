@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { InfoFields } from "@/components/info-fields";
 import { buttonVariants } from "@/components/ui/button";
-import { isoToDisplay } from "@/lib/dates";
 import { logoUrl, type MemberDetails } from "@/lib/fetches/member";
 import { NationalIdField } from "./national-id-field";
 
@@ -13,20 +12,8 @@ type Field = { label: string; value: ReactNode };
 const isSet = (field: Field) =>
   typeof field.value === "string" ? field.value.trim() !== "" : !!field.value;
 
-function Section({ title, fields }: { title: string; fields: Field[] }) {
-  if (!fields.some(isSet)) return null;
-
-  return (
-    <section className="rounded-lg border bg-card">
-      <h3 className="border-b px-4 py-2.5 text-sm font-medium">{title}</h3>
-      <div className="p-4">
-        <InfoFields fields={fields} />
-      </div>
-    </section>
-  );
-}
-
-function DocumentLink({ filename }: { filename: string }) {
+/** "Görüntüle" for an uploaded document, served by the files route */
+export function DocumentLink({ filename }: { filename: string }) {
   return (
     <a
       href={logoUrl(filename)}
@@ -39,86 +26,45 @@ function DocumentLink({ filename }: { filename: string }) {
   );
 }
 
-/** Başvuran, Firma and Belgeler; a section with no data is left out */
-export function ApplicationSections({ member }: { member: MemberDetails }) {
-  const applicantName = [member.applicantFirstName, member.applicantLastName]
-    .filter(Boolean)
-    .join(" ");
-  const birth = [isoToDisplay(member.birthDate), member.birthPlace]
-    .filter(Boolean)
-    .join(" / ");
+/**
+ * The person-side fields of the membership application; left out when none
+ * is filled. The name, contact and birth date are in Kişi, and the company's
+ * application fields in Firma.
+ */
+export function ApplicationSection({ member }: { member: MemberDetails }) {
+  const fields: Field[] = [
+    { label: "Doğum Yeri", value: member.birthPlace },
+    {
+      label: "TC Kimlik No",
+      value: member.nationalIdMasked && (
+        <NationalIdField
+          memberId={member.id}
+          masked={member.nationalIdMasked}
+        />
+      ),
+    },
+    {
+      label: "Cinsiyet",
+      value: member.gender ? GENDER_LABELS[member.gender] : null,
+    },
+    { label: "Eğitim Durumu", value: member.education },
+    { label: "Referans", value: member.referenceName },
+    { label: "Dernek, meslek grupları", value: member.otherAssociations },
+    {
+      label: "Kimlik Belgesi",
+      value: member.identityDocument && (
+        <DocumentLink filename={member.identityDocument} />
+      ),
+    },
+  ];
+  if (!fields.some(isSet)) return null;
 
   return (
-    <>
-      <Section
-        title="Başvuran"
-        fields={[
-          { label: "Ad Soyad", value: applicantName },
-          { label: "Görev / Ünvan", value: member.applicantRole },
-          { label: "Cep Telefonu", value: member.mobilePhone },
-          { label: "E-posta", value: member.email },
-          { label: "Doğum Tarihi / Yeri", value: birth },
-          {
-            label: "TC Kimlik No",
-            value: member.nationalIdMasked && (
-              <NationalIdField
-                memberId={member.id}
-                masked={member.nationalIdMasked}
-              />
-            ),
-          },
-          {
-            label: "Cinsiyet",
-            value: member.gender ? GENDER_LABELS[member.gender] : null,
-          },
-          { label: "Eğitim Durumu", value: member.education },
-          { label: "Referans", value: member.referenceName },
-          { label: "Dernek, meslek grupları", value: member.otherAssociations },
-        ]}
-      />
-      <Section
-        title="Firma"
-        fields={[
-          {
-            label: "İstihdam Sayısı",
-            value:
-              member.employeeCount === null
-                ? null
-                : String(member.employeeCount),
-          },
-          {
-            label: "Web Sitesi",
-            value: member.website && (
-              <a
-                href={member.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                {member.website}
-              </a>
-            ),
-          },
-          { label: "Tanıtım Yazısı", value: member.companyIntro },
-        ]}
-      />
-      <Section
-        title="Belgeler"
-        fields={[
-          {
-            label: "Kimlik Belgesi",
-            value: member.identityDocument && (
-              <DocumentLink filename={member.identityDocument} />
-            ),
-          },
-          {
-            label: "Faaliyet Belgesi / Sicil Gazetesi",
-            value: member.activityDocument && (
-              <DocumentLink filename={member.activityDocument} />
-            ),
-          },
-        ]}
-      />
-    </>
+    <section className="rounded-lg border bg-card">
+      <h3 className="border-b px-4 py-2.5 text-sm font-medium">Başvuru</h3>
+      <div className="p-4">
+        <InfoFields fields={fields} />
+      </div>
+    </section>
   );
 }

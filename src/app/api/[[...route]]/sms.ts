@@ -111,13 +111,13 @@ const noticeAuditSpec: AuditSpec = {
 
 /** The templates the Ayarlar form edits */
 const collectionNoticeAuditSpec: AuditSpec = {
-  representativeSms: { label: "Yetkiliye SMS", format: formatAudit.text },
+  representativeSms: { label: "Üyeye SMS", format: formatAudit.text },
   representativeEmailSubject: {
-    label: "Yetkiliye e-posta konusu",
+    label: "Üyeye e-posta konusu",
     format: formatAudit.text,
   },
   representativeEmailBody: {
-    label: "Yetkiliye e-posta metni",
+    label: "Üyeye e-posta metni",
     format: formatAudit.text,
   },
   staffSms: { label: "Panel kullanıcılarına SMS", format: formatAudit.text },

@@ -61,7 +61,7 @@ const GROUPS: {
     key: "celebrations",
     title: "Kutlama Bildirimleri",
     description:
-      "Her gün seçilen saatten sonra (Türkiye saati) o gün kuruluş yıl dönümü olan aktif üyelere ve doğum günü olan yetkililere birer SMS gider. Sunucu o saatte kapalıysa aynı gün içinde telafi edilir; ertesi güne kalmaz. Kimseye aynı gün ikinci kez gönderilmez.",
+      "Her gün seçilen saatten sonra (Türkiye saati) o gün kuruluş yıl dönümü olan firmalara (en az bir aktif üyesi olan) ve doğum günü olan aktif üyelere birer SMS gider. Sunucu o saatte kapalıysa aynı gün içinde telafi edilir; ertesi güne kalmaz. Kimseye aynı gün ikinci kez gönderilmez.",
     items: [
       {
         section: "celebrations-sms",
@@ -97,7 +97,7 @@ const GROUPS: {
     key: "collections",
     title: "Tahsilat Bildirimleri",
     description:
-      "Yeni bir tahsilat kaydedilince yetkiliye ve tahsilatı kaydeden dışındaki bütün aktif panel kullanıcılarına hem SMS hem e-posta gider. Yetkilinin SMS'i Cep Telefonu numarasına gider. Tahsilat düzenlenince veya silinince bildirim gönderilmez.",
+      "Yeni bir tahsilat kaydedilince üyeye ve tahsilatı kaydeden dışındaki bütün aktif panel kullanıcılarına hem SMS hem e-posta gider. Üyenin SMS'i Cep Telefonu numarasına gider. Tahsilat düzenlenince veya silinince bildirim gönderilmez.",
     items: [
       {
         section: "collections-sms",

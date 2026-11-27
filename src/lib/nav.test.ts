@@ -7,10 +7,10 @@ import {
 } from "./nav";
 
 describe("navigation", () => {
-  it("finds Organizasyon pages under their parent, right after Yetkililer", () => {
+  it("finds Organizasyon pages under their parent, right after Üyeler", () => {
     const items = navGroups[0].items;
     const index = items.findIndex((item) => item.title === "Organizasyon");
-    expect(items[index - 1]?.title).toBe("Yetkililer");
+    expect(items[index - 1]?.title).toBe("Üyeler");
 
     const organization = items[index];
     if (!organization || !isNavParent(organization)) {

@@ -63,12 +63,12 @@ export function CelebrationFields({
       <CelebrationTemplate
         form={form}
         name="foundingMessage"
-        label="Kuruluş yıl dönümü mesajı (üyeye)"
+        label="Kuruluş yıl dönümü mesajı (firmaya)"
       />
       <CelebrationTemplate
         form={form}
         name="birthdayMessage"
-        label="Doğum günü mesajı (yetkiliye)"
+        label="Doğum günü mesajı (üyeye)"
       />
     </div>
   );

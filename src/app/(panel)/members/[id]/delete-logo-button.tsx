@@ -14,14 +14,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
-import { type MemberDetails, removeMemberLogo } from "@/lib/fetches/member";
+import {
+  type MemberCompany,
+  type MemberDetails,
+  removeMemberLogo,
+} from "@/lib/fetches/member";
+import { invalidateLogoQueries } from "./change-logo-button";
 
 /** `onDeleted` closes the logo dialog this button sits in */
 export function DeleteLogoButton({
   member,
+  company,
   onDeleted,
 }: {
   member: MemberDetails;
+  company: MemberCompany;
   onDeleted: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -31,11 +38,7 @@ export function DeleteLogoButton({
     mutationFn: () => removeMemberLogo(member.id),
     onSuccess: () => {
       onDeleted();
-      return Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["members"] }),
-        // yetkili pages show member logos
-        queryClient.invalidateQueries({ queryKey: ["representatives"] }),
-      ]);
+      return invalidateLogoQueries(queryClient);
     },
   });
 
@@ -59,7 +62,9 @@ export function DeleteLogoButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Logo silinsin mi?</AlertDialogTitle>
           <AlertDialogDescription>
-            {member.title} üyesinin logosu kalıcı olarak silinir.
+            {company.title} firmasının logosu kalıcı olarak silinir.
+            {company.memberCount > 1 &&
+              " Firmanın diğer üyelerinde de artık görünmez."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && <FieldError>{error.message}</FieldError>}
