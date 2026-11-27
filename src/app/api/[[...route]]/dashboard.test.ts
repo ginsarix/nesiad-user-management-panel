@@ -44,7 +44,14 @@ const ids = {
 };
 const m = { candidate: 0, active: 0, passive: 0, paying: 0 };
 const p = { collectionCategory: 0, paymentCategory: 0 };
-const sms = { failed: 0, sent: 0, freshPending: 0, stalePending: 0 };
+const sms = {
+  foundingFailed: 0,
+  birthdayFailed: 0,
+  failed: 0,
+  sent: 0,
+  freshPending: 0,
+  stalePending: 0,
+};
 
 async function insertMember(values: Partial<typeof memberTable.$inferInsert>) {
   const [row] = await db
@@ -71,8 +78,9 @@ async function insertSms(
   status: (typeof smsSendTable.$inferInsert)["status"],
   offset: number,
   createdAt?: Date,
+  row: Partial<typeof smsSendTable.$inferInsert> = {},
 ) {
-  const [row] = await db
+  const [inserted] = await db
     .insert(smsSendTable)
     .values({
       kind: "birthday",
@@ -85,10 +93,11 @@ async function insertSms(
       status,
       error: status === "failed" ? "test error" : null,
       ...(createdAt ? { createdAt } : {}),
+      ...row,
     })
     .returning({ id: smsSendTable.id });
-  ids.sms.push(row.id);
-  return row.id;
+  ids.sms.push(inserted.id);
+  return inserted.id;
 }
 
 beforeAll(async () => {
@@ -170,6 +179,14 @@ beforeAll(async () => {
   });
 
   sms.failed = await insertSms("failed", 0);
+  // a founding row holds the company id, a birthday row the member id
+  sms.foundingFailed = await insertSms("failed", 4, undefined, {
+    kind: "founding",
+    contactId: company.id,
+  });
+  sms.birthdayFailed = await insertSms("failed", 5, undefined, {
+    contactId: m.active,
+  });
   sms.sent = await insertSms("sent", 1);
   sms.freshPending = await insertSms("pending", 2);
   sms.stalePending = await insertSms(
@@ -263,6 +280,7 @@ describe("GET /api/dashboard", () => {
           kind: "member",
           id: m.active,
           name: `__test__ Dashboard ${tag}`,
+          linkMemberId: m.active,
         },
         years: Number(tomorrow.slice(0, 4)) - 1984,
         phoneOk: false,
@@ -277,6 +295,16 @@ describe("GET /api/dashboard", () => {
     expect(listed).toContain(sms.stalePending);
     expect(listed).not.toContain(sms.sent);
     expect(listed).not.toContain(sms.freshPending);
+  });
+
+  it("failed SMS rows carry the member to link to", async () => {
+    const { failedSms } = (await getDashboard()).attention;
+    const byId = (id: number) =>
+      failedSms.find((s: { id: number }) => s.id === id);
+    expect(byId(sms.foundingFailed).linkMemberId).toBe(m.active);
+    expect(byId(sms.birthdayFailed).linkMemberId).toBe(m.active);
+    // no member has this id
+    expect(byId(sms.failed).linkMemberId).toBeNull();
   });
 
   it("totals this year's money in Postgres, with the difference", async () => {

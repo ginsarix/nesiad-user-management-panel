@@ -10,6 +10,8 @@ export type CelebrationCompany = {
   phone: string | null;
   /** yyyy-MM-dd */
   foundingDate: string | null;
+  /** The member to link to: the company's lowest-id Aktif one */
+  linkMemberId?: number | null;
 };
 
 /** A member (üye) with their birth date */
@@ -90,7 +92,13 @@ export function celebrationsOn(
     return [
       {
         kind: "founding",
-        contact: { kind: "company", id: c.id, name: c.name, phone: c.phone },
+        contact: {
+          kind: "company",
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          linkMemberId: c.linkMemberId ?? null,
+        },
         date: c.foundingDate,
         years,
         phone: checkPhone(c.phone),
@@ -104,7 +112,13 @@ export function celebrationsOn(
     return [
       {
         kind: "birthday",
-        contact: { kind: "member", id: m.id, name: m.name, phone: m.phone },
+        contact: {
+          kind: "member",
+          id: m.id,
+          name: m.name,
+          phone: m.phone,
+          linkMemberId: m.id,
+        },
         date: m.birthDate,
         years,
         phone: checkPhone(m.phone),

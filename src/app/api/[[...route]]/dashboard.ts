@@ -95,6 +95,18 @@ function failedSms(today: string) {
       celebrationDate: smsSendTable.celebrationDate,
       status: smsSendTable.status,
       error: smsSendTable.error,
+      // the member page to link to: a birthday's member (if still there) or
+      // a founding company's lowest-id Aktif member
+      linkMemberId: sql<number | null>`case ${smsSendTable.kind}
+        when 'birthday' then (
+          select ${memberTable.id} from ${memberTable}
+          where ${memberTable.id} = ${smsSendTable.contactId}
+        )
+        else (
+          select min(${memberTable.id}) from ${memberTable}
+          where ${memberTable.companyId} = ${smsSendTable.contactId}
+            and ${memberTable.status} = 'active'
+        ) end`,
     })
     .from(smsSendTable)
     .where(
@@ -387,6 +399,7 @@ export const dashboardRoute = new Hono<AppEnv>().get("/", async (c) => {
             kind: cel.contact.kind,
             id: cel.contact.id,
             name: cel.contact.name,
+            linkMemberId: cel.contact.linkMemberId ?? null,
           },
           years: cel.years,
           phoneOk: cel.phone.ok,

@@ -1,5 +1,5 @@
 import { addDays, format } from "date-fns";
-import { and, eq, exists, isNotNull } from "drizzle-orm";
+import { and, eq, exists, isNotNull, sql } from "drizzle-orm";
 import { memberNameSql } from "@/app/api/[[...route]]/member-rows";
 import { db } from "@/db";
 import { companyTable, memberTable } from "@/db/schema";
@@ -18,6 +18,11 @@ async function loadCelebrants() {
         name: companyTable.title,
         phone: companyTable.phone,
         foundingDate: companyTable.foundingDate,
+        linkMemberId: sql<number | null>`(
+          select min(${memberTable.id}) from ${memberTable}
+          where ${memberTable.companyId} = ${companyTable.id}
+            and ${memberTable.status} = 'active'
+        )`,
       })
       .from(companyTable)
       .where(

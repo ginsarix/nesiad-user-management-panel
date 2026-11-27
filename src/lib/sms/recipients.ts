@@ -9,6 +9,12 @@ export type Contact = {
   id: number;
   name: string;
   phone: string | null;
+  /**
+   * The member page to link to (staff have no company pages): a member's own
+   * id, a company's lowest-id Aktif member, null if there is none. Set on
+   * celebrations only.
+   */
+  linkMemberId?: number | null;
 };
 
 /** One SMS goes to each recipient; `phone` is normalized ("5XXXXXXXXX") */

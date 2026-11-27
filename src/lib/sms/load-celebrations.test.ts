@@ -72,6 +72,7 @@ describe("loadCelebrationsOn", () => {
           id: active,
           name: `__test__ Kutlama ${tag} Üye`,
           phone: "0532 000 00 11",
+          linkMemberId: active,
         },
         date: "1980-02-28",
         years: 47,
@@ -108,6 +109,17 @@ describe("loadCelebrationsOn", () => {
       date: "2012-02-29",
       years: 15,
     });
+  });
+
+  it("a company celebration links to its lowest-id Aktif member", async () => {
+    const company = await createCompany("2012-02-29", "0384 213 11 12");
+    await createMember({ companyId: company, status: "passive" });
+    const first = await createMember({ companyId: company });
+    await createMember({ companyId: company });
+
+    const list = await loadCelebrationsOn("2027-02-28");
+    const [found] = ours(list, "company", [company]);
+    expect(found.contact.linkMemberId).toBe(first);
   });
 
   it("a company with only Pasif members gets none", async () => {

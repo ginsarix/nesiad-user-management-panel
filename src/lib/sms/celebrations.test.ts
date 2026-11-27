@@ -149,7 +149,13 @@ describe("celebrationsOn", () => {
     const [first] = celebrationsOn("2026-03-01", companies, members);
     expect(first).toEqual({
       kind: "founding",
-      contact: { kind: "company", id: 3, name: "Beta Tekstil", phone: null },
+      contact: {
+        kind: "company",
+        id: 3,
+        name: "Beta Tekstil",
+        phone: null,
+        linkMemberId: null,
+      },
       date: "2010-03-01",
       years: 16,
       phone: { ok: false, reason: "no_phone" },
