@@ -75,6 +75,8 @@ const id = {} as Record<
   | "m5"
   | "c1"
   | "p1"
+  | "swapX"
+  | "swapY"
   | "category"
   | "cashAccount"
   | "project"
@@ -110,6 +112,14 @@ beforeAll(async () => {
 
   pool = await createScratch();
   await migrateFrom(pool, migrationsBefore);
+
+  // keep yetkili, member and company ids apart, so a remap that didn't
+  // happen can't pass for one that did
+  await pool.query(
+    `alter table authorized_representative alter column id restart with 100`,
+  );
+  await pool.query(`alter table member alter column id restart with 1000`);
+  await pool.query(`alter table company alter column id restart with 500`);
 
   id.category = await insertId(
     `insert into parameter (kind, name, name_key) values ('collection_category', 'Aidat', 'aidat')`,
@@ -221,11 +231,36 @@ beforeAll(async () => {
     [id.board, id.b2, id.role],
   );
 
+  // a swap: yetkili X becomes member Y and yetkili Y member X, so moving
+  // their birthday rows in place would collide on sms_send_once
+  id.swapX = 3000;
+  id.swapY = 3001;
+  await pool.query(
+    `insert into member (id, title) overriding system value
+     values ($1, 'Swap X'), ($2, 'Swap Y')`,
+    [id.swapX, id.swapY],
+  );
+  await pool.query(
+    `insert into authorized_representative (id, name) overriding system value
+     values ($1, 'Xavier Swap'), ($2, 'Yusuf Swap')`,
+    [id.swapX, id.swapY],
+  );
+  await pool.query(
+    `insert into members_representatives (member_id, authorized_representative_id)
+     values ($2, $1), ($1, $2)`,
+    [id.swapX, id.swapY],
+  );
+
+  // the M3 row is inserted first, so it has the lower sms_send id
   await pool.query(
     `insert into sms_send (kind, contact_id, contact_name, celebration_date, years, phone, message)
      values ('birthday', $1, 'Ufuk', '2026-05-05', 40, '5554443322', 'İyi ki doğdun'),
-            ('founding', $2, 'Acme', '2026-05-05', 10, '5551112233', 'Kutlu olsun')`,
-    [id.u1, id.m1],
+            ('founding', $2, 'Acme', '2026-05-05', 10, '5551112233', 'Kutlu olsun'),
+            ('birthday', $3, 'Xavier', '2026-06-06', 30, '5550000001', 'İyi ki doğdun'),
+            ('birthday', $4, 'Yusuf', '2026-06-06', 31, '5550000002', 'İyi ki doğdun'),
+            ('founding', $5, 'ANADOLU OSGB 1', '2026-07-07', 5, '5550000003', 'Kutlu olsun'),
+            ('founding', $6, 'ANADOLU OSGB 2', '2026-07-07', 5, '5550000004', 'Kutlu olsun')`,
+    [id.u1, id.m1, id.swapX, id.swapY, id.m3, id.m4],
   );
   await pool.query(
     `insert into collection_notice_settings
@@ -420,13 +455,36 @@ describe("member conversion migration", () => {
   it("sms_send ids remapped", async () => {
     const u1 = await memberFor(id.u1);
     const m1 = await memberFor(id.a1);
+    const m3 = await one<{ company_id: number }>(
+      `select company_id from member where id = $1`,
+      [id.m3],
+    );
     const rows = (
-      await pool.query(`select kind, contact_id from sms_send order by kind`)
+      await pool.query(
+        `select contact_name, kind, contact_id from sms_send order by contact_name`,
+      )
     ).rows;
-    expect(rows).toEqual([
-      { kind: "birthday", contact_id: u1.id },
-      { kind: "founding", contact_id: m1.company_id },
-    ]);
+    const byName = Object.fromEntries(
+      rows.map((r) => [
+        r.contact_name,
+        { kind: r.kind, contact_id: r.contact_id },
+      ]),
+    );
+    // the fixture ids are apart, so each of these is a real move
+    expect(u1.id).not.toBe(id.u1);
+    expect(m1.company_id).not.toBe(id.m1);
+    expect(m3.company_id).not.toBe(id.m3);
+    expect(byName).toEqual({
+      Ufuk: { kind: "birthday", contact_id: u1.id },
+      Acme: { kind: "founding", contact_id: m1.company_id },
+      // the swap went through without a collision
+      Xavier: { kind: "birthday", contact_id: id.swapY },
+      Yusuf: { kind: "birthday", contact_id: id.swapX },
+      // one company, one day: the lower row takes the company, the other
+      // keeps its member id
+      "ANADOLU OSGB 1": { kind: "founding", contact_id: m3.company_id },
+      "ANADOLU OSGB 2": { kind: "founding", contact_id: id.m4 },
+    });
   });
 
   it("templates use {uye}", async () => {
@@ -478,12 +536,12 @@ describe("member conversion migration", () => {
     const counts = Object.fromEntries(
       entry.details.map((d) => [d.label, d.value]),
     );
-    // 5 members kept; B2, U1 and P1 added; Acme, Beta, ANADOLU OSGB and Gama
-    // created, one merged
+    // 7 members kept; B2, U1 and P1 added; Acme, Beta, ANADOLU OSGB, Gama,
+    // Swap X and Swap Y created, one merged
     expect(counts).toMatchObject({
-      "Korunan üyeler": "5",
+      "Korunan üyeler": "7",
       "Eklenen üyeler": "3",
-      "Oluşturulan firmalar": "4",
+      "Oluşturulan firmalar": "6",
       "Birleştirilen firmalar": "1",
       Tahsilatlar: "2",
       Tahakkuk: "1",
