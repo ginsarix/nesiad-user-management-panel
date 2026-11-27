@@ -194,6 +194,8 @@ export const projectPledgeTable = pgTable(
       .references(() => authorizedRepresentativeTable.id, {
         onDelete: "restrict",
       }),
+    // filled by the member conversion; no foreign key until then
+    memberId: integer("member_id"),
     // Adet
     quantity: integer().notNull(),
     // Tutar, per unit; TL as a string ("1250.50") like every amount
@@ -231,6 +233,8 @@ export const accrualTable = pgTable(
       .references(() => authorizedRepresentativeTable.id, {
         onDelete: "restrict",
       }),
+    // filled by the member conversion; no foreign key until then
+    memberId: integer("member_id"),
     // Tahakkuk Türü: a collection_category parameter (Tahsilat Türü); one in use
     // can't be deleted
     categoryId: integer("category_id")
@@ -268,6 +272,8 @@ export const collectionTable = pgTable(
       .references(() => authorizedRepresentativeTable.id, {
         onDelete: "restrict",
       }),
+    // filled by the member conversion; no foreign key until then
+    memberId: integer("member_id"),
     // Tahsilat Türü: a collection_category parameter
     categoryId: integer("category_id")
       .notNull()
@@ -340,35 +346,100 @@ export const paymentTable = pgTable(
   ],
 );
 
-export const memberTable = pgTable(
-  "member",
+/** Firmalar: a company a member works at; shared by the members linked to it */
+export const companyTable = pgTable(
+  "company",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     title: text().notNull(),
-
-    // kıdem (seniority) is calculated from this, not stored
-    memberLoginDate: date("member_login_date", { mode: "string" }),
-
-    status: text().$type<MemberStatus>().default("active").notNull(),
-
+    // Turkish-folded title; indexed, deliberately not unique
+    titleKey: text("title_key").notNull(),
     // the image shown everywhere. A PDF or SVG logo is shown as a PNG the
     // uploader's browser drew from it, and the uploaded file is kept here
     logo: text(),
     logoOriginal: text("logo_original"),
     address: text(),
     phone: text(),
-    // a deleted sector leaves its members without one
+    website: text(),
+    companyIntro: text("company_intro"),
+    activityDocument: text("activity_document"),
+    // a deleted sector leaves its companies without one
     sectorId: integer("sector_id").references(() => sectorTable.id, {
       onDelete: "set null",
     }),
     foundingDate: date("founding_date", { mode: "string" }),
-
-    // Applicant details, filled in by the public membership application
-    applicantFirstName: text("applicant_first_name"),
-    applicantLastName: text("applicant_last_name"),
-    applicantRole: text("applicant_role"),
     employeeCount: integer("employee_count"),
-    website: text(),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("company_title_key_idx").on(table.titleKey)],
+);
+
+/**
+ * Old yetkili id -> the member that replaced them. No foreign key on the
+ * yetkili side so it outlives the authorized_representative table.
+ */
+export const representativeMemberMapTable = pgTable(
+  "representative_member_map",
+  {
+    representativeId: integer("representative_id").primaryKey(),
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => memberTable.id, { onDelete: "cascade" }),
+  },
+);
+
+export const memberTable = pgTable(
+  "member",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    /** @deprecated dropped by the cleanup PR */
+    legacyTitle: text("title"),
+
+    // kıdem (seniority) is calculated from this, not stored
+    memberLoginDate: date("member_login_date", { mode: "string" }),
+
+    status: text().$type<MemberStatus>().default("active").notNull(),
+
+    /** @deprecated dropped by the cleanup PR */
+    legacyLogo: text("logo"),
+    /** @deprecated dropped by the cleanup PR */
+    legacyLogoOriginal: text("logo_original"),
+    /** @deprecated dropped by the cleanup PR */
+    legacyAddress: text("address"),
+    /** @deprecated dropped by the cleanup PR */
+    legacyPhone: text("phone"),
+    /** @deprecated dropped by the cleanup PR */
+    legacySectorId: integer("sector_id").references(() => sectorTable.id, {
+      onDelete: "set null",
+    }),
+    /** @deprecated dropped by the cleanup PR */
+    legacyFoundingDate: date("founding_date", { mode: "string" }),
+
+    // the person; their company (if any) is the company row
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    // Görev at the company
+    companyRole: text("company_role"),
+    // a JPEG the uploader's browser shrank to 800px; stored like logos
+    photo: text(),
+    notes: text(),
+    // Petrol Ofisi Positive Card (a fuel rewards card) number, as typed
+    poPositiveCardNo: text("po_positive_card_no"),
+    // the company is deleted with its last member, not by this reference
+    companyId: integer("company_id").references(() => companyTable.id, {
+      onDelete: "set null",
+    }),
+    /** @deprecated dropped by the cleanup PR */
+    legacyEmployeeCount: integer("employee_count"),
+    /** @deprecated dropped by the cleanup PR */
+    legacyWebsite: text("website"),
     email: text(),
     mobilePhone: text("mobile_phone"),
     birthDate: date("birth_date", { mode: "string" }),
@@ -377,11 +448,13 @@ export const memberTable = pgTable(
     nationalId: text("national_id"),
     education: text(),
     otherAssociations: text("other_associations"),
-    companyIntro: text("company_intro"),
+    /** @deprecated dropped by the cleanup PR */
+    legacyCompanyIntro: text("company_intro"),
     gender: text().$type<"male" | "female">(),
     referenceName: text("reference_name"),
     identityDocument: text("identity_document"),
-    activityDocument: text("activity_document"),
+    /** @deprecated dropped by the cleanup PR */
+    legacyActivityDocument: text("activity_document"),
     consentedAt: timestamp("consented_at", { withTimezone: true }),
 
     // staff-only reason written when rejecting an application; cleared when
@@ -401,9 +474,11 @@ export const memberTable = pgTable(
       "member_status_valid",
       sql`${table.status} IN ('active','passive','candidate','rejected')`,
     ),
+    index("member_company_idx").on(table.companyId),
   ],
 );
 
+/** @deprecated dropped by the cleanup PR */
 export const authorizedRepresentativeTable = pgTable(
   "authorized_representative",
   {
@@ -431,6 +506,7 @@ export const authorizedRepresentativeTable = pgTable(
   },
 );
 
+/** @deprecated dropped by the cleanup PR */
 export const membersRepresentativesTable = pgTable(
   "members_representatives",
   {
@@ -495,6 +571,7 @@ function organizationTables(name: string) {
         .references(() => authorizedRepresentativeTable.id, {
           onDelete: "cascade",
         }),
+      memberId: integer("member_id"),
       // a Dernek Görevi (association_role parameter); one in use can't be deleted
       roleId: integer("role_id")
         .notNull()
