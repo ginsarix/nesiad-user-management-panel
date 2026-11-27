@@ -25,7 +25,7 @@ name: Scheduled cleanup
 on:
   schedule:
     # 04:00 UTC = 07:00 Istanbul, on 7 December
-    - cron: "0 4 7 12 *"
+    - cron: "0 4 4 12 *"
   workflow_dispatch:
 
 permissions:
@@ -34,7 +34,7 @@ permissions:
   actions: write
 
 env:
-  TARGET_DATE: "2026-12-07"
+  TARGET_DATE: "2026-12-04"
   CLEANUP_BRANCH: "cleanup/drop-yetkili-legacy"
 
 jobs:
