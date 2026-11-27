@@ -3,7 +3,7 @@ import type { AuditEntityTypeFilter } from "./audit-filters";
 export const ENTITY_TYPE_LABELS: Record<AuditEntityTypeFilter, string> = {
   member: "Üyeler",
   company: "Firma",
-  representative: "Yetkililer",
+  representative: "Yetkili (eski)",
   management_board: "Yönetim",
   committee: "Komiteler",
   disciplinary_board: "Disiplin Kurulu",

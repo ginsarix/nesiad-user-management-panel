@@ -34,6 +34,22 @@ export async function getMember(id: number, options?: ClientRequestOptions) {
   return await res.json();
 }
 
+/** The member that replaced an old yetkili; null when none did */
+export async function getMemberByRepresentative(
+  representativeId: number,
+  options?: ClientRequestOptions,
+) {
+  const res = await rpcClient.api.members["by-representative"][":id"].$get(
+    { param: { id: String(representativeId) } },
+    options,
+  );
+
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("An error occured while getting the member");
+
+  return await res.json();
+}
+
 /** The member form's values with the picked logo made ready to send */
 export type MemberUpload = Omit<MemberFormValues, "logo"> & {
   logo: LogoUpload | null;

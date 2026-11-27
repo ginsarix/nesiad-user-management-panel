@@ -1,18 +1,24 @@
 import { eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { memberTable, sectorTable } from "@/db/schema";
+import { companyTable, memberTable, sectorTable } from "@/db/schema";
 import type { MemberStatus } from "@/lib/member-status";
 import { sectorsRoute } from "./sectors";
 
 const createdSectorIds: number[] = [];
 const createdMemberIds: number[] = [];
+const createdCompanyIds: number[] = [];
 
 afterAll(async () => {
   if (createdMemberIds.length) {
     await db
       .delete(memberTable)
       .where(inArray(memberTable.id, createdMemberIds));
+  }
+  if (createdCompanyIds.length) {
+    await db
+      .delete(companyTable)
+      .where(inArray(companyTable.id, createdCompanyIds));
   }
   if (createdSectorIds.length) {
     await db
@@ -46,12 +52,26 @@ async function listSectors() {
 }
 
 async function createMember(sectorId: number, status: MemberStatus = "active") {
+  const [company] = await db
+    .insert(companyTable)
+    .values({
+      title: "__test__ Sektör Firması",
+      titleKey: "__test__ sektör firması",
+      sectorId,
+    })
+    .returning({ id: companyTable.id });
+  createdCompanyIds.push(company.id);
   const [member] = await db
     .insert(memberTable)
-    .values({ title: "__test__ Sektör Üyesi", sectorId, status })
+    .values({
+      firstName: "__test__",
+      lastName: "Sektör Üyesi",
+      companyId: company.id,
+      status,
+    })
     .returning({ id: memberTable.id });
   createdMemberIds.push(member.id);
-  return member.id;
+  return { memberId: member.id, companyId: company.id };
 }
 
 describe("POST /api/sectors", () => {
@@ -100,15 +120,25 @@ describe("GET /api/sectors", () => {
 });
 
 describe("GET /api/sectors member counts", () => {
-  it("counts active and passive members, not candidates or rejected ones", async () => {
+  it("sector counts count Aktif members through their company", async () => {
     const { body: sector } = await createSector("__test__ Say");
     await createMember(sector.id, "active");
     await createMember(sector.id, "passive");
     await createMember(sector.id, "candidate");
     await createMember(sector.id, "rejected");
+    // a legacy sector_id on the member itself counts for nothing
+    const [legacy] = await db
+      .insert(memberTable)
+      .values({
+        firstName: "__test__",
+        lastName: "Eski",
+        legacySectorId: sector.id,
+      })
+      .returning({ id: memberTable.id });
+    createdMemberIds.push(legacy.id);
 
     const listed = (await listSectors()).find((s) => s.id === sector.id);
-    expect(listed?.memberCount).toBe(2);
+    expect(listed?.memberCount).toBe(1);
   });
 });
 
@@ -145,9 +175,9 @@ describe("PATCH /api/sectors/:id", () => {
 });
 
 describe("DELETE /api/sectors/:id", () => {
-  it("deletes the sector and leaves its members without one", async () => {
+  it("deletes the sector and leaves its companies without one", async () => {
     const { body } = await createSector("__test__ Silinecek");
-    const memberId = await createMember(body.id);
+    const { companyId } = await createMember(body.id);
 
     const res = await sectorsRoute.request(`/${body.id}`, {
       method: "DELETE",
@@ -155,11 +185,11 @@ describe("DELETE /api/sectors/:id", () => {
     expect(res.status).toBe(200);
 
     expect((await listSectors()).some((s) => s.id === body.id)).toBe(false);
-    const [member] = await db
-      .select({ sectorId: memberTable.sectorId })
-      .from(memberTable)
-      .where(eq(memberTable.id, memberId));
-    expect(member.sectorId).toBeNull();
+    const [company] = await db
+      .select({ sectorId: companyTable.sectorId })
+      .from(companyTable)
+      .where(eq(companyTable.id, companyId));
+    expect(company.sectorId).toBeNull();
   });
 
   it("returns 404 for an unknown sector", async () => {

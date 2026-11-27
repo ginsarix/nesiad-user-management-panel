@@ -11,6 +11,7 @@ import {
   parameterTable,
   projectPledgeTable,
   projectTable,
+  representativeMemberMapTable,
   sectorTable,
   supervisoryBoardMemberTable,
   supervisoryBoardTable,
@@ -1032,6 +1033,34 @@ describe("member and Organizasyon", () => {
     expect(res.status).toBe(400);
     expect(body.error).toBe("Aktif olmayan üye yeni bir gruba eklenemez");
     expect(await committeeRows(groupId)).toEqual([]);
+  });
+});
+
+describe("GET /api/members/by-representative/:id", () => {
+  it("by-representative returns the mapped member", async () => {
+    const member = await insertMember({});
+    const representativeId = 2_000_000_000 + Math.floor(Math.random() * 1e6);
+    await db
+      .insert(representativeMemberMapTable)
+      .values({ representativeId, memberId: member.id });
+
+    const res = await membersRoute.request(
+      `/by-representative/${representativeId}`,
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: member.id });
+
+    // the map row goes with the member
+    await db
+      .delete(representativeMemberMapTable)
+      .where(
+        eq(representativeMemberMapTable.representativeId, representativeId),
+      );
+  });
+
+  it("returns 404 for a yetkili with no member", async () => {
+    const res = await membersRoute.request("/by-representative/2147483000");
+    expect(res.status).toBe(404);
   });
 });
 

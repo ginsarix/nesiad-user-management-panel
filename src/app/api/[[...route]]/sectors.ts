@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "@/db";
 import { companyTable, memberTable, sectorTable } from "@/db/schema";
@@ -26,11 +26,12 @@ export const sectorsRoute = new Hono<AppEnv>()
         memberCount: count(memberTable.id),
       })
       .from(sectorTable)
+      .leftJoin(companyTable, eq(companyTable.sectorId, sectorTable.id))
       .leftJoin(
         memberTable,
         and(
-          eq(memberTable.sectorId, sectorTable.id),
-          inArray(memberTable.status, ["active", "passive"]),
+          eq(memberTable.companyId, companyTable.id),
+          eq(memberTable.status, "active"),
         ),
       )
       .groupBy(sectorTable.id);

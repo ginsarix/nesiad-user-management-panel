@@ -11,6 +11,7 @@ import {
   companyTable,
   memberTable,
   projectPledgeTable,
+  representativeMemberMapTable,
   sectorTable,
 } from "@/db/schema";
 import { sendApplicationNotices } from "@/lib/application-notices";
@@ -586,6 +587,19 @@ async function applyDecision(
 
 export const membersRoute = new Hono<AppEnv>()
   .get("/", async (c) => c.json(await listMembers()))
+  .get(
+    "/by-representative/:id",
+    zValidator("param", idParamSchema, respondWithFirstIssue),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const [row] = await db
+        .select({ id: representativeMemberMapTable.memberId })
+        .from(representativeMemberMapTable)
+        .where(eq(representativeMemberMapTable.representativeId, id));
+      if (!row) return c.json({ error: MEMBER_NOT_FOUND_ERROR }, 404);
+      return c.json({ id: row.id }, 200);
+    },
+  )
   .get(
     "/:id",
     zValidator("param", idParamSchema, respondWithFirstIssue),
