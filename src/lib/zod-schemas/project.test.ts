@@ -11,7 +11,7 @@ function firstMessage(result: { error?: { issues: { message: string }[] } }) {
 }
 
 describe("pledgesSchema", () => {
-  const row = { representativeId: 4, quantity: 2, amount: "1250.50" };
+  const row = { memberId: 4, quantity: 2, amount: "1250.50" };
 
   it("accepts a valid row and an empty list", () => {
     expect(pledgesSchema.safeParse([row]).success).toBe(true);
@@ -42,7 +42,7 @@ describe("pledgeFormRowSchema", () => {
     expect(
       firstMessage(
         pledgeFormRowSchema.safeParse({
-          representativeId: 4,
+          memberId: 4,
           quantity: "abc",
           amount: "10",
         }),
@@ -50,26 +50,24 @@ describe("pledgeFormRowSchema", () => {
     ).toBe("Adet tam sayı olmalı");
   });
 
-  it("needs a yetkili", () => {
+  it("needs a member", () => {
     expect(
       firstMessage(
         pledgeFormRowSchema.safeParse({
-          representativeId: null,
+          memberId: null,
           quantity: "1",
           amount: "10",
         }),
       ),
-    ).toBe("Yetkili seçin");
+    ).toBe("Üye seçin");
   });
 });
 
 describe("pledgesToApi / pledgesToForm", () => {
   it("round-trip a saved row", () => {
-    const saved = [{ representativeId: 4, quantity: 2, amount: "1250.50" }];
+    const saved = [{ memberId: 4, quantity: 2, amount: "1250.50" }];
     const form = pledgesToForm(saved);
-    expect(form).toEqual([
-      { representativeId: 4, quantity: "2", amount: "1.250,50" },
-    ]);
+    expect(form).toEqual([{ memberId: 4, quantity: "2", amount: "1.250,50" }]);
     expect(
       pledgesToApi(form.map((row) => pledgeFormRowSchema.parse(row))),
     ).toEqual(saved);

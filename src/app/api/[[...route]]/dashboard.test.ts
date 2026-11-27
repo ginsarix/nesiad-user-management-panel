@@ -1,11 +1,11 @@
-import { addDays, format, subYears } from "date-fns";
+import { addDays, format } from "date-fns";
 import { inArray } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {
-  authorizedRepresentativeTable,
   cashAccountTable,
   collectionTable,
+  companyTable,
   counterpartyTable,
   memberTable,
   parameterTable,
@@ -14,6 +14,7 @@ import {
   sectorTable,
   smsSendTable,
 } from "@/db/schema";
+import { CELEBRATION_DAYS } from "@/lib/dashboard";
 import { ISO_FORMAT, parseIsoDate, todayInIstanbul } from "@/lib/dates";
 import { compareTr } from "@/lib/turkish";
 import {
@@ -21,6 +22,13 @@ import {
   insertTestCashAccount,
 } from "@/test/cash-accounts";
 import { dashboardRoute } from "./dashboard";
+
+// Who celebrates is the SMS code's business (and its tests'); here only how
+// the dashboard passes it on
+const celebrations = vi.hoisted(() => ({
+  loadCelebrationsBetween: vi.fn(),
+}));
+vi.mock("@/lib/sms/load-celebrations", () => celebrations);
 
 // Kasa - Banka fixtures, deleted after the records using them
 const cashAccountIds: number[] = [];
@@ -35,22 +43,21 @@ const smsContactId = 2_000_000_000 - Math.floor(Math.random() * 1e6);
 
 const ids = {
   members: [] as number[],
-  representatives: [] as number[],
   parameters: [] as number[],
   sms: [] as number[],
   sector: 0,
+  company: 0,
   project: 0,
   counterparty: 0,
 };
-const m = { candidate: 0 };
-const r = { active: 0, inactive: 0, paying: 0 };
+const m = { candidate: 0, active: 0, passive: 0, paying: 0 };
 const p = { collectionCategory: 0, paymentCategory: 0 };
 const sms = { failed: 0, sent: 0, freshPending: 0, stalePending: 0 };
 
 async function insertMember(values: Partial<typeof memberTable.$inferInsert>) {
   const [row] = await db
     .insert(memberTable)
-    .values({ title: `__test__ Dashboard ${tag}`, ...values })
+    .values({ firstName: `__test__ Dashboard ${tag}`, lastName: "", ...values })
     .returning({ id: memberTable.id });
   ids.members.push(row.id);
   return row.id;
@@ -101,33 +108,41 @@ beforeAll(async () => {
     })
     .returning({ id: sectorTable.id });
   ids.sector = sector.id;
+  const companyTitle = `__test__ Dashboard ${tag}`;
+  const [company] = await db
+    .insert(companyTable)
+    .values({
+      title: companyTitle,
+      titleKey: companyTitle.toLocaleLowerCase("tr"),
+      sectorId: sector.id,
+    })
+    .returning({ id: companyTable.id });
+  ids.company = company.id;
 
   m.candidate = await insertMember({
     status: "candidate",
     createdAt: new Date("1990-01-01T00:00:00Z"),
   });
-  await insertMember({ sectorId: sector.id });
-  await insertMember({ sectorId: sector.id });
-  await insertMember({ status: "passive", sectorId: sector.id });
+  // two Aktif members and a Pasif one of a company in the sector
+  m.active = await insertMember({ companyId: company.id });
+  m.paying = await insertMember({ companyId: company.id });
+  m.passive = await insertMember({ status: "passive", companyId: company.id });
 
-  const birth = format(
-    subYears(parseIsoDate(tomorrow) as Date, 40),
-    ISO_FORMAT,
-  );
-  const reps = await db
-    .insert(authorizedRepresentativeTable)
-    .values([
-      { name: `__test__ Dashboard ${tag} A`, dateOfBirth: birth },
-      {
-        name: `__test__ Dashboard ${tag} B`,
-        dateOfBirth: birth,
-        active: false,
+  celebrations.loadCelebrationsBetween.mockResolvedValue([
+    {
+      on: tomorrow,
+      kind: "birthday",
+      contact: {
+        kind: "member",
+        id: m.active,
+        name: `__test__ Dashboard ${tag}`,
+        phone: null,
       },
-      { name: `__test__ Dashboard ${tag} C` },
-    ])
-    .returning({ id: authorizedRepresentativeTable.id });
-  ids.representatives.push(...reps.map((rep) => rep.id));
-  [r.active, r.inactive, r.paying] = reps.map((rep) => rep.id);
+      date: "1986-01-01",
+      years: 40,
+      phone: { ok: false, reason: "no_phone" },
+    },
+  ]);
 
   p.collectionCategory = await insertParameter("collection_category");
   p.paymentCategory = await insertParameter("payment_category");
@@ -152,7 +167,7 @@ beforeAll(async () => {
   ids.project = project.id;
 
   await db.insert(collectionTable).values({
-    representativeId: r.paying,
+    memberId: m.paying,
     categoryId: p.collectionCategory,
     cashAccountId,
     amount: "100.00",
@@ -187,7 +202,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db
     .delete(collectionTable)
-    .where(inArray(collectionTable.representativeId, ids.representatives));
+    .where(inArray(collectionTable.memberId, ids.members));
   if (ids.counterparty) {
     await db
       .delete(paymentTable)
@@ -197,6 +212,11 @@ afterAll(async () => {
       .where(inArray(counterpartyTable.id, [ids.counterparty]));
   }
   await db.delete(memberTable).where(inArray(memberTable.id, ids.members));
+  if (ids.company) {
+    await db
+      .delete(companyTable)
+      .where(inArray(companyTable.id, [ids.company]));
+  }
   if (ids.project) {
     await db
       .delete(projectTable)
@@ -209,11 +229,6 @@ afterAll(async () => {
   }
   if (ids.sector) {
     await db.delete(sectorTable).where(inArray(sectorTable.id, [ids.sector]));
-  }
-  if (ids.representatives.length) {
-    await db
-      .delete(authorizedRepresentativeTable)
-      .where(inArray(authorizedRepresentativeTable.id, ids.representatives));
   }
   if (ids.sms.length) {
     await db.delete(smsSendTable).where(inArray(smsSendTable.id, ids.sms));
@@ -242,29 +257,31 @@ describe("GET /api/dashboard", () => {
     expect(candidates.oldest.map((c: { id: number }) => c.id)).toContain(
       m.candidate,
     );
+    expect(
+      candidates.oldest.find((c: { id: number }) => c.id === m.candidate),
+    ).toMatchObject({ name: `__test__ Dashboard ${tag}` });
     const times = candidates.oldest.map((c: { createdAt: string }) =>
       Date.parse(c.createdAt),
     );
     expect(times).toEqual(times.toSorted((a: number, b: number) => a - b));
   });
 
-  it("lists the coming week's celebrations of active people only", async () => {
+  it("lists the coming week's celebrations without phone numbers", async () => {
     const body = await getDashboard();
-    const { celebrations } = body.attention;
-    expect(typeof celebrations.autoEnabled).toBe("boolean");
-    const ours = celebrations.items.filter(
-      (c: { contact: { kind: string; id: number } }) =>
-        c.contact.kind === "representative" &&
-        (c.contact.id === r.active || c.contact.id === r.inactive),
+    const { celebrations: listed } = body.attention;
+    expect(typeof listed.autoEnabled).toBe("boolean");
+    expect(celebrations.loadCelebrationsBetween).toHaveBeenCalledWith(
+      today,
+      CELEBRATION_DAYS,
     );
-    expect(ours).toEqual([
+    expect(listed.items).toEqual([
       {
         on: tomorrow,
         kind: "birthday",
         contact: {
-          kind: "representative",
-          id: r.active,
-          name: `__test__ Dashboard ${tag} A`,
+          kind: "member",
+          id: m.active,
+          name: `__test__ Dashboard ${tag}`,
         },
         years: 40,
         phoneOk: false,
@@ -337,14 +354,20 @@ describe("GET /api/dashboard", () => {
     expect(rows.every((row) => row.active)).toBe(true);
   });
 
-  it("lists Aktif yetkililer with no tahsilat this year", async () => {
+  it("lists Aktif members with no tahsilat this year", async () => {
     const { money } = await getDashboard();
-    const listed = money.representativesWithoutCollection.map(
-      (representative: { id: number }) => representative.id,
+    const listed = money.membersWithoutCollection.map(
+      (member: { id: number }) => member.id,
     );
-    expect(listed).toContain(r.active);
-    expect(listed).not.toContain(r.paying);
-    expect(listed).not.toContain(r.inactive);
+    expect(listed).toContain(m.active);
+    expect(listed).not.toContain(m.paying);
+    expect(listed).not.toContain(m.passive);
+    expect(listed).not.toContain(m.candidate);
+    expect(
+      money.membersWithoutCollection.find(
+        (member: { id: number }) => member.id === m.active,
+      ),
+    ).toEqual({ id: m.active, name: `__test__ Dashboard ${tag}` });
   });
 
   it("counts Aktif members per sector and summarizes membership", async () => {

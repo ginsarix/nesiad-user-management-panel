@@ -60,7 +60,7 @@ describe("tahsilat notice templates", () => {
       expect(text).not.toContain("{kasa}");
     }
     expect(staffSms).toBe(
-      "Yeni tahsilat: {yetkili}, {tutar} ({tur}, {kasa}), {tarih}. Proje: {proje}",
+      "Yeni tahsilat: {uye}, {tutar} ({tur}, {kasa}), {tarih}. Proje: {proje}",
     );
     expect(staffEmailBody).toContain("Kasa - Banka: {kasa}");
   });

@@ -62,7 +62,7 @@ export function typedPledgeGrandTotal(rows: readonly PledgeFormRow[]): string {
 /** "Ali Veli: 2 × 1.000,00 TL, Ayşe: 1 × 50,25 TL"; "—" without rows */
 export function pledgesAuditText(
   rows: readonly {
-    representativeName: string;
+    memberName: string;
     quantity: number;
     amount: string;
   }[],
@@ -71,7 +71,7 @@ export function pledgesAuditText(
     rows
       .map(
         (row) =>
-          `${row.representativeName}: ${row.quantity} × ${formatAmountText(row.amount)}`,
+          `${row.memberName}: ${row.quantity} × ${formatAmountText(row.amount)}`,
       )
       .join(", ") || "—"
   );
@@ -87,6 +87,6 @@ export function newPledgeRow(
 ): PledgeFormRow {
   const last = rows.at(-1);
   return applyToAll && last
-    ? { representativeId: null, quantity: last.quantity, amount: last.amount }
-    : { representativeId: null, quantity: "1", amount: "" };
+    ? { memberId: null, quantity: last.quantity, amount: last.amount }
+    : { memberId: null, quantity: "1", amount: "" };
 }

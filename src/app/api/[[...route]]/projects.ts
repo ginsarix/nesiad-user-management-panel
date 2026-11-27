@@ -28,11 +28,8 @@ import {
   UNIQUE_VIOLATION,
 } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import { assertUsableMembers, InvalidRowError } from "./member-rows";
 import { loadPledges, pledgesText, replacePledges } from "./pledge-queries";
-import {
-  assertUsableRepresentatives,
-  InvalidRowError,
-} from "./representative-rows";
 import {
   idParamSchema,
   respondWithFirstField,
@@ -85,10 +82,10 @@ function saveError(error: unknown) {
       status: 400 as const,
     };
   }
-  // a yetkili deleted while the form was open
+  // a member deleted while the form was open
   if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
     return {
-      body: { error: "Seçilen yetkili bulunamadı" },
+      body: { error: "Seçilen üye bulunamadı" },
       status: 400 as const,
     };
   }
@@ -97,8 +94,8 @@ function saveError(error: unknown) {
 
 /**
  * Replaces the proje's taahhütler; returns the "Taahhütler" audit change,
- * empty when the rows read the same. Pasif yetkililer already among the
- * saved rows may stay.
+ * empty when the rows read the same. Members already among the saved rows
+ * may stay after becoming Pasif.
  */
 async function savePledges(
   tx: Transaction,
@@ -106,10 +103,10 @@ async function savePledges(
   pledges: readonly PledgeInput[],
 ) {
   const before = await loadPledges(tx, projectId);
-  await assertUsableRepresentatives(
+  await assertUsableMembers(
     tx,
-    pledges,
-    new Set(before.map((p) => p.representativeId)),
+    pledges.map((p) => p.memberId),
+    before.map((p) => p.memberId),
   );
   await replacePledges(tx, projectId, pledges);
   return change(
@@ -131,7 +128,11 @@ export async function insertProject(
   actor: AuditActor,
   pledges: readonly PledgeInput[] = [],
 ) {
-  await assertUsableRepresentatives(tx, pledges, new Set());
+  await assertUsableMembers(
+    tx,
+    pledges.map((p) => p.memberId),
+    [],
+  );
   const [project] = await tx
     .insert(projectTable)
     .values(withNumberKey(values))

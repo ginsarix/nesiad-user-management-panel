@@ -4,10 +4,10 @@ import { db } from "@/db";
 import {
   accrualTable,
   auditLogTable,
-  authorizedRepresentativeTable,
   memberTable,
   parameterTable,
 } from "@/db/schema";
+import type { MemberStatus } from "@/lib/member-status";
 import type { ParameterKind } from "@/lib/parameters";
 import { accrualsRoute } from "./accruals";
 import { membersRoute } from "./members";
@@ -18,7 +18,6 @@ import { parametersRoute } from "./parameters";
 // accrual table lives in this file, so they never run in parallel.
 let savedRows: (typeof accrualTable.$inferSelect)[] = [];
 let lastAuditId = 0;
-const representativeIds: number[] = [];
 const memberIds: number[] = [];
 const parameterIds: number[] = [];
 const suffix = crypto.randomUUID().slice(0, 8);
@@ -50,11 +49,6 @@ afterAll(async () => {
   if (memberIds.length) {
     await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
   }
-  if (representativeIds.length) {
-    await db
-      .delete(authorizedRepresentativeTable)
-      .where(inArray(authorizedRepresentativeTable.id, representativeIds));
-  }
   if (parameterIds.length) {
     await db
       .delete(parameterTable)
@@ -62,16 +56,14 @@ afterAll(async () => {
   }
 });
 
-async function addRepresentative(name: string, active = true) {
-  const [representative] = await db
-    .insert(authorizedRepresentativeTable)
-    .values({ name: `__test__ ${name} ${suffix}`, active })
-    .returning({
-      id: authorizedRepresentativeTable.id,
-      name: authorizedRepresentativeTable.name,
-    });
-  representativeIds.push(representative.id);
-  return representative;
+/** A __test__ member named "__test__ <name> <suffix>" */
+async function addMember(name: string, status: MemberStatus = "active") {
+  const [member] = await db
+    .insert(memberTable)
+    .values({ firstName: `__test__ ${name}`, lastName: suffix, status })
+    .returning({ id: memberTable.id });
+  memberIds.push(member.id);
+  return { id: member.id, name: `__test__ ${name} ${suffix}` };
 }
 
 /** A __test__ Tahsilat Türü (or another list's entry), inserted directly */
@@ -88,13 +80,13 @@ async function addParameter(
   return parameter;
 }
 
-type Row = { representativeId: number; categoryId: number; amount: string };
+type Row = { memberId: number; categoryId: number; amount: string };
 
 async function getAccruals() {
   return (await (await accrualsRoute.request("/")).json()) as {
     rows: (Row & {
-      representativeName: string;
-      representativeActive: boolean;
+      memberName: string;
+      memberActive: boolean;
       categoryName: string;
     })[];
     version: string;
@@ -125,16 +117,16 @@ async function lastEntry() {
 
 describe("Tahakkuk", () => {
   it("replaces the list, returns it in order with a new version and records it", async () => {
-    const ali = await addRepresentative("Ali");
-    const ayse = await addRepresentative("Ayşe");
+    const ali = await addMember("Ali");
+    const ayse = await addMember("Ayşe");
     const aidat = await addParameter("2027 Aidatı");
     const cleared = await putAccruals([], (await getAccruals()).version);
     expect(cleared.status).toBe(200);
     const empty = (await cleared.json()) as { version: string };
 
     const rows = [
-      { representativeId: ali.id, categoryId: aidat.id, amount: "1000.00" },
-      { representativeId: ayse.id, categoryId: aidat.id, amount: "50.25" },
+      { memberId: ali.id, categoryId: aidat.id, amount: "1000.00" },
+      { memberId: ayse.id, categoryId: aidat.id, amount: "50.25" },
     ];
     const res = await putAccruals(rows, empty.version);
     expect(res.status).toBe(200);
@@ -147,11 +139,11 @@ describe("Tahakkuk", () => {
     expect(saved.rows).toMatchObject([
       {
         ...rows[0],
-        representativeName: ali.name,
-        representativeActive: true,
+        memberName: ali.name,
+        memberActive: true,
         categoryName: aidat.name,
       },
-      { ...rows[1], representativeName: ayse.name },
+      { ...rows[1], memberName: ayse.name },
     ]);
     const entry = await lastEntry();
     expect(entry).toMatchObject({ action: "update", entityLabel: "Tahakkuk" });
@@ -173,16 +165,16 @@ describe("Tahakkuk", () => {
   });
 
   it("changes the version when only the Aidat changes", async () => {
-    const ali = await addRepresentative("Aidatı Değişen");
+    const ali = await addMember("Aidatı Değişen");
     const first = await addParameter("Birinci");
     const second = await addParameter("İkinci");
     const saved = await putAccruals(
-      [{ representativeId: ali.id, categoryId: first.id, amount: "1.00" }],
+      [{ memberId: ali.id, categoryId: first.id, amount: "1.00" }],
       (await getAccruals()).version,
     );
     const { version } = (await saved.json()) as { version: string };
     const changed = await putAccruals(
-      [{ representativeId: ali.id, categoryId: second.id, amount: "1.00" }],
+      [{ memberId: ali.id, categoryId: second.id, amount: "1.00" }],
       version,
     );
     expect(((await changed.json()) as { version: string }).version).not.toBe(
@@ -191,17 +183,17 @@ describe("Tahakkuk", () => {
   });
 
   it("refuses a save started from an older version", async () => {
-    const ali = await addRepresentative("Eski");
+    const ali = await addMember("Eski");
     const aidat = await addParameter("Eski Aidat");
     const { version } = await getAccruals();
     const first = await putAccruals(
-      [{ representativeId: ali.id, categoryId: aidat.id, amount: "1.00" }],
+      [{ memberId: ali.id, categoryId: aidat.id, amount: "1.00" }],
       version,
     );
     expect(first.status).toBe(200);
 
     const second = await putAccruals(
-      [{ representativeId: ali.id, categoryId: aidat.id, amount: "9.00" }],
+      [{ memberId: ali.id, categoryId: aidat.id, amount: "9.00" }],
       version,
     );
     expect(second.status).toBe(409);
@@ -209,43 +201,45 @@ describe("Tahakkuk", () => {
       "Tahakkuk siz düzenlerken başka biri tarafından değiştirildi. Değişikliklerinizi not alıp sayfayı yenileyin.",
     );
     expect((await getAccruals()).rows).toMatchObject([
-      { representativeId: ali.id, amount: "1.00" },
+      { memberId: ali.id, amount: "1.00" },
     ]);
   });
 
-  it("refuses a Pasif or unknown yetkili on a new row", async () => {
-    const pasif = await addRepresentative("Pasif", false);
+  it("a new tahakkuk row refuses an Aday, Reddedildi or Pasif member", async () => {
     const aidat = await addParameter("Pasif Aidat");
     const { version } = await getAccruals();
-    const passive = await putAccruals(
-      [{ representativeId: pasif.id, categoryId: aidat.id, amount: "1.00" }],
-      version,
-    );
-    expect(passive.status).toBe(400);
-    expect(await passive.json()).toEqual({
-      error: "Pasif yetkili eklenemez",
-      field: "rows.0.representativeId",
-    });
+    for (const status of ["candidate", "rejected", "passive"] as const) {
+      const member = await addMember(`Aktif Değil ${status}`, status);
+      const refused = await putAccruals(
+        [{ memberId: member.id, categoryId: aidat.id, amount: "1.00" }],
+        version,
+      );
+      expect(refused.status).toBe(400);
+      expect(await refused.json()).toEqual({
+        error: "Aktif olmayan üye eklenemez",
+        field: "rows.0.memberId",
+      });
+    }
 
     const unknown = await putAccruals(
-      [{ representativeId: 2147483000, categoryId: aidat.id, amount: "1.00" }],
+      [{ memberId: 2147483000, categoryId: aidat.id, amount: "1.00" }],
       version,
     );
     expect(unknown.status).toBe(400);
     expect(await unknown.json()).toEqual({
-      error: "Seçilen yetkili bulunamadı",
-      field: "rows.0.representativeId",
+      error: "Seçilen üye bulunamadı",
+      field: "rows.0.memberId",
     });
   });
 
   it("needs the Aidat to be a Tahsilat Türü", async () => {
-    const ali = await addRepresentative("Yanlış Liste");
+    const ali = await addMember("Yanlış Liste");
     const aidat = await addParameter("Doğru Aidat");
     const method = await addParameter("Nakit", "payment_category");
     const res = await putAccruals(
       [
-        { representativeId: ali.id, categoryId: aidat.id, amount: "1.00" },
-        { representativeId: ali.id, categoryId: method.id, amount: "1.00" },
+        { memberId: ali.id, categoryId: aidat.id, amount: "1.00" },
+        { memberId: ali.id, categoryId: method.id, amount: "1.00" },
       ],
       (await getAccruals()).version,
     );
@@ -259,7 +253,7 @@ describe("Tahakkuk", () => {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        rows: [{ representativeId: ali.id, amount: "1.00" }],
+        rows: [{ memberId: ali.id, amount: "1.00" }],
         version: (await getAccruals()).version,
       }),
     });
@@ -270,30 +264,25 @@ describe("Tahakkuk", () => {
     });
   });
 
-  it("keeps a yetkili that became Pasif after being saved", async () => {
-    const ali = await addRepresentative("Sonra Pasif");
+  it("editing the tahakkuk keeps a member that became Pasif after being saved", async () => {
+    const ali = await addMember("Sonra Pasif");
     const aidat = await addParameter("Sonra Aidat");
-    const rows = [
-      { representativeId: ali.id, categoryId: aidat.id, amount: "5.00" },
-    ];
+    const rows = [{ memberId: ali.id, categoryId: aidat.id, amount: "5.00" }];
     const saved = await putAccruals(rows, (await getAccruals()).version);
     const { version } = (await saved.json()) as { version: string };
     await db
-      .update(authorizedRepresentativeTable)
-      .set({ active: false })
-      .where(eq(authorizedRepresentativeTable.id, ali.id));
+      .update(memberTable)
+      .set({ status: "passive" })
+      .where(eq(memberTable.id, ali.id));
 
     const res = await putAccruals(
-      [
-        ...rows,
-        { representativeId: ali.id, categoryId: aidat.id, amount: "6.00" },
-      ],
+      [...rows, { memberId: ali.id, categoryId: aidat.id, amount: "6.00" }],
       version,
     );
     expect(res.status).toBe(200);
     expect((await getAccruals()).rows).toMatchObject([
-      { representativeId: ali.id, representativeActive: false, amount: "5.00" },
-      { representativeId: ali.id, amount: "6.00" },
+      { memberId: ali.id, memberActive: false, amount: "5.00" },
+      { memberId: ali.id, amount: "6.00" },
     ]);
   });
 });
@@ -330,10 +319,10 @@ describe("records a tahakkuk row holds on to", () => {
   });
 
   it("counts it on the Tahsilat Türü and refuses to delete it", async () => {
-    const ali = await addRepresentative("Türü Silinemez");
+    const ali = await addMember("Türü Silinemez");
     const aidat = await addParameter("Kullanılan Aidat");
     const res = await putAccruals(
-      [{ representativeId: ali.id, categoryId: aidat.id, amount: "1.00" }],
+      [{ memberId: ali.id, categoryId: aidat.id, amount: "1.00" }],
       (await getAccruals()).version,
     );
     expect(res.status).toBe(200);

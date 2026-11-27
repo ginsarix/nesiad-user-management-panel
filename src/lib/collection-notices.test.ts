@@ -9,11 +9,15 @@ import {
   vi,
 } from "vitest";
 import { db } from "@/db";
-import { authorizedRepresentativeTable, userTable } from "@/db/schema";
+import { memberTable, userTable } from "@/db/schema";
 import { getCollectionNoticeSettings } from "./collection-notice-settings";
 import { sendCollectionNotices } from "./collection-notices";
 import type { NetgsmClient } from "./sms/netgsm";
-import { fillTemplate } from "./sms/templates";
+import {
+  COLLECTION_NOTICE_PLACEHOLDERS,
+  DEFAULT_COLLECTION_NOTICE_TEMPLATES,
+  fillTemplate,
+} from "./sms/templates";
 
 const mail = vi.hoisted(() => ({ sendEmail: vi.fn() }));
 vi.mock("@/lib/mail", () => mail);
@@ -34,7 +38,8 @@ vi.mock("@/lib/sms/netgsm", async (importOriginal) => {
 
 const suffix = crypto.randomUUID().slice(0, 8);
 const userIds: string[] = [];
-const representativeIds: number[] = [];
+const memberIds: number[] = [];
+const memberName = `__test__ Ali Üye ${suffix}`;
 
 async function insertUser(
   key: string,
@@ -57,7 +62,7 @@ async function insertUser(
 }
 
 let actor: string;
-let representative: number;
+let member: number;
 
 beforeAll(async () => {
   actor = await insertUser("kaydeden", "+905320000001");
@@ -74,15 +79,16 @@ beforeAll(async () => {
     collectionEmail: false,
   });
   const [row] = await db
-    .insert(authorizedRepresentativeTable)
+    .insert(memberTable)
     .values({
-      name: `__test__ Yetkili ${suffix}`,
-      email: `__test__yetkili-${suffix}@example.com`,
-      phone: "0532 000 00 09",
+      firstName: "__test__ Ali",
+      lastName: `Üye ${suffix}`,
+      email: `__test__uye-${suffix}@example.com`,
+      mobilePhone: "0532 000 00 09",
     })
-    .returning({ id: authorizedRepresentativeTable.id });
-  representative = row.id;
-  representativeIds.push(representative);
+    .returning({ id: memberTable.id });
+  member = row.id;
+  memberIds.push(member);
 });
 
 afterEach(() => {
@@ -93,15 +99,13 @@ afterEach(() => {
 
 afterAll(async () => {
   await db.delete(userTable).where(inArray(userTable.id, userIds));
-  await db
-    .delete(authorizedRepresentativeTable)
-    .where(inArray(authorizedRepresentativeTable.id, representativeIds));
+  await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
 });
 
 function collection(overrides: Record<string, unknown> = {}) {
   return {
-    representativeId: representative,
-    representativeName: `__test__ Yetkili ${suffix}`,
+    memberId: member,
+    memberName,
     amount: "1250.50",
     date: "2026-11-01",
     categoryName: "Aidat",
@@ -116,10 +120,10 @@ const emailsTo = (address: string) =>
   mail.sendEmail.mock.calls.filter(([message]) => message.to === address);
 
 describe("sendCollectionNotices", () => {
-  it("sends the yetkili's email and SMS from the yetkili templates", async () => {
+  it("sends the member's email and SMS from the member templates", async () => {
     const settings = await getCollectionNoticeSettings();
     const values = {
-      yetkili: `__test__ Yetkili ${suffix}`,
+      uye: memberName,
       tutar: "1.250,50 TL",
       tarih: "01.11.2026",
       tur: "Aidat",
@@ -129,11 +133,11 @@ describe("sendCollectionNotices", () => {
 
     const result = await sendCollectionNotices(collection(), actor);
 
-    expect(result.representative).toEqual({ email: "sent", sms: "sent" });
-    expect(emailsTo(`__test__yetkili-${suffix}@example.com`)).toEqual([
+    expect(result.member).toEqual({ email: "sent", sms: "sent" });
+    expect(emailsTo(`__test__uye-${suffix}@example.com`)).toEqual([
       [
         {
-          to: `__test__yetkili-${suffix}@example.com`,
+          to: `__test__uye-${suffix}@example.com`,
           subject: fillTemplate(settings.representativeEmailSubject, values),
           text: fillTemplate(settings.representativeEmailBody, values),
         },
@@ -153,7 +157,7 @@ describe("sendCollectionNotices", () => {
     );
 
     const staffValues = {
-      yetkili: `__test__ Yetkili ${suffix}`,
+      uye: memberName,
       tutar: "1.250,50 TL",
       tarih: "01.11.2026",
       tur: "Aidat",
@@ -197,28 +201,61 @@ describe("sendCollectionNotices", () => {
     expect(sentSms.some((sms) => sms.no === "5320000001")).toBe(false);
   });
 
-  it("skips the yetkili's channels without an address or a mobile number", async () => {
+  it("skips the member's channels without an address or a mobile number", async () => {
     const [bare] = await db
-      .insert(authorizedRepresentativeTable)
+      .insert(memberTable)
       .values({
-        name: `__test__ Adressiz ${suffix}`,
+        firstName: `__test__ Adressiz ${suffix}`,
+        lastName: "",
         // a landline can't take an SMS
-        phone: "0384 213 11 11",
+        mobilePhone: "0384 213 11 11",
       })
-      .returning({ id: authorizedRepresentativeTable.id });
-    representativeIds.push(bare.id);
+      .returning({ id: memberTable.id });
+    memberIds.push(bare.id);
 
     const result = await sendCollectionNotices(
       collection({
-        representativeId: bare.id,
-        representativeName: `__test__ Adressiz ${suffix}`,
+        memberId: bare.id,
+        memberName: `__test__ Adressiz ${suffix}`,
       }),
       actor,
     );
-    expect(result.representative).toEqual({
+    expect(result.member).toEqual({
       email: "skipped",
       sms: "skipped",
     });
+  });
+
+  it("tahsilat notice fills {uye}", async () => {
+    expect(Object.keys(COLLECTION_NOTICE_PLACEHOLDERS)).toContain("uye");
+    expect(Object.keys(COLLECTION_NOTICE_PLACEHOLDERS)).not.toContain(
+      "yetkili",
+    );
+    for (const template of Object.values(DEFAULT_COLLECTION_NOTICE_TEMPLATES)) {
+      expect(template).not.toContain("{yetkili}");
+    }
+    expect(DEFAULT_COLLECTION_NOTICE_TEMPLATES.staffEmailBody).toContain(
+      "Üye: {uye}",
+    );
+
+    // the stored texts were moved to {uye} by the conversion
+    const settings = await getCollectionNoticeSettings();
+    await sendCollectionNotices(collection(), actor);
+    const sms = sentSms.find((message) => message.no === "5320000009");
+    expect(sms?.msg).toBe(
+      fillTemplate(settings.representativeSms, {
+        uye: memberName,
+        tutar: "1.250,50 TL",
+        tarih: "01.11.2026",
+        tur: "Aidat",
+        kasa: "Merkez Kasa",
+        proje: "-",
+      }),
+    );
+    expect(sms?.msg).not.toContain("{uye}");
+    if (settings.representativeSms.includes("{uye}")) {
+      expect(sms?.msg).toContain(memberName);
+    }
   });
 
   it("counts each panel-user outcome", async () => {

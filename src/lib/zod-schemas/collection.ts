@@ -23,7 +23,7 @@ const projectChoiceSchema = z.discriminatedUnion(
 
 /** POST and PATCH /api/collections: every field; amount as "1250.50" */
 export const collectionSchema = z.object({
-  representativeId: idSchema("Yetkili seçin"),
+  memberId: idSchema("Üye seçin"),
   categoryId: idSchema("Tahsilat türü seçin"),
   cashAccountId: idSchema("Kasa - Banka seçin"),
   amount: amountSchema,
@@ -41,7 +41,7 @@ export type ProjectMode = "none" | "existing" | "new";
  * modes; only the chosen mode's inputs are checked and sent.
  */
 export const collectionFormSchema = z.object({
-  representativeId: pickedSchema("Yetkili seçin"),
+  memberId: pickedSchema("Üye seçin"),
   categoryId: pickedSchema("Tahsilat türü seçin"),
   cashAccountId: pickedSchema("Kasa - Banka seçin"),
   amount: typedAmountSchema,

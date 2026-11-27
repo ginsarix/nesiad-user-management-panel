@@ -3,11 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { db, type Executor, type Transaction } from "@/db";
-import {
-  accrualTable,
-  authorizedRepresentativeTable,
-  parameterTable,
-} from "@/db/schema";
+import { accrualTable, memberTable, parameterTable } from "@/db/schema";
 import { accrualsAuditText } from "@/lib/accruals";
 import { recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
@@ -18,31 +14,30 @@ import {
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
 import {
-  assertUsableRepresentatives,
+  assertUsableMembers,
   InvalidRowError,
-} from "./representative-rows";
+  memberActiveSql,
+  memberNameSql,
+} from "./member-rows";
 import { respondWithFirstField } from "./validation";
 
 export const ACCRUAL_CONFLICT_ERROR =
   "Tahakkuk siz düzenlerken başka biri tarafından değiştirildi. Değişikliklerinizi not alıp sayfayı yenileyin.";
 
-/** The list in the order entered, with each row's yetkili and Tahakkuk Türü */
+/** The list in the order entered, with each row's member and Tahakkuk Türü */
 function loadAccruals(executor: Executor) {
   return executor
     .select({
       id: accrualTable.id,
-      representativeId: accrualTable.representativeId,
-      representativeName: authorizedRepresentativeTable.name,
-      representativeActive: authorizedRepresentativeTable.active,
+      memberId: accrualTable.memberId,
+      memberName: memberNameSql(),
+      memberActive: memberActiveSql(),
       categoryId: accrualTable.categoryId,
       categoryName: parameterTable.name,
       amount: accrualTable.amount,
     })
     .from(accrualTable)
-    .innerJoin(
-      authorizedRepresentativeTable,
-      eq(accrualTable.representativeId, authorizedRepresentativeTable.id),
-    )
+    .innerJoin(memberTable, eq(accrualTable.memberId, memberTable.id))
     .innerJoin(parameterTable, eq(accrualTable.categoryId, parameterTable.id))
     .orderBy(asc(accrualTable.position), asc(accrualTable.id));
 }
@@ -55,7 +50,7 @@ function versionOf(rows: readonly AccrualRowInput[]) {
   return createHash("sha256")
     .update(
       JSON.stringify(
-        rows.map((row) => [row.representativeId, row.categoryId, row.amount]),
+        rows.map((row) => [row.memberId, row.categoryId, row.amount]),
       ),
     )
     .digest("hex");
@@ -107,17 +102,17 @@ export const accrualsRoute = new Hono<AppEnv>()
           const before = await loadAccruals(tx);
           if (versionOf(before) !== version) return { conflict: true as const };
 
-          await assertUsableRepresentatives(
+          await assertUsableMembers(
             tx,
-            rows,
-            new Set(before.map((row) => row.representativeId)),
+            rows.map((row) => row.memberId),
+            before.map((row) => row.memberId),
           );
           await assertAidatIsCollectionCategory(tx, rows);
           await tx.delete(accrualTable);
           if (rows.length > 0) {
             await tx.insert(accrualTable).values(
               rows.map((row, position) => ({
-                representativeId: row.representativeId,
+                memberId: row.memberId,
                 categoryId: row.categoryId,
                 amount: row.amount,
                 position,
@@ -160,12 +155,9 @@ export const accrualsRoute = new Hono<AppEnv>()
             400,
           );
         }
-        // a yetkili or Tahakkuk Türü deleted while the page was open
+        // a member or Tahakkuk Türü deleted while the page was open
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
-          return c.json(
-            { error: "Seçilen yetkili veya aidat bulunamadı" },
-            400,
-          );
+          return c.json({ error: "Seçilen üye veya aidat bulunamadı" }, 400);
         }
         throw error;
       }

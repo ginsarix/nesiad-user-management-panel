@@ -17,9 +17,9 @@ import { Hono } from "hono";
 import { db } from "@/db";
 import {
   auditLogTable,
-  authorizedRepresentativeTable,
   cashAccountTable,
   collectionTable,
+  companyTable,
   memberTable,
   parameterTable,
   paymentTable,
@@ -48,6 +48,7 @@ import { compareTr } from "@/lib/turkish";
 import { selectPeriodBalances } from "./cash-account-queries";
 import { sumOfCollected } from "./collection-queries";
 import type { AppEnv } from "./env";
+import { memberNameSql } from "./member-rows";
 import { sumOfAmounts } from "./payment-queries";
 
 /** Members by status, every status present */
@@ -63,15 +64,17 @@ async function memberCounts() {
   return counts;
 }
 
-/** The applications waiting longest for a decision */
+/** The applications waiting longest for a decision, with the applicant's name and company */
 function oldestCandidates() {
   return db
     .select({
       id: memberTable.id,
-      title: memberTable.title,
+      name: memberNameSql(),
+      companyTitle: companyTable.title,
       createdAt: memberTable.createdAt,
     })
     .from(memberTable)
+    .leftJoin(companyTable, eq(memberTable.companyId, companyTable.id))
     .where(eq(memberTable.status, "candidate"))
     .orderBy(asc(memberTable.createdAt), asc(memberTable.id))
     .limit(CANDIDATE_LIST_SIZE);
@@ -241,42 +244,40 @@ async function activeCashAccounts() {
   };
 }
 
-/** Aktif yetkililer without a tahsilat dated this year, by name */
-async function representativesWithoutCollection(from: string, to: string) {
-  const representatives = await db
-    .select({
-      id: authorizedRepresentativeTable.id,
-      name: authorizedRepresentativeTable.name,
-    })
-    .from(authorizedRepresentativeTable)
+/** Aktif members without a tahsilat dated this year, by name */
+async function membersWithoutCollection(from: string, to: string) {
+  const members = await db
+    .select({ id: memberTable.id, name: memberNameSql() })
+    .from(memberTable)
     .where(
       and(
-        eq(authorizedRepresentativeTable.active, true),
+        eq(memberTable.status, "active"),
         notExists(
           db
             .select({ one: sql`1` })
             .from(collectionTable)
             .where(
               and(
-                eq(
-                  collectionTable.representativeId,
-                  authorizedRepresentativeTable.id,
-                ),
+                eq(collectionTable.memberId, memberTable.id),
                 between(collectionTable.date, from, to),
               ),
             ),
         ),
       ),
     );
-  return representatives.sort((a, b) => compareTr(a.name, b.name));
+  return members.sort((a, b) => compareTr(a.name, b.name));
 }
 
-/** Aktif members per sector, largest first; `id` null for those without one */
+/**
+ * Aktif members per sector (their company's), largest first; `id` null for
+ * those without one or without a company
+ */
 async function membersBySector() {
   const rows = await db
     .select({ id: sectorTable.id, name: sectorTable.name, count: count() })
     .from(memberTable)
-    .leftJoin(sectorTable, eq(memberTable.sectorId, sectorTable.id))
+    .leftJoin(companyTable, eq(memberTable.companyId, companyTable.id))
+    .leftJoin(sectorTable, eq(companyTable.sectorId, sectorTable.id))
     .where(eq(memberTable.status, "active"))
     .groupBy(sectorTable.id);
   return rows.sort(
@@ -365,7 +366,7 @@ export const dashboardRoute = new Hono<AppEnv>().get("/", async (c) => {
     paymentsByCategory(from, to),
     activeProjects(),
     activeCashAccounts(),
-    representativesWithoutCollection(from, to),
+    membersWithoutCollection(from, to),
     membersBySector(),
     activeLoginDates(),
     joinsPerYear(today),
@@ -405,7 +406,7 @@ export const dashboardRoute = new Hono<AppEnv>().get("/", async (c) => {
       paymentsByCategory: byPaymentCategory,
       activeProjects: projects,
       cashAccounts,
-      representativesWithoutCollection: withoutCollection,
+      membersWithoutCollection: withoutCollection,
     },
     membership: {
       bySector,

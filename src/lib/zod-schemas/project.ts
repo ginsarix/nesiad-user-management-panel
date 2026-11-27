@@ -32,7 +32,7 @@ const QUANTITY_TOO_LARGE = "Adet en fazla 1.000.000 olabilir";
 
 /** One taahhüt as the API takes it; amount as "1250.50" (per unit) */
 export const pledgeSchema = z.object({
-  representativeId: idSchema("Yetkili seçin"),
+  memberId: idSchema("Üye seçin"),
   quantity: z
     .number({ error: QUANTITY_NOT_WHOLE })
     .int(QUANTITY_NOT_WHOLE)
@@ -63,7 +63,7 @@ export type ProjectUpdateValues = z.input<typeof projectUpdateSchema>;
 
 /** A taahhüt row as typed: Adet as text, Tutar the Turkish way */
 export const pledgeFormRowSchema = z.object({
-  representativeId: pickedSchema("Yetkili seçin"),
+  memberId: pickedSchema("Üye seçin"),
   quantity: z
     .string()
     .trim()
@@ -96,7 +96,7 @@ export function pledgesToApi(
   rows: readonly ValidPledgeFormRow[],
 ): PledgeInput[] {
   return rows.map((row) => ({
-    representativeId: row.representativeId as number,
+    memberId: row.memberId as number,
     quantity: Number(row.quantity),
     // the schema has checked it parses
     amount: parseAmountInput(row.amount) as string,
@@ -106,13 +106,13 @@ export function pledgesToApi(
 /** Saved rows → what the form shows */
 export function pledgesToForm(
   rows: readonly {
-    representativeId: number;
+    memberId: number;
     quantity: number;
     amount: string;
   }[],
 ): PledgeFormRow[] {
   return rows.map((row) => ({
-    representativeId: row.representativeId,
+    memberId: row.memberId,
     quantity: String(row.quantity),
     amount: amountToInput(row.amount),
   }));

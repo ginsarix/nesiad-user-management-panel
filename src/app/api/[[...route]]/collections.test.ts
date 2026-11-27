@@ -4,13 +4,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
-  authorizedRepresentativeTable,
   cashAccountTable,
   collectionTable,
+  memberTable,
   parameterTable,
   projectTable,
 } from "@/db/schema";
 import { todayInIstanbul } from "@/lib/dates";
+import type { MemberStatus } from "@/lib/member-status";
 import { sumAmounts } from "@/lib/money";
 import {
   deleteTestCashAccounts,
@@ -27,7 +28,7 @@ const mail = vi.hoisted(() => ({ sendEmail: vi.fn(async () => undefined) }));
 vi.mock("@/lib/mail", () => mail);
 
 const suffix = crypto.randomUUID().slice(0, 8);
-const representativeIds: number[] = [];
+const memberIds: number[] = [];
 const parameterIds: number[] = [];
 
 function json(method: string, body: unknown) {
@@ -38,12 +39,13 @@ function json(method: string, body: unknown) {
   };
 }
 
-async function insertRepresentative(name: string, active = true) {
+/** A __test__ member; `name` is the Adı, Soyadı is the suffix */
+async function insertMember(name: string, status: MemberStatus = "active") {
   const [row] = await db
-    .insert(authorizedRepresentativeTable)
-    .values({ name, active })
-    .returning({ id: authorizedRepresentativeTable.id });
-  representativeIds.push(row.id);
+    .insert(memberTable)
+    .values({ firstName: name, lastName: suffix, status })
+    .returning({ id: memberTable.id });
+  memberIds.push(row.id);
   return row.id;
 }
 
@@ -73,8 +75,8 @@ async function insertProject(number: string, active = true) {
   return row.id;
 }
 
-let representative: number;
-let pasifRepresentative: number;
+let member: number;
+let pasifMember: number;
 let aidat: number;
 let bagis: number;
 let kasa: number;
@@ -85,11 +87,8 @@ let projectA: number;
 let pasifProject: number;
 
 beforeAll(async () => {
-  representative = await insertRepresentative(`__test__ Yetkili ${suffix}`);
-  pasifRepresentative = await insertRepresentative(
-    `__test__ Pasif Yetkili ${suffix}`,
-    false,
-  );
+  member = await insertMember("__test__ Üye");
+  pasifMember = await insertMember("__test__ Pasif Üye", "passive");
   aidat = await insertParameter(
     "collection_category",
     `__test__ Aidat ${suffix}`,
@@ -117,13 +116,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (representativeIds.length) {
+  if (memberIds.length) {
     await db
       .delete(collectionTable)
-      .where(inArray(collectionTable.representativeId, representativeIds));
-    await db
-      .delete(authorizedRepresentativeTable)
-      .where(inArray(authorizedRepresentativeTable.id, representativeIds));
+      .where(inArray(collectionTable.memberId, memberIds));
+    await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
   }
   // every project this file made has "__test__" and the suffix in its number
   const projects = await db.select().from(projectTable);
@@ -146,7 +143,7 @@ afterAll(async () => {
 
 function valid(overrides: Record<string, unknown> = {}) {
   return {
-    representativeId: representative,
+    memberId: member,
     categoryId: aidat,
     cashAccountId: kasa,
     amount: "1250.50",
@@ -225,8 +222,8 @@ describe("POST /api/collections", () => {
       date: "2026-11-01",
       amount: "1250.50",
       note: "Ekim aidatı",
-      representativeId: representative,
-      representativeName: `__test__ Yetkili ${suffix}`,
+      memberId: member,
+      memberName: `__test__ Üye ${suffix}`,
       categoryId: aidat,
       categoryName: `__test__ Aidat ${suffix}`,
       cashAccountId: kasa,
@@ -238,10 +235,10 @@ describe("POST /api/collections", () => {
 
     const entry = await lastEntry("collection", "create", body.id);
     expect(entry.entityLabel).toBe(
-      `__test__ Yetkili ${suffix} · ₺1.250,50 · 01.11.2026`,
+      `__test__ Üye ${suffix} · ₺1.250,50 · 01.11.2026`,
     );
     expect(entry.details).toEqual([
-      { label: "Yetkili", value: `__test__ Yetkili ${suffix}` },
+      { label: "Üye", value: `__test__ Üye ${suffix}` },
       { label: "Tutar", value: "₺1.250,50" },
       { label: "Tarih", value: "01.11.2026" },
       { label: "Tahsilat Türü", value: `__test__ Aidat ${suffix}` },
@@ -305,7 +302,7 @@ describe("POST /api/collections", () => {
   });
 
   it("reports a duplicate project number under the project field", async () => {
-    const before = (await list(`representative=${representative}`)).count;
+    const before = (await list(`member=${member}`)).count;
     const { res, body } = await create({
       project: {
         mode: "new",
@@ -319,7 +316,7 @@ describe("POST /api/collections", () => {
       error: "Bu proje numarası zaten var",
       field: "project.number",
     });
-    expect((await list(`representative=${representative}`)).count).toBe(before);
+    expect((await list(`member=${member}`)).count).toBe(before);
   });
 
   it("validates a new project's fields under the project field", async () => {
@@ -333,16 +330,13 @@ describe("POST /api/collections", () => {
     });
   });
 
-  it.each([
-    "representativeId",
-    "categoryId",
-    "cashAccountId",
-    "amount",
-    "date",
-  ])("requires %s", async (field) => {
-    const { res } = await create({ [field]: undefined });
-    expect(res.status).toBe(400);
-  });
+  it.each(["memberId", "categoryId", "cashAccountId", "amount", "date"])(
+    "requires %s",
+    async (field) => {
+      const { res } = await create({ [field]: undefined });
+      expect(res.status).toBe(400);
+    },
+  );
 
   it.each(["0.00", "-1.00", "1,5"])("rejects the amount %s", async (amount) => {
     expect((await create({ amount })).res.status).toBe(400);
@@ -379,13 +373,28 @@ describe("POST /api/collections", () => {
     });
   });
 
-  it("refuses a Pasif yetkili or project on create", async () => {
-    const pasif = await create({ representativeId: pasifRepresentative });
-    expect(pasif.res.status).toBe(400);
-    expect(pasif.body).toEqual({
-      error: "Seçilen yetkili aktif değil",
-      field: "representativeId",
+  it("new tahsilat refuses an Aday, Reddedildi or Pasif member", async () => {
+    const aday = await insertMember("__test__ Aday Üye", "candidate");
+    const reddedildi = await insertMember(
+      "__test__ Reddedilen Üye",
+      "rejected",
+    );
+    for (const id of [aday, reddedildi, pasifMember]) {
+      const refused = await create({ memberId: id });
+      expect(refused.res.status).toBe(400);
+      expect(refused.body).toEqual({
+        error: "Seçilen üye aktif değil",
+        field: "memberId",
+      });
+    }
+    const unknown = await create({ memberId: 2147483000 });
+    expect(unknown.body).toEqual({
+      error: "Seçilen üye bulunamadı",
+      field: "memberId",
     });
+  });
+
+  it("refuses a Pasif project on create", async () => {
     const project = await create({
       project: { mode: "existing", id: pasifProject },
     });
@@ -393,8 +402,6 @@ describe("POST /api/collections", () => {
       error: "Seçilen proje aktif değil",
       field: "project.id",
     });
-    const unknown = await create({ representativeId: 2147483000 });
-    expect(unknown.body.error).toBe("Seçilen yetkili bulunamadı");
   });
 });
 
@@ -459,26 +466,26 @@ describe("PATCH /api/collections/:id", () => {
     ]);
   });
 
-  it("keeps a yetkili that became Pasif", async () => {
-    const leaving = await insertRepresentative(`__test__ Ayrılan ${suffix}`);
-    const { body } = await create({ representativeId: leaving });
+  it("editing a tahsilat keeps its member after it became Pasif", async () => {
+    const leaving = await insertMember("__test__ Ayrılan");
+    const { body } = await create({ memberId: leaving });
     await db
-      .update(authorizedRepresentativeTable)
-      .set({ active: false })
-      .where(eq(authorizedRepresentativeTable.id, leaving));
+      .update(memberTable)
+      .set({ status: "passive" })
+      .where(eq(memberTable.id, leaving));
 
-    const res = await patch(body.id, {
-      representativeId: leaving,
+    const res = await patch(body.id, { memberId: leaving, amount: "99.00" });
+    expect(res.status).toBe(200);
+    expect(await getOne(body.id)).toMatchObject({
+      memberId: leaving,
+      memberName: `__test__ Ayrılan ${suffix}`,
       amount: "99.00",
     });
-    expect(res.status).toBe(200);
   });
 
-  it("refuses another Pasif yetkili", async () => {
+  it("refuses another Pasif member on edit", async () => {
     const { body } = await create();
-    const res = await patch(body.id, {
-      representativeId: pasifRepresentative,
-    });
+    const res = await patch(body.id, { memberId: pasifMember });
     expect(res.status).toBe(400);
   });
 
@@ -538,29 +545,29 @@ describe("PATCH /api/collections/:id", () => {
 });
 
 describe("GET /api/collections", () => {
-  it("filters by proje, Projesiz and yetkili, summing kuruş exactly", async () => {
-    const payer = await insertRepresentative(`__test__ Ödeyen ${suffix}`);
+  it("filters by proje, Projesiz and member, summing kuruş exactly", async () => {
+    const payer = await insertMember("__test__ Ödeyen");
     const first = await create({
-      representativeId: payer,
+      memberId: payer,
       amount: "0.10",
       date: "2026-10-01",
       project: { mode: "existing", id: projectA },
     });
     const second = await create({
-      representativeId: payer,
+      memberId: payer,
       amount: "0.20",
       date: "2026-10-15",
       categoryId: bagis,
       cashAccountId: banka,
     });
     const third = await create({
-      representativeId: payer,
+      memberId: payer,
       amount: "100.00",
       date: "2026-11-01",
       project: { mode: "existing", id: projectA },
     });
 
-    const all = await list(`representative=${payer}`);
+    const all = await list(`member=${payer}`);
     expect(all).not.toHaveProperty("total");
     expect(totalOf(all)).toBe("100.30");
     expect(all.collections.map((c) => c.id)).toEqual([
@@ -569,20 +576,18 @@ describe("GET /api/collections", () => {
       first.body.id,
     ]);
 
-    const none = await list(`representative=${payer}&project=none`);
+    const none = await list(`member=${payer}&project=none`);
     expect(none.count).toBe(1);
     expect(totalOf(none)).toBe("0.20");
 
-    const withA = await list(`representative=${payer}&project=${projectA}`);
+    const withA = await list(`member=${payer}&project=${projectA}`);
     expect(totalOf(withA)).toBe("100.10");
     expect(withA.collections.map((c) => c.id)).toEqual([
       third.body.id,
       first.body.id,
     ]);
 
-    const byAccount = await list(
-      `representative=${payer}&cashAccount=${banka}`,
-    );
+    const byAccount = await list(`member=${payer}&cashAccount=${banka}`);
     expect(byAccount.collections.map((c) => c.id)).toEqual([second.body.id]);
   });
 });
@@ -610,17 +615,17 @@ describe("DELETE /api/collections/:id", () => {
 
 describe("GET /api/collections/export", () => {
   it("exports the filtered tahsilatlar with real cells and a total", async () => {
-    const payer = await insertRepresentative(`__test__ Excel ${suffix}`);
+    const payer = await insertMember("__test__ Excel");
     for (const [amount, date, project] of [
       ["0.10", "2026-10-01", { mode: "existing", id: projectA }],
       ["0.20", "2026-10-15", { mode: "none" }],
       ["100.00", "2026-11-01", { mode: "none" }],
     ] as const) {
-      await create({ representativeId: payer, amount, date, project });
+      await create({ memberId: payer, amount, date, project });
     }
 
     const res = await collectionsRoute.request(
-      `/export?representative=${payer}&from=2026-10-01&to=2026-10-15`,
+      `/export?member=${payer}&from=2026-10-01&to=2026-10-15`,
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Disposition")).toMatch(
@@ -630,7 +635,7 @@ describe("GET /api/collections/export", () => {
     const rows = await readSheet(Buffer.from(await res.arrayBuffer()));
     expect(rows[0]).toEqual([
       "Tarih",
-      "Yetkili",
+      "Üye",
       "Tutar",
       "Tahsilat Türü",
       "Kasa - Banka",
@@ -675,20 +680,20 @@ describe("notices for a new tahsilat", () => {
 
     const [entry] = await noticeEntries(body.id);
     expect(entry.entityLabel).toBe(
-      `__test__ Yetkili ${suffix} · ₺1.250,50 · 01.11.2026`,
+      `__test__ Üye ${suffix} · ₺1.250,50 · 01.11.2026`,
     );
     const labels = entry.details?.map((d) => d.label);
     expect(labels).toEqual(
       expect.arrayContaining([
-        "Yetkili e-posta",
-        "Yetkili SMS",
+        "Üye e-posta",
+        "Üye SMS",
         "Panel kullanıcıları e-posta",
         "Panel kullanıcıları SMS",
       ]),
     );
-    // the yetkili in this file has no e-mail or mobile number
+    // the member in this file has no e-mail or mobile number
     expect(entry.details).toContainEqual({
-      label: "Yetkili e-posta",
+      label: "Üye e-posta",
       value: "Adres yok",
     });
     expect(JSON.stringify(entry.details)).not.toContain("@");

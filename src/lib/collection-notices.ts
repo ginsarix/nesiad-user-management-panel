@@ -1,6 +1,6 @@
 import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/db";
-import { authorizedRepresentativeTable, userTable } from "@/db/schema";
+import { memberTable, userTable } from "@/db/schema";
 import {
   type NoticeOutcome,
   type NoticeOutcomes,
@@ -15,8 +15,8 @@ import { fillTemplate } from "./sms/templates";
 
 /** What a notice needs to know about the new tahsilat */
 export type NoticeCollection = {
-  representativeId: number;
-  representativeName: string;
+  memberId: number;
+  memberName: string;
   amount: string;
   date: string;
   categoryName: string;
@@ -28,8 +28,8 @@ export type NoticeCollection = {
 export type OutcomeCounts = Record<NoticeOutcome, number>;
 
 export type CollectionNoticeResult = {
-  /** the yetkili's email and SMS */
-  representative: NoticeOutcomes;
+  /** the member's email and SMS */
+  member: NoticeOutcomes;
   /** how many panel-user emails and SMS ended which way */
   staff: { email: OutcomeCounts; sms: OutcomeCounts };
 };
@@ -41,25 +41,22 @@ function countOutcomes(outcomes: NoticeOutcome[]): OutcomeCounts {
 }
 
 /**
- * Tells the yetkili and every other active panel user about a new tahsilat,
- * by email and SMS, from the Ayarlar templates. The yetkili's SMS goes to
- * Cep Telefonu. The person who recorded it (`actorId`) and disabled accounts get
- * nothing, and panel users who turned a channel off (Panel Kullanıcıları) get
- * nothing on it. Never throws; each message reports its own outcome.
+ * Tells the member and every other active panel user about a new tahsilat,
+ * by email and SMS, from the Ayarlar templates. The member's email goes to
+ * E-posta and SMS to Cep Telefonu. The person who recorded it (`actorId`)
+ * and disabled accounts get nothing, and panel users who turned a channel
+ * off (Panel Kullanıcıları) get nothing on it. Never throws; each message reports its own outcome.
  */
 export async function sendCollectionNotices(
   collection: NoticeCollection,
   actorId: string | null,
 ): Promise<CollectionNoticeResult> {
-  const [settings, [representative], staff] = await Promise.all([
+  const [settings, [member], staff] = await Promise.all([
     getCollectionNoticeSettings(),
     db
-      .select({
-        email: authorizedRepresentativeTable.email,
-        phone: authorizedRepresentativeTable.phone,
-      })
-      .from(authorizedRepresentativeTable)
-      .where(eq(authorizedRepresentativeTable.id, collection.representativeId)),
+      .select({ email: memberTable.email, phone: memberTable.mobilePhone })
+      .from(memberTable)
+      .where(eq(memberTable.id, collection.memberId)),
     db
       .select({
         email: userTable.email,
@@ -77,7 +74,7 @@ export async function sendCollectionNotices(
   ]);
 
   const values = {
-    yetkili: collection.representativeName,
+    uye: collection.memberName,
     tutar: formatAmountText(collection.amount),
     tarih: isoToDisplay(collection.date),
     tur: collection.categoryName,
@@ -93,46 +90,46 @@ export async function sendCollectionNotices(
   };
   const fill = (template: string) => fillTemplate(template, values);
 
-  const [representativeEmail, representativeSms, staffEmails, staffSms] =
-    await Promise.all([
-      sendNoticeEmail(
-        "Collection notice email (yetkili)",
-        representative?.email ?? null,
-        fill(settings.representativeEmailSubject),
-        fill(settings.representativeEmailBody),
-      ),
-      sendNoticeSms(
-        "Collection notice SMS (yetkili)",
-        representative?.phone ?? null,
-        fill(settings.representativeSms),
-      ),
-      Promise.all(
-        staff
-          .filter((user) => user.collectionEmail)
-          .map((user) =>
-            sendNoticeEmail(
-              "Collection notice email (panel user)",
-              user.email,
-              fill(settings.staffEmailSubject),
-              fill(settings.staffEmailBody),
-            ),
+  // the member's texts are in the columns named before the conversion
+  const [memberEmail, memberSms, staffEmails, staffSms] = await Promise.all([
+    sendNoticeEmail(
+      "Collection notice email (member)",
+      member?.email ?? null,
+      fill(settings.representativeEmailSubject),
+      fill(settings.representativeEmailBody),
+    ),
+    sendNoticeSms(
+      "Collection notice SMS (member)",
+      member?.phone ?? null,
+      fill(settings.representativeSms),
+    ),
+    Promise.all(
+      staff
+        .filter((user) => user.collectionEmail)
+        .map((user) =>
+          sendNoticeEmail(
+            "Collection notice email (panel user)",
+            user.email,
+            fill(settings.staffEmailSubject),
+            fill(settings.staffEmailBody),
           ),
-      ),
-      Promise.all(
-        staff
-          .filter((user) => user.collectionSms)
-          .map((user) =>
-            sendNoticeSms(
-              "Collection notice SMS (panel user)",
-              user.phone,
-              fill(settings.staffSms),
-            ),
+        ),
+    ),
+    Promise.all(
+      staff
+        .filter((user) => user.collectionSms)
+        .map((user) =>
+          sendNoticeSms(
+            "Collection notice SMS (panel user)",
+            user.phone,
+            fill(settings.staffSms),
           ),
-      ),
-    ]);
+        ),
+    ),
+  ]);
 
   return {
-    representative: { email: representativeEmail, sms: representativeSms },
+    member: { email: memberEmail, sms: memberSms },
     staff: { email: countOutcomes(staffEmails), sms: countOutcomes(staffSms) },
   };
 }

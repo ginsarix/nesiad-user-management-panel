@@ -5,7 +5,7 @@ import type { AccrualFormRow } from "./zod-schemas/accrual";
 /** "Ali Veli: 2027 Aidatı 1.000,00 TL, …"; "—" without rows */
 export function accrualsAuditText(
   rows: readonly {
-    representativeName: string;
+    memberName: string;
     categoryName: string;
     amount: string;
   }[],
@@ -14,7 +14,7 @@ export function accrualsAuditText(
     rows
       .map(
         (row) =>
-          `${row.representativeName}: ${row.categoryName} ${formatAmountText(row.amount)}`,
+          `${row.memberName}: ${row.categoryName} ${formatAmountText(row.amount)}`,
       )
       .join(", ") || "—"
   );

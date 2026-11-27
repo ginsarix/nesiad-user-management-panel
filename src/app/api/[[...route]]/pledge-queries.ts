@@ -1,26 +1,24 @@
 import { asc, eq } from "drizzle-orm";
 import type { Executor, Transaction } from "@/db";
-import { authorizedRepresentativeTable, projectPledgeTable } from "@/db/schema";
+import { memberTable, projectPledgeTable } from "@/db/schema";
 import { pledgesAuditText } from "@/lib/pledges";
 import type { PledgeInput } from "@/lib/zod-schemas/project";
+import { memberActiveSql, memberNameSql } from "./member-rows";
 
-/** A proje's taahhütler in the order entered, with their yetkili */
+/** A proje's taahhütler in the order entered, with their member */
 export function loadPledges(executor: Executor, projectId: number) {
   return executor
     .select({
       id: projectPledgeTable.id,
-      representativeId: projectPledgeTable.representativeId,
-      representativeName: authorizedRepresentativeTable.name,
-      representativePhoto: authorizedRepresentativeTable.photo,
-      representativeActive: authorizedRepresentativeTable.active,
+      memberId: projectPledgeTable.memberId,
+      memberName: memberNameSql(),
+      memberPhoto: memberTable.photo,
+      memberActive: memberActiveSql(),
       quantity: projectPledgeTable.quantity,
       amount: projectPledgeTable.amount,
     })
     .from(projectPledgeTable)
-    .innerJoin(
-      authorizedRepresentativeTable,
-      eq(projectPledgeTable.representativeId, authorizedRepresentativeTable.id),
-    )
+    .innerJoin(memberTable, eq(projectPledgeTable.memberId, memberTable.id))
     .where(eq(projectPledgeTable.projectId, projectId))
     .orderBy(asc(projectPledgeTable.position), asc(projectPledgeTable.id));
 }
@@ -44,7 +42,7 @@ export async function replacePledges(
   await tx.insert(projectPledgeTable).values(
     pledges.map((pledge, position) => ({
       projectId,
-      representativeId: pledge.representativeId,
+      memberId: pledge.memberId,
       quantity: pledge.quantity,
       amount: pledge.amount,
       position,

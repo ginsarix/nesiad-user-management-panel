@@ -3,11 +3,11 @@ import { afterAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
-  authorizedRepresentativeTable,
   collectionTable,
   committeeMemberTable,
   committeeTable,
   counterpartyTable,
+  memberTable,
   parameterTable,
   paymentTable,
 } from "@/db/schema";
@@ -22,30 +22,26 @@ const cashAccountIds: number[] = [];
 
 const createdIds: number[] = [];
 const counterpartyIds: number[] = [];
-// yetkililer with tahsilatlar, removed with them before the rest
+// members with tahsilatlar, removed with them before the rest
 const payerIds: number[] = [];
 
 const committeeIds: number[] = [];
-const representativeIds: number[] = [];
+const memberIds: number[] = [];
 
 afterAll(async () => {
   if (payerIds.length) {
     await db
       .delete(collectionTable)
-      .where(inArray(collectionTable.representativeId, payerIds));
-    await db
-      .delete(authorizedRepresentativeTable)
-      .where(inArray(authorizedRepresentativeTable.id, payerIds));
+      .where(inArray(collectionTable.memberId, payerIds));
+    await db.delete(memberTable).where(inArray(memberTable.id, payerIds));
   }
   if (committeeIds.length) {
     await db
       .delete(committeeTable)
       .where(inArray(committeeTable.id, committeeIds));
   }
-  if (representativeIds.length) {
-    await db
-      .delete(authorizedRepresentativeTable)
-      .where(inArray(authorizedRepresentativeTable.id, representativeIds));
+  if (memberIds.length) {
+    await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
   }
   if (counterpartyIds.length) {
     await db
@@ -306,12 +302,12 @@ describe("parameters used by tahsilatlar", () => {
       await createParameter("collection_category", `__test__ Aidat K ${suffix}`)
     ).body.id;
     const [payer] = await db
-      .insert(authorizedRepresentativeTable)
-      .values({ name: `__test__ Yetkili ${suffix}` })
-      .returning({ id: authorizedRepresentativeTable.id });
+      .insert(memberTable)
+      .values({ firstName: "__test__ Ödeyen", lastName: suffix })
+      .returning({ id: memberTable.id });
     payerIds.push(payer.id);
     await db.insert(collectionTable).values({
-      representativeId: payer.id,
+      memberId: payer.id,
       categoryId: category,
       cashAccountId: await insertTestCashAccount(
         `__test__ EFT ${suffix}`,
@@ -358,11 +354,11 @@ describe("DELETE /api/parameters/:id", () => {
       "association_role",
       `__test__ Sayman Görevi ${suffix}`,
     );
-    const [representative] = await db
-      .insert(authorizedRepresentativeTable)
-      .values({ name: `__test__ Görevli ${suffix}` })
-      .returning({ id: authorizedRepresentativeTable.id });
-    representativeIds.push(representative.id);
+    const [member] = await db
+      .insert(memberTable)
+      .values({ firstName: "__test__ Görevli", lastName: suffix })
+      .returning({ id: memberTable.id });
+    memberIds.push(member.id);
     const groupName = `__test__ Görevli Komite ${suffix}`;
     const [group] = await db
       .insert(committeeTable)
@@ -371,7 +367,7 @@ describe("DELETE /api/parameters/:id", () => {
     committeeIds.push(group.id);
     await db.insert(committeeMemberTable).values({
       groupId: group.id,
-      representativeId: representative.id,
+      memberId: member.id,
       roleId: body.id,
       position: 0,
     });

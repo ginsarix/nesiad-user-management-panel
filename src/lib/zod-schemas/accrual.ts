@@ -9,7 +9,7 @@ import {
 
 /** One tahakkuk row as the API takes it; Tahakkuk Türü is a Tahsilat Türü */
 export const accrualRowSchema = z.object({
-  representativeId: idSchema("Yetkili seçin"),
+  memberId: idSchema("Üye seçin"),
   categoryId: idSchema("Tahakkuk Türü seçin"),
   amount: amountSchema,
 });
@@ -26,7 +26,7 @@ export const accrualBodySchema = z.object({
 
 /** A tahakkuk row as typed: Tutar the Turkish way */
 export const accrualFormRowSchema = z.object({
-  representativeId: pickedSchema("Yetkili seçin"),
+  memberId: pickedSchema("Üye seçin"),
   categoryId: pickedSchema("Tahakkuk Türü seçin"),
   amount: typedAmountSchema,
 });
@@ -44,7 +44,7 @@ export function accrualsToApi(
   rows: readonly z.output<typeof accrualFormRowSchema>[],
 ): AccrualRowInput[] {
   return rows.map((row) => ({
-    representativeId: row.representativeId as number,
+    memberId: row.memberId as number,
     categoryId: row.categoryId as number,
     // the schema has checked it parses
     amount: parseAmountInput(row.amount) as string,
@@ -54,13 +54,13 @@ export function accrualsToApi(
 /** Saved rows → what the form shows */
 export function accrualsToForm(
   rows: readonly {
-    representativeId: number;
+    memberId: number;
     categoryId: number;
     amount: string;
   }[],
 ): AccrualFormRow[] {
   return rows.map((row) => ({
-    representativeId: row.representativeId,
+    memberId: row.memberId,
     categoryId: row.categoryId,
     amount: amountToInput(row.amount),
   }));

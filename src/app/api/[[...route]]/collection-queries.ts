@@ -2,13 +2,14 @@ import { and, desc, eq, gte, isNull, lte, type SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db, type Executor } from "@/db";
 import {
-  authorizedRepresentativeTable,
   cashAccountTable,
   collectionTable,
+  memberTable,
   parameterTable,
   projectTable,
 } from "@/db/schema";
 import type { CollectionFilters } from "@/lib/collection-filters";
+import { memberNameSql } from "./member-rows";
 
 const category = alias(parameterTable, "category");
 
@@ -17,7 +18,7 @@ export function sumOfCollected() {
   return sql<string>`coalesce(sum(${collectionTable.amount}), 0)::numeric(14,2)::text`;
 }
 
-/** Tahsilatlar with the current yetkili, Tahsilat Türü, Kasa - Banka and proje names */
+/** Tahsilatlar with the current member, Tahsilat Türü, Kasa - Banka and proje names */
 function selectCollectionRows(executor: Executor = db) {
   return executor
     .select({
@@ -25,8 +26,8 @@ function selectCollectionRows(executor: Executor = db) {
       date: collectionTable.date,
       amount: collectionTable.amount,
       note: collectionTable.note,
-      representativeId: collectionTable.representativeId,
-      representativeName: authorizedRepresentativeTable.name,
+      memberId: collectionTable.memberId,
+      memberName: memberNameSql(),
       categoryId: collectionTable.categoryId,
       categoryName: category.name,
       cashAccountId: collectionTable.cashAccountId,
@@ -36,10 +37,7 @@ function selectCollectionRows(executor: Executor = db) {
       projectNumber: projectTable.number,
     })
     .from(collectionTable)
-    .innerJoin(
-      authorizedRepresentativeTable,
-      eq(collectionTable.representativeId, authorizedRepresentativeTable.id),
-    )
+    .innerJoin(memberTable, eq(collectionTable.memberId, memberTable.id))
     .innerJoin(category, eq(collectionTable.categoryId, category.id))
     .innerJoin(
       cashAccountTable,
@@ -52,10 +50,8 @@ function whereOf(filters: CollectionFilters) {
   const conditions: (SQL | undefined)[] = [];
   if (filters.from) conditions.push(gte(collectionTable.date, filters.from));
   if (filters.to) conditions.push(lte(collectionTable.date, filters.to));
-  if (filters.representative !== null) {
-    conditions.push(
-      eq(collectionTable.representativeId, filters.representative),
-    );
+  if (filters.member !== null) {
+    conditions.push(eq(collectionTable.memberId, filters.member));
   }
   if (filters.category !== null) {
     conditions.push(eq(collectionTable.categoryId, filters.category));

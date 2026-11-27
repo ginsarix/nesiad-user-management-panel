@@ -3,11 +3,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
-  authorizedRepresentativeTable,
   cashAccountPeriodTable,
   cashAccountTable,
   collectionTable,
   counterpartyTable,
+  memberTable,
   parameterTable,
   paymentTable,
 } from "@/db/schema";
@@ -21,7 +21,7 @@ const collectionIds: number[] = [];
 const parameterIds: number[] = [];
 
 let cari: number;
-let yetkili: number;
+let uye: number;
 let paymentCategory: number;
 let collectionCategory: number;
 
@@ -53,11 +53,11 @@ beforeAll(async () => {
     .values({ title, titleKey: title.toLocaleLowerCase("tr") })
     .returning({ id: counterpartyTable.id });
   cari = counterparty.id;
-  const [representative] = await db
-    .insert(authorizedRepresentativeTable)
-    .values({ name: `__test__ Kasa yetkili ${suffix}`, active: true })
-    .returning({ id: authorizedRepresentativeTable.id });
-  yetkili = representative.id;
+  const [member] = await db
+    .insert(memberTable)
+    .values({ firstName: "__test__ Kasa üye", lastName: suffix })
+    .returning({ id: memberTable.id });
+  uye = member.id;
   paymentCategory = await insertParameter(
     "payment_category",
     `__test__ Kasa ÖT ${suffix}`,
@@ -79,9 +79,7 @@ afterAll(async () => {
   }
   await deleteTestCashAccounts(accountIds);
   await db.delete(counterpartyTable).where(eq(counterpartyTable.id, cari));
-  await db
-    .delete(authorizedRepresentativeTable)
-    .where(eq(authorizedRepresentativeTable.id, yetkili));
+  await db.delete(memberTable).where(eq(memberTable.id, uye));
   await db
     .delete(parameterTable)
     .where(inArray(parameterTable.id, parameterIds));
@@ -114,7 +112,7 @@ async function addCollection(
   const [row] = await db
     .insert(collectionTable)
     .values({
-      representativeId: yetkili,
+      memberId: uye,
       amount,
       date,
       categoryId: collectionCategory,

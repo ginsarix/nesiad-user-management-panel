@@ -40,7 +40,7 @@ export const DEFAULT_NOTICE_TEMPLATES = {
 
 /** What a tahsilat notice can contain */
 export const COLLECTION_NOTICE_PLACEHOLDERS = {
-  yetkili: "yetkilinin adı soyadı",
+  uye: "üyenin adı soyadı",
   tutar: "tutar, ör. 1.250,00 TL",
   tarih: "tahsilat tarihi",
   tur: "tahsilat türü",
@@ -51,15 +51,15 @@ export const COLLECTION_NOTICE_PLACEHOLDERS = {
 /** The tahsilat notice texts shipped before staff edit them (Ayarlar page, Bildirimler tab) */
 export const DEFAULT_COLLECTION_NOTICE_TEMPLATES = {
   representativeSms:
-    "Sayın {yetkili}, {tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz. NESİAD",
+    "Sayın {uye}, {tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz. NESİAD",
   representativeEmailSubject: "NESİAD ödemeniz alındı",
   representativeEmailBody:
-    "Sayın {yetkili},\n\n{tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
+    "Sayın {uye},\n\n{tarih} tarihli {tutar} tutarındaki {tur} ödemeniz alınmıştır. Teşekkür ederiz.\n\nNevşehir Sanayici ve İş İnsanları Derneği",
   staffSms:
-    "Yeni tahsilat: {yetkili}, {tutar} ({tur}, {kasa}), {tarih}. Proje: {proje}",
-  staffEmailSubject: "Yeni tahsilat: {yetkili}, {tutar}",
+    "Yeni tahsilat: {uye}, {tutar} ({tur}, {kasa}), {tarih}. Proje: {proje}",
+  staffEmailSubject: "Yeni tahsilat: {uye}, {tutar}",
   staffEmailBody:
-    "Panele yeni bir tahsilat kaydedildi.\n\nYetkili: {yetkili}\nTutar: {tutar}\nTarih: {tarih}\nTahsilat Türü: {tur}\nKasa - Banka: {kasa}\nProje: {proje}",
+    "Panele yeni bir tahsilat kaydedildi.\n\nÜye: {uye}\nTutar: {tutar}\nTarih: {tarih}\nTahsilat Türü: {tur}\nKasa - Banka: {kasa}\nProje: {proje}",
 } as const;
 
 const PLACEHOLDER = /\{([^{}]*)\}/g;
