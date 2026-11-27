@@ -34,7 +34,7 @@ async function insertCompany(title: string, logo: string | null = null) {
 async function insertMember(firstName: string, companyId: number | null) {
   const [row] = await db
     .insert(memberTable)
-    .values({ firstName, lastName: "", companyId, legacyTitle: firstName })
+    .values({ firstName, lastName: "", companyId })
     .returning({ id: memberTable.id });
   memberIds.push(row.id);
   return row.id;

@@ -242,20 +242,6 @@ describe("POST /api/applications", () => {
     expect(member.status).toBe("candidate");
     expect(member.companyId).toBe(member.company.id);
     expect(member.company.titleKey).toBe(foldTr(title).replace(/\s+/g, " "));
-    // the company holds the firm's data, the member only the person's
-    const columns = member as Record<string, unknown>;
-    for (const legacy of [
-      "legacyTitle",
-      "legacyLogo",
-      "legacyAddress",
-      "legacyPhone",
-      "legacyWebsite",
-      "legacyEmployeeCount",
-      "legacyCompanyIntro",
-      "legacyActivityDocument",
-    ]) {
-      expect(columns[legacy] ?? null).toBeNull();
-    }
   });
 
   it("application with an existing Ünvan creates a separate company", async () => {

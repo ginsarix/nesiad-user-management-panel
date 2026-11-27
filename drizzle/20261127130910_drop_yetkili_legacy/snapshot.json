@@ -1,0 +1,417 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "0c57fb2f-45ee-4570-b24d-a183137e3adf",
+  "prevIds": [
+    "5a533a6f-0b14-4aa6-9785-46ae60614ee6"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "member"
+      ],
+      "writes": [
+        "s|fk|public.member.member_sector_id_sector_id_fkey",
+        "n|fk|public.member.member_sector_id_sector_id_fkey",
+        "e|fk|public.member.member_sector_id_sector_id_fkey",
+        "n|con|public.member.member_sector_id_sector_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public",
+        "e|col|public.member.sector_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "members_representatives"
+      ],
+      "writes": [
+        "s|fk|public.members_representatives.members_representatives_jS7XE7ufS0nK_fkey",
+        "n|fk|public.members_representatives.members_representatives_jS7XE7ufS0nK_fkey",
+        "e|fk|public.members_representatives.members_representatives_jS7XE7ufS0nK_fkey",
+        "n|con|public.members_representatives.members_representatives_jS7XE7ufS0nK_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.members_representatives",
+        "n|sch|public",
+        "e|col|public.members_representatives.authorized_representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "authorized_representative"
+      ],
+      "writes": [
+        "s|tbl|public.authorized_representative",
+        "n|tbl|public.authorized_representative",
+        "e|tbl|public.authorized_representative",
+        "n|rel|public.authorized_representative",
+        "n|type|public.authorized_representative"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "members_representatives"
+      ],
+      "writes": [
+        "s|tbl|public.members_representatives",
+        "n|tbl|public.members_representatives",
+        "e|tbl|public.members_representatives",
+        "n|rel|public.members_representatives",
+        "n|type|public.members_representatives"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "title"
+      ],
+      "writes": [
+        "s|col|public.member.title",
+        "n|col|public.member.title",
+        "e|col|public.member.title"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "logo"
+      ],
+      "writes": [
+        "s|col|public.member.logo",
+        "n|col|public.member.logo",
+        "e|col|public.member.logo"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "address"
+      ],
+      "writes": [
+        "s|col|public.member.address",
+        "n|col|public.member.address",
+        "e|col|public.member.address"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "phone"
+      ],
+      "writes": [
+        "s|col|public.member.phone",
+        "n|col|public.member.phone",
+        "e|col|public.member.phone"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "sector_id"
+      ],
+      "writes": [
+        "s|col|public.member.sector_id",
+        "n|col|public.member.sector_id",
+        "e|col|public.member.sector_id"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "founding_date"
+      ],
+      "writes": [
+        "s|col|public.member.founding_date",
+        "n|col|public.member.founding_date",
+        "e|col|public.member.founding_date"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "employee_count"
+      ],
+      "writes": [
+        "s|col|public.member.employee_count",
+        "n|col|public.member.employee_count",
+        "e|col|public.member.employee_count"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "website"
+      ],
+      "writes": [
+        "s|col|public.member.website",
+        "n|col|public.member.website",
+        "e|col|public.member.website"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "company_intro"
+      ],
+      "writes": [
+        "s|col|public.member.company_intro",
+        "n|col|public.member.company_intro",
+        "e|col|public.member.company_intro"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "activity_document"
+      ],
+      "writes": [
+        "s|col|public.member.activity_document",
+        "n|col|public.member.activity_document",
+        "e|col|public.member.activity_document"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "logo_original"
+      ],
+      "writes": [
+        "s|col|public.member.logo_original",
+        "n|col|public.member.logo_original",
+        "e|col|public.member.logo_original"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"authorized_representative\"]"
+    },
+    {
+      "op": "drop",
+      "key": "tables\u0000[\"public\",\"members_representatives\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"name\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"date_of_birth\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"phone\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"email\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"notes\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"active\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"created_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"updated_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"title\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"logo\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"address\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"phone\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"sector_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"founding_date\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"members_representatives\",\"member_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"members_representatives\",\"authorized_representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"members_representatives\",\"role\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"members_representatives\",\"created_at\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"employee_count\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"website\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"company_intro\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"activity_document\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"member\",\"logo_original\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"photo\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"authorized_representative\",\"po_positive_card_no\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"member\",\"member_sector_id_sector_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"members_representatives\",\"members_representatives_member_id_member_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"members_representatives\",\"members_representatives_jS7XE7ufS0nK_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"members_representatives\",\"members_representatives_pkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "pks\u0000[\"public\",\"authorized_representative\",\"authorized_representative_pkey\"]"
+    }
+  ]
+}
