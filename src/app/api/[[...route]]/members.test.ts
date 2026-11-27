@@ -2,7 +2,6 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import {
-  accrualTable,
   auditLogTable,
   collectionTable,
   committeeMemberTable,
@@ -80,9 +79,6 @@ afterAll(async () => {
     await db
       .delete(collectionTable)
       .where(inArray(collectionTable.memberId, createdIds));
-    await db
-      .delete(accrualTable)
-      .where(inArray(accrualTable.memberId, createdIds));
   }
   // their taahhütler go with them
   if (projectIds.length) {
@@ -836,16 +832,34 @@ describe("PATCH /api/members/:id", () => {
     await insertMember({ lastName: "Kalan", companyId: company.id });
     const title = `__test__ Yeni Yer ${suffix}`;
 
-    const { res } = await patchMember(a.id, { company: newCompany(title) });
+    const sector = await createSector(`__test__ Yeni Yer Sektörü ${suffix}`);
+
+    const { res } = await patchMember(a.id, {
+      company: newCompany(title, {
+        phone: "0384 333",
+        sectorId: String(sector.id),
+        website: "gizli-yeni.com",
+      }),
+      logo: pngFile(),
+    });
     expect(res.status).toBe(200);
 
     expect(await companyRow(company.id)).toBeDefined();
     const { body: member } = await getMember(a.id);
+    createdFiles.push(member.company.logo);
     expect(member.company.title).toBe(title);
     expect(member.company.id).not.toBe(company.id);
-    expect((await lastEntry("member", "update", a.id)).changes).toEqual([
+    // the new company is recorded whole on the member's entry
+    const entry = await lastEntry("member", "update", a.id);
+    expect(entry.changes).toEqual([
       { label: "Firma", from: company.title, to: title },
+      { label: "Firma: Ünvan", from: "—", to: title },
+      { label: "Firma: Telefon", from: "—", to: "0384 333" },
+      { label: "Firma: Sektör", from: "—", to: sector.name },
+      { label: "Firma: Web Sitesi", from: "—", to: "•••" },
+      { label: "Firma: Logo", from: "—", to: "Var" },
     ]);
+    expect(JSON.stringify(entry)).not.toContain("gizli-yeni");
   });
 
   it("leaves the company alone when company isn't sent", async () => {
@@ -1079,7 +1093,7 @@ describe("DELETE /api/members/:id", () => {
     expect(await companyRow(company.id)).toBeDefined();
   });
 
-  it("refuses to delete a member with tahsilat, taahhüt or tahakkuk rows", async () => {
+  it("refuses to delete a member with tahsilat or taahhüt rows", async () => {
     const member = await insertMember({ lastName: "Kayıtlı" });
     const [category] = await db
       .insert(parameterTable)
@@ -1127,16 +1141,11 @@ describe("DELETE /api/members/:id", () => {
       amount: "50.00",
       position: 0,
     });
-    await db.insert(accrualTable).values({
-      memberId: member.id,
-      categoryId: category.id,
-      amount: "10.00",
-      position: 1_000_000,
-    });
+    // tahakkuk rows: accruals.test.ts, which owns that table
     res = await remove();
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe(
-      "Bu üyeye ait 1 tahsilat, 1 taahhüt ve 1 tahakkuk var. Silmek yerine pasif yapabilirsiniz.",
+      "Bu üyeye ait 1 tahsilat ve 1 taahhüt var. Silmek yerine pasif yapabilirsiniz.",
     );
     expect((await getMember(member.id)).res.status).toBe(200);
 
@@ -1144,7 +1153,7 @@ describe("DELETE /api/members/:id", () => {
     expect(body.recordCounts).toEqual({
       collections: 1,
       pledges: 1,
-      accruals: 1,
+      accruals: 0,
     });
   });
 
@@ -1470,7 +1479,7 @@ describe("POST /api/members/:id/decision", () => {
   ) {
     const company = await insertCompany(FIRM);
     const member = await insertMember({
-      firstName: "Ayşe",
+      firstName: "__test__ Ayşe",
       lastName: "Yılmaz",
       status,
       email: MAIL,
@@ -1495,7 +1504,7 @@ describe("POST /api/members/:id/decision", () => {
     sectorId: null,
   };
 
-  const NOTICE_VALUES = { ad: "Ayşe Yılmaz", firma: FIRM };
+  const NOTICE_VALUES = { ad: "__test__ Ayşe Yılmaz", firma: FIRM };
 
   async function statusOf(id: number) {
     const [row] = await db
@@ -1560,7 +1569,7 @@ describe("POST /api/members/:id/decision", () => {
     ]);
 
     const [audit] = await auditRows(id, "application_accept");
-    expect(audit.entityLabel).toBe("Ayşe Yılmaz");
+    expect(audit.entityLabel).toBe("__test__ Ayşe Yılmaz");
     expect(audit.changes).toEqual([
       { label: "Durum", from: "Aday", to: "Aktif" },
       { label: "Üye Giriş Tarihi", from: "—", to: "15.01.2026" },

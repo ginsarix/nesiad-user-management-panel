@@ -395,6 +395,20 @@ async function applyCompanyFiles(
   return { changes, replaced };
 }
 
+/**
+ * A company made by a member's update, as "Firma: …" changes from "—" to
+ * each set field (personal ones as "•••"), so the one entry holds it whole
+ */
+async function createdCompanyChanges(
+  tx: Transaction,
+  companyId: number | null,
+): Promise<AuditChange[]> {
+  const company = await loadCompany(tx, companyId);
+  if (!company) return [];
+  const fields = await describeCompany(tx, company, "Firma: ");
+  return fields.flatMap((field) => change(field.label, null, field.value));
+}
+
 /** A recorded company deletion when the member was the company's last one */
 function removeIfOrphaned(
   tx: Transaction,
@@ -744,7 +758,11 @@ export const membersRoute = new Hono<AppEnv>()
           const oldCompany = await loadCompany(tx, existing.companyId);
           const applied = company
             ? await applyMemberCompany(tx, company, existing.companyId)
-            : { companyId: existing.companyId, changes: [] };
+            : {
+                companyId: existing.companyId,
+                changes: [],
+                createdCompany: false,
+              };
           const { companyId } = applied;
           const movedCompany = companyId !== existing.companyId;
 
@@ -816,8 +834,10 @@ export const membersRoute = new Hono<AppEnv>()
                   ...photoChangeSides(existing.photo, newPhoto),
                 )),
             ...companyChanges,
-            ...applied.changes,
-            ...companyFiles.changes,
+            // a company made by this save is recorded whole, files included
+            ...(applied.createdCompany
+              ? await createdCompanyChanges(tx, companyId)
+              : [...applied.changes, ...companyFiles.changes]),
             ...organizationChanges,
           ];
           if (changes.length > 0) {

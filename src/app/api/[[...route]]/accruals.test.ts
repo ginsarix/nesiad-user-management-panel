@@ -5,12 +5,13 @@ import {
   accrualTable,
   auditLogTable,
   authorizedRepresentativeTable,
+  memberTable,
   parameterTable,
 } from "@/db/schema";
 import type { ParameterKind } from "@/lib/parameters";
 import { accrualsRoute } from "./accruals";
+import { membersRoute } from "./members";
 import { parametersRoute } from "./parameters";
-import { representativesRoute } from "./representatives";
 
 // There is one Tahakkuk list and tests run on the development database:
 // keep its rows and put them back afterwards. Every test touching the
@@ -18,6 +19,7 @@ import { representativesRoute } from "./representatives";
 let savedRows: (typeof accrualTable.$inferSelect)[] = [];
 let lastAuditId = 0;
 const representativeIds: number[] = [];
+const memberIds: number[] = [];
 const parameterIds: number[] = [];
 const suffix = crypto.randomUUID().slice(0, 8);
 
@@ -44,6 +46,10 @@ afterAll(async () => {
         gt(auditLogTable.id, lastAuditId),
       ),
     );
+  // after the list is restored: their rows are gone by then
+  if (memberIds.length) {
+    await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
+  }
   if (representativeIds.length) {
     await db
       .delete(authorizedRepresentativeTable)
@@ -293,27 +299,34 @@ describe("Tahakkuk", () => {
 });
 
 describe("records a tahakkuk row holds on to", () => {
-  it("counts it on the yetkili and refuses to delete them", async () => {
-    const ali = await addRepresentative("Silinemez");
+  it("counts it on the member and refuses to delete them", async () => {
+    const [member] = await db
+      .insert(memberTable)
+      .values({ firstName: "__test__ Silinemez", lastName: suffix })
+      .returning({ id: memberTable.id });
+    memberIds.push(member.id);
     const aidat = await addParameter("Silinemez Aidat");
-    const res = await putAccruals(
-      [{ representativeId: ali.id, categoryId: aidat.id, amount: "1.00" }],
-      (await getAccruals()).version,
-    );
-    expect(res.status).toBe(200);
+    // straight into the table: the row only needs to exist
+    await db.insert(accrualTable).values({
+      memberId: member.id,
+      categoryId: aidat.id,
+      amount: "1.00",
+      position: 1_000_000,
+    });
 
-    const detail = await (
-      await representativesRoute.request(`/${ali.id}`)
-    ).json();
-    expect(detail.accrualCount).toBe(1);
+    const detail = await (await membersRoute.request(`/${member.id}`)).json();
+    expect(detail.recordCounts.accruals).toBe(1);
 
-    const del = await representativesRoute.request(`/${ali.id}`, {
+    const del = await membersRoute.request(`/${member.id}`, {
       method: "DELETE",
     });
     expect(del.status).toBe(409);
     expect(((await del.json()) as { error: string }).error).toBe(
-      "Bu yetkiliye ait 1 tahakkuk var. Silmek yerine pasif yapabilirsiniz.",
+      "Bu üyeye ait 1 tahakkuk var. Silmek yerine pasif yapabilirsiniz.",
     );
+
+    // afterAll puts the saved list back before the member goes
+    await db.delete(accrualTable).where(eq(accrualTable.memberId, member.id));
   });
 
   it("counts it on the Tahsilat Türü and refuses to delete it", async () => {
