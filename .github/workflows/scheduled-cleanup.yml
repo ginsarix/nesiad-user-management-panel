@@ -1,0 +1,93 @@
+# ONE-SHOT: merges and deploys the cleanup PR (branch cleanup/drop-yetkili-legacy,
+# which drops the old yetkili tables and columns) on a set date, so it isn't
+# forgotten.
+#
+# BEFORE MERGING THIS FILE: set TARGET_DATE below and the cron's day and month
+# to the day deploy 1 went live + 7 days. The cron fires every year on that
+# day; the date check keeps later years from doing anything. The values now
+# are placeholders.
+#
+# TO STOP IT: disable this workflow in the GitHub Actions tab, or close the
+# cleanup PR or turn it into a draft (the run then fails instead of merging).
+# The cleanup PR deletes this file.
+#
+# The run fails loudly (red, with a message) unless the PR is open, not a
+# draft, up to date with main, CLEAN and all checks passed. Run it by hand
+# from the Actions tab (workflow_dispatch) to skip the date check.
+
+name: Scheduled cleanup
+
+on:
+  schedule:
+    # 04:00 UTC = 07:00 Istanbul, on 7 December
+    - cron: "0 4 7 12 *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+env:
+  TARGET_DATE: "2026-12-07"
+  CLEANUP_BRANCH: "cleanup/drop-yetkili-legacy"
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge the cleanup PR and deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          # The cron repeats every year; only the target date acts
+          if [ "$EVENT" = "schedule" ] && [ "$(date -u +%F)" != "$TARGET_DATE" ]; then
+            echo "Today isn't $TARGET_DATE, nothing to do."
+            exit 0
+          fi
+
+          number=$(gh pr list --repo "$REPO" --head "$CLEANUP_BRANCH" \
+            --state open --json number --jq '.[0].number // empty')
+          [ -n "$number" ] || fail "Temizlik PR'ı bulunamadı: no open pull request from $CLEANUP_BRANCH."
+
+          pr=$(gh pr view "$number" --repo "$REPO" \
+            --json isDraft,mergeStateStatus,headRefOid,statusCheckRollup)
+
+          [ "$(jq -r '.isDraft' <<<"$pr")" = "false" ] \
+            || fail "PR #$number is a draft."
+
+          head_sha=$(jq -r '.headRefOid' <<<"$pr")
+          behind=$(gh api "repos/$REPO/compare/main...$head_sha" --jq '.behind_by')
+          [ "$behind" = "0" ] \
+            || fail "PR #$number is $behind commit(s) behind main; update the branch."
+
+          # Skipped and neutral are fine (the deploy job is skipped on PRs); a
+          # missing, running, failed or cancelled check is not
+          not_ok=$(jq -r '
+            [.statusCheckRollup[]
+              | select(((.conclusion // .state) | IN("SUCCESS", "SKIPPED", "NEUTRAL")) | not)
+              | "\(.name // .context): \(.conclusion // .state)"]
+            | join(", ")' <<<"$pr")
+          [ -z "$not_ok" ] || fail "PR #$number has checks that are not successful: $not_ok"
+          [ "$(jq '.statusCheckRollup | length' <<<"$pr")" -gt 0 ] \
+            || fail "PR #$number has no checks."
+
+          state=$(jq -r '.mergeStateStatus' <<<"$pr")
+          [ "$state" = "CLEAN" ] \
+            || fail "PR #$number mergeStateStatus is $state, not CLEAN."
+
+          gh pr merge "$number" --repo "$REPO" --merge --delete-branch
+
+          # A merge made with GITHUB_TOKEN doesn't trigger the push workflow,
+          # so start the deploy ourselves
+          gh workflow run deploy.yml --repo "$REPO" --ref main
+          echo "Merged PR #$number and started the deploy."
