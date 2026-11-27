@@ -177,7 +177,7 @@ export const cashAccountPeriodTable = pgTable(
 );
 
 /**
- * Taahhütler: what a yetkili pledged to a proje, Adet × Tutar. A record
+ * Taahhütler: what a member pledged to a proje, Adet × Tutar. A record
  * only; totals are computed where shown (src/lib/pledges.ts), never stored.
  */
 export const projectPledgeTable = pgTable(
@@ -188,14 +188,10 @@ export const projectPledgeTable = pgTable(
     projectId: integer("project_id")
       .notNull()
       .references(() => projectTable.id, { onDelete: "cascade" }),
-    // a yetkili with taahhütler can't be deleted
-    representativeId: integer("representative_id")
+    // a member with taahhütler can't be deleted
+    memberId: integer("member_id")
       .notNull()
-      .references(() => authorizedRepresentativeTable.id, {
-        onDelete: "restrict",
-      }),
-    // filled by the member conversion; no foreign key until then
-    memberId: integer("member_id"),
+      .references(() => memberTable.id, { onDelete: "restrict" }),
     // Adet
     quantity: integer().notNull(),
     // Tutar, per unit; TL as a string ("1250.50") like every amount
@@ -215,26 +211,22 @@ export const projectPledgeTable = pgTable(
     check("project_pledge_quantity_positive", sql`${table.quantity} >= 1`),
     check("project_pledge_amount_positive", sql`${table.amount} > 0`),
     index("project_pledge_project_idx").on(table.projectId, table.position),
-    index("project_pledge_representative_idx").on(table.representativeId),
+    index("project_pledge_member_idx").on(table.memberId),
   ],
 );
 
 /**
- * Tahakkuk: one association-wide list of yetkili × Tahakkuk Türü × Tutar rows,
+ * Tahakkuk: one association-wide list of member × Tahakkuk Türü × Tutar rows,
  * edited in place on its page. Totals are computed where shown, never stored.
  */
 export const accrualTable = pgTable(
   "accrual",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    // a yetkili with tahakkuk rows can't be deleted
-    representativeId: integer("representative_id")
+    // a member with tahakkuk rows can't be deleted
+    memberId: integer("member_id")
       .notNull()
-      .references(() => authorizedRepresentativeTable.id, {
-        onDelete: "restrict",
-      }),
-    // filled by the member conversion; no foreign key until then
-    memberId: integer("member_id"),
+      .references(() => memberTable.id, { onDelete: "restrict" }),
     // Tahakkuk Türü: a collection_category parameter (Tahsilat Türü); one in use
     // can't be deleted
     categoryId: integer("category_id")
@@ -256,24 +248,20 @@ export const accrualTable = pgTable(
   (table) => [
     check("accrual_amount_positive", sql`${table.amount} > 0`),
     index("accrual_position_idx").on(table.position),
-    index("accrual_representative_idx").on(table.representativeId),
+    index("accrual_member_idx").on(table.memberId),
     index("accrual_category_idx").on(table.categoryId),
   ],
 );
 
-/** Tahsilatlar: what the association collected from a yetkili */
+/** Tahsilatlar: what the association collected from a member */
 export const collectionTable = pgTable(
   "collection",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    // a yetkili, parameter or proje with tahsilatlar can't be deleted
-    representativeId: integer("representative_id")
+    // a member, parameter or proje with tahsilatlar can't be deleted
+    memberId: integer("member_id")
       .notNull()
-      .references(() => authorizedRepresentativeTable.id, {
-        onDelete: "restrict",
-      }),
-    // filled by the member conversion; no foreign key until then
-    memberId: integer("member_id"),
+      .references(() => memberTable.id, { onDelete: "restrict" }),
     // Tahsilat Türü: a collection_category parameter
     categoryId: integer("category_id")
       .notNull()
@@ -302,7 +290,7 @@ export const collectionTable = pgTable(
   (table) => [
     check("collection_amount_positive", sql`${table.amount} > 0`),
     index("collection_date_idx").on(table.date.desc(), table.id.desc()),
-    index("collection_representative_idx").on(table.representativeId),
+    index("collection_member_idx").on(table.memberId),
     index("collection_project_idx").on(table.projectId),
     index("collection_cash_account_idx").on(table.cashAccountId),
   ],
@@ -423,8 +411,9 @@ export const memberTable = pgTable(
     legacyFoundingDate: date("founding_date", { mode: "string" }),
 
     // the person; their company (if any) is the company row
-    firstName: text("first_name"),
-    lastName: text("last_name"),
+    firstName: text("first_name").notNull(),
+    // "" when the name was one word
+    lastName: text("last_name").notNull(),
     // Görev at the company
     companyRole: text("company_role"),
     // a JPEG the uploader's browser shrank to 800px; stored like logos
@@ -533,7 +522,7 @@ export const membersRepresentativesTable = pgTable(
 
 /**
  * One Organizasyon page's tables (src/lib/organizations.ts): its groups
- * (İsim) and the people in each (yetkili + Dernek Görevi). Each page gets
+ * (İsim) and the people in each (member + Dernek Görevi). Each page gets
  * its own pair on purpose, since staff may want one handled differently
  * later; to special-case one, replace its call below with explicit tables.
  */
@@ -557,7 +546,7 @@ function organizationTables(name: string) {
     (table) => [unique(`${name}_name_key_unique`).on(table.nameKey)],
   );
 
-  // no unique (group, yetkili): the same yetkili may hold two görevler
+  // no unique (group, member): the same member may hold two görevler
   const person = pgTable(
     `${name}_member`,
     {
@@ -565,13 +554,10 @@ function organizationTables(name: string) {
       groupId: integer("group_id")
         .notNull()
         .references(() => group.id, { onDelete: "cascade" }),
-      // deleting a yetkili takes them out of their groups
-      representativeId: integer("representative_id")
+      // deleting a member takes them out of their groups
+      memberId: integer("member_id")
         .notNull()
-        .references(() => authorizedRepresentativeTable.id, {
-          onDelete: "cascade",
-        }),
-      memberId: integer("member_id"),
+        .references(() => memberTable.id, { onDelete: "cascade" }),
       // a Dernek Görevi (association_role parameter); one in use can't be deleted
       roleId: integer("role_id")
         .notNull()
@@ -581,7 +567,7 @@ function organizationTables(name: string) {
     },
     (table) => [
       index(`${name}_member_group_idx`).on(table.groupId),
-      index(`${name}_member_representative_idx`).on(table.representativeId),
+      index(`${name}_member_member_idx`).on(table.memberId),
       index(`${name}_member_role_idx`).on(table.roleId),
     ],
   );
@@ -774,8 +760,9 @@ export const smsSendTable = pgTable(
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     kind: text().$type<"founding" | "birthday">().notNull(),
-    // member id for "founding", yetkili id for "birthday"; no foreign key, so
-    // the log outlives a deleted member
+    // company id for "founding", member id for "birthday" (before the member
+    // conversion: member and yetkili ids); no foreign key, so the log
+    // outlives a deleted member
     contactId: integer("contact_id").notNull(),
     contactName: text("contact_name").notNull(),
     // the Istanbul day it's sent for
@@ -830,7 +817,7 @@ export const collectionNoticeSettingsTable = pgTable(
   "collection_notice_settings",
   {
     id: integer().primaryKey().default(1),
-    // to the yetkili the tahsilat is from
+    // to the member the tahsilat is from (columns named before the conversion)
     representativeSms: text("representative_sms").notNull(),
     representativeEmailSubject: text("representative_email_subject").notNull(),
     representativeEmailBody: text("representative_email_body").notNull(),

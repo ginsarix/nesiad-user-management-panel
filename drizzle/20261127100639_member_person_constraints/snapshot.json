@@ -1,0 +1,1519 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "5a533a6f-0b14-4aa6-9785-46ae60614ee6",
+  "prevIds": [
+    "f8b3571a-66e0-4106-9321-30bfb998a55b"
+  ],
+  "footprints": [
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "accrual"
+      ],
+      "writes": [
+        "s|fk|public.accrual.accrual_representative_id_authorized_representative_id_fkey",
+        "n|fk|public.accrual.accrual_representative_id_authorized_representative_id_fkey",
+        "e|fk|public.accrual.accrual_representative_id_authorized_representative_id_fkey",
+        "n|con|public.accrual.accrual_representative_id_authorized_representative_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "e|col|public.accrual.representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_representative_id_authorized_representative_id_fkey",
+        "n|fk|public.collection.collection_representative_id_authorized_representative_id_fkey",
+        "e|fk|public.collection.collection_representative_id_authorized_representative_id_fkey",
+        "n|con|public.collection.collection_representative_id_authorized_representative_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "e|col|public.collection.representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "committee_member"
+      ],
+      "writes": [
+        "s|fk|public.committee_member.committee_member_p5rmqB3xW1Vo_fkey",
+        "n|fk|public.committee_member.committee_member_p5rmqB3xW1Vo_fkey",
+        "e|fk|public.committee_member.committee_member_p5rmqB3xW1Vo_fkey",
+        "n|con|public.committee_member.committee_member_p5rmqB3xW1Vo_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "e|col|public.committee_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "disciplinary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.disciplinary_board_member.disciplinary_board_member_smDewAypnqY5_fkey",
+        "n|fk|public.disciplinary_board_member.disciplinary_board_member_smDewAypnqY5_fkey",
+        "e|fk|public.disciplinary_board_member.disciplinary_board_member_smDewAypnqY5_fkey",
+        "n|con|public.disciplinary_board_member.disciplinary_board_member_smDewAypnqY5_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "e|col|public.disciplinary_board_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "honorary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.honorary_board_member.honorary_board_member_mx437RuDfwmI_fkey",
+        "n|fk|public.honorary_board_member.honorary_board_member_mx437RuDfwmI_fkey",
+        "e|fk|public.honorary_board_member.honorary_board_member_mx437RuDfwmI_fkey",
+        "n|con|public.honorary_board_member.honorary_board_member_mx437RuDfwmI_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "e|col|public.honorary_board_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "management_board_member"
+      ],
+      "writes": [
+        "s|fk|public.management_board_member.management_board_member_U4uqycajnB47_fkey",
+        "n|fk|public.management_board_member.management_board_member_U4uqycajnB47_fkey",
+        "e|fk|public.management_board_member.management_board_member_U4uqycajnB47_fkey",
+        "n|con|public.management_board_member.management_board_member_U4uqycajnB47_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "e|col|public.management_board_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_pledge"
+      ],
+      "writes": [
+        "s|fk|public.project_pledge.project_pledge_l52OHdWenEY3_fkey",
+        "n|fk|public.project_pledge.project_pledge_l52OHdWenEY3_fkey",
+        "e|fk|public.project_pledge.project_pledge_l52OHdWenEY3_fkey",
+        "n|con|public.project_pledge.project_pledge_l52OHdWenEY3_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.project_pledge",
+        "n|sch|public",
+        "e|col|public.project_pledge.representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "supervisory_board_member"
+      ],
+      "writes": [
+        "s|fk|public.supervisory_board_member.supervisory_board_member_VR4jv2rItHHf_fkey",
+        "n|fk|public.supervisory_board_member.supervisory_board_member_VR4jv2rItHHf_fkey",
+        "e|fk|public.supervisory_board_member.supervisory_board_member_VR4jv2rItHHf_fkey",
+        "n|con|public.supervisory_board_member.supervisory_board_member_VR4jv2rItHHf_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "e|col|public.supervisory_board_member.representative_id"
+      ]
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "accrual",
+        "accrual_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.accrual_representative_idx",
+        "n|idx|public.accrual_representative_idx",
+        "e|idx|public.accrual_representative_idx",
+        "n|rel|public.accrual_representative_idx"
+      ],
+      "reads": [
+        "e|tbl|public.accrual",
+        "n|sch|public",
+        "e|col|public.accrual.representative_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "collection",
+        "collection_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.collection_representative_idx",
+        "n|idx|public.collection_representative_idx",
+        "e|idx|public.collection_representative_idx",
+        "n|rel|public.collection_representative_idx"
+      ],
+      "reads": [
+        "e|tbl|public.collection",
+        "n|sch|public",
+        "e|col|public.collection.representative_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "committee_member",
+        "committee_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.committee_member_representative_idx",
+        "n|idx|public.committee_member_representative_idx",
+        "e|idx|public.committee_member_representative_idx",
+        "n|rel|public.committee_member_representative_idx"
+      ],
+      "reads": [
+        "e|tbl|public.committee_member",
+        "n|sch|public",
+        "e|col|public.committee_member.representative_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "disciplinary_board_member",
+        "disciplinary_board_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.disciplinary_board_member_representative_idx",
+        "n|idx|public.disciplinary_board_member_representative_idx",
+        "e|idx|public.disciplinary_board_member_representative_idx",
+        "n|rel|public.disciplinary_board_member_representative_idx"
+      ],
+      "reads": [
+        "e|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "e|col|public.disciplinary_board_member.representative_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "honorary_board_member",
+        "honorary_board_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.honorary_board_member_representative_idx",
+        "n|idx|public.honorary_board_member_representative_idx",
+        "e|idx|public.honorary_board_member_representative_idx",
+        "n|rel|public.honorary_board_member_representative_idx"
+      ],
+      "reads": [
+        "e|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "e|col|public.honorary_board_member.representative_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "management_board_member",
+        "management_board_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.management_board_member_representative_idx",
+        "n|idx|public.management_board_member_representative_idx",
+        "e|idx|public.management_board_member_representative_idx",
+        "n|rel|public.management_board_member_representative_idx"
+      ],
+      "reads": [
+        "e|tbl|public.management_board_member",
+        "n|sch|public",
+        "e|col|public.management_board_member.representative_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_pledge",
+        "project_pledge_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.project_pledge_representative_idx",
+        "n|idx|public.project_pledge_representative_idx",
+        "e|idx|public.project_pledge_representative_idx",
+        "n|rel|public.project_pledge_representative_idx"
+      ],
+      "reads": [
+        "e|tbl|public.project_pledge",
+        "n|sch|public",
+        "e|col|public.project_pledge.representative_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "supervisory_board_member",
+        "supervisory_board_member_representative_idx"
+      ],
+      "writes": [
+        "s|idx|public.supervisory_board_member_representative_idx",
+        "n|idx|public.supervisory_board_member_representative_idx",
+        "e|idx|public.supervisory_board_member_representative_idx",
+        "n|rel|public.supervisory_board_member_representative_idx"
+      ],
+      "reads": [
+        "e|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "e|col|public.supervisory_board_member.representative_id"
+      ],
+      "sharedWrites": []
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "committee_member",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.committee_member.representative_id",
+        "n|col|public.committee_member.representative_id",
+        "e|col|public.committee_member.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "disciplinary_board_member",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.disciplinary_board_member.representative_id",
+        "n|col|public.disciplinary_board_member.representative_id",
+        "e|col|public.disciplinary_board_member.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "management_board_member",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.management_board_member.representative_id",
+        "n|col|public.management_board_member.representative_id",
+        "e|col|public.management_board_member.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "supervisory_board_member",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.supervisory_board_member.representative_id",
+        "n|col|public.supervisory_board_member.representative_id",
+        "e|col|public.supervisory_board_member.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.collection.representative_id",
+        "n|col|public.collection.representative_id",
+        "e|col|public.collection.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_pledge",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.project_pledge.representative_id",
+        "n|col|public.project_pledge.representative_id",
+        "e|col|public.project_pledge.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.project_pledge",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "accrual",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.accrual.representative_id",
+        "n|col|public.accrual.representative_id",
+        "e|col|public.accrual.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "honorary_board_member",
+        "representative_id"
+      ],
+      "writes": [
+        "s|col|public.honorary_board_member.representative_id",
+        "n|col|public.honorary_board_member.representative_id",
+        "e|col|public.honorary_board_member.representative_id"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "first_name"
+      ],
+      "writes": [
+        "s|colprop|public.member.first_name.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.member.first_name"
+      ],
+      "sqlHash": "be247f0706daca50"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "member",
+        "last_name"
+      ],
+      "writes": [
+        "s|colprop|public.member.last_name.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.member.last_name"
+      ],
+      "sqlHash": "e635cd2617ff68ad"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "accrual",
+        "member_id"
+      ],
+      "writes": [
+        "s|colprop|public.accrual.member_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "n|col|public.accrual.member_id"
+      ],
+      "sqlHash": "15acf6cce5017597"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "collection",
+        "member_id"
+      ],
+      "writes": [
+        "s|colprop|public.collection.member_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|col|public.collection.member_id"
+      ],
+      "sqlHash": "ad848ee6b51b6248"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "committee_member",
+        "member_id"
+      ],
+      "writes": [
+        "s|colprop|public.committee_member.member_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|col|public.committee_member.member_id"
+      ],
+      "sqlHash": "de60c1c77d946574"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "disciplinary_board_member",
+        "member_id"
+      ],
+      "writes": [
+        "s|colprop|public.disciplinary_board_member.member_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.member_id"
+      ],
+      "sqlHash": "0dab22b810e8e9a0"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "honorary_board_member",
+        "member_id"
+      ],
+      "writes": [
+        "s|colprop|public.honorary_board_member.member_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.member_id"
+      ],
+      "sqlHash": "0b67d24ae3037b1d"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "management_board_member",
+        "member_id"
+      ],
+      "writes": [
+        "s|colprop|public.management_board_member.member_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|col|public.management_board_member.member_id"
+      ],
+      "sqlHash": "7c58df439eaaa264"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "project_pledge",
+        "member_id"
+      ],
+      "writes": [
+        "s|colprop|public.project_pledge.member_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.project_pledge",
+        "n|sch|public",
+        "n|col|public.project_pledge.member_id"
+      ],
+      "sqlHash": "46e007d97bd84d3d"
+    },
+    {
+      "statementType": "alter_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "supervisory_board_member",
+        "member_id"
+      ],
+      "writes": [
+        "s|colprop|public.supervisory_board_member.member_id.notNull"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.member_id"
+      ],
+      "sqlHash": "7c77d59096604aee"
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "accrual",
+        "accrual_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.accrual_member_idx",
+        "n|idx|public.accrual_member_idx",
+        "e|idx|public.accrual_member_idx",
+        "n|rel|public.accrual_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "n|col|public.accrual.member_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "collection",
+        "collection_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.collection_member_idx",
+        "n|idx|public.collection_member_idx",
+        "e|idx|public.collection_member_idx",
+        "n|rel|public.collection_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|col|public.collection.member_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "committee_member",
+        "committee_member_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.committee_member_member_idx",
+        "n|idx|public.committee_member_member_idx",
+        "e|idx|public.committee_member_member_idx",
+        "n|rel|public.committee_member_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|col|public.committee_member.member_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "disciplinary_board_member",
+        "disciplinary_board_member_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.disciplinary_board_member_member_idx",
+        "n|idx|public.disciplinary_board_member_member_idx",
+        "e|idx|public.disciplinary_board_member_member_idx",
+        "n|rel|public.disciplinary_board_member_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.member_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "honorary_board_member",
+        "honorary_board_member_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.honorary_board_member_member_idx",
+        "n|idx|public.honorary_board_member_member_idx",
+        "e|idx|public.honorary_board_member_member_idx",
+        "n|rel|public.honorary_board_member_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.member_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "management_board_member",
+        "management_board_member_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.management_board_member_member_idx",
+        "n|idx|public.management_board_member_member_idx",
+        "e|idx|public.management_board_member_member_idx",
+        "n|rel|public.management_board_member_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|col|public.management_board_member.member_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "project_pledge",
+        "project_pledge_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.project_pledge_member_idx",
+        "n|idx|public.project_pledge_member_idx",
+        "e|idx|public.project_pledge_member_idx",
+        "n|rel|public.project_pledge_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.project_pledge",
+        "n|sch|public",
+        "n|col|public.project_pledge.member_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "supervisory_board_member",
+        "supervisory_board_member_member_idx"
+      ],
+      "writes": [
+        "s|idx|public.supervisory_board_member_member_idx",
+        "n|idx|public.supervisory_board_member_member_idx",
+        "e|idx|public.supervisory_board_member_member_idx",
+        "n|rel|public.supervisory_board_member_member_idx"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.member_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "accrual"
+      ],
+      "writes": [
+        "s|fk|public.accrual.accrual_member_id_member_id_fkey",
+        "n|fk|public.accrual.accrual_member_id_member_id_fkey",
+        "e|fk|public.accrual.accrual_member_id_member_id_fkey",
+        "n|con|public.accrual.accrual_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.accrual",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.accrual.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "collection"
+      ],
+      "writes": [
+        "s|fk|public.collection.collection_member_id_member_id_fkey",
+        "n|fk|public.collection.collection_member_id_member_id_fkey",
+        "e|fk|public.collection.collection_member_id_member_id_fkey",
+        "n|con|public.collection.collection_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.collection",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.collection.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "committee_member"
+      ],
+      "writes": [
+        "s|fk|public.committee_member.committee_member_member_id_member_id_fkey",
+        "n|fk|public.committee_member.committee_member_member_id_member_id_fkey",
+        "e|fk|public.committee_member.committee_member_member_id_member_id_fkey",
+        "n|con|public.committee_member.committee_member_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.committee_member",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.committee_member.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "disciplinary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.disciplinary_board_member.disciplinary_board_member_member_id_member_id_fkey",
+        "n|fk|public.disciplinary_board_member.disciplinary_board_member_member_id_member_id_fkey",
+        "e|fk|public.disciplinary_board_member.disciplinary_board_member_member_id_member_id_fkey",
+        "n|con|public.disciplinary_board_member.disciplinary_board_member_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.disciplinary_board_member",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.disciplinary_board_member.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "honorary_board_member"
+      ],
+      "writes": [
+        "s|fk|public.honorary_board_member.honorary_board_member_member_id_member_id_fkey",
+        "n|fk|public.honorary_board_member.honorary_board_member_member_id_member_id_fkey",
+        "e|fk|public.honorary_board_member.honorary_board_member_member_id_member_id_fkey",
+        "n|con|public.honorary_board_member.honorary_board_member_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.honorary_board_member",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.honorary_board_member.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "management_board_member"
+      ],
+      "writes": [
+        "s|fk|public.management_board_member.management_board_member_member_id_member_id_fkey",
+        "n|fk|public.management_board_member.management_board_member_member_id_member_id_fkey",
+        "e|fk|public.management_board_member.management_board_member_member_id_member_id_fkey",
+        "n|con|public.management_board_member.management_board_member_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.management_board_member",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.management_board_member.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "project_pledge"
+      ],
+      "writes": [
+        "s|fk|public.project_pledge.project_pledge_member_id_member_id_fkey",
+        "n|fk|public.project_pledge.project_pledge_member_id_member_id_fkey",
+        "e|fk|public.project_pledge.project_pledge_member_id_member_id_fkey",
+        "n|con|public.project_pledge.project_pledge_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.project_pledge",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.project_pledge.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "supervisory_board_member"
+      ],
+      "writes": [
+        "s|fk|public.supervisory_board_member.supervisory_board_member_member_id_member_id_fkey",
+        "n|fk|public.supervisory_board_member.supervisory_board_member_member_id_member_id_fkey",
+        "e|fk|public.supervisory_board_member.supervisory_board_member_member_id_member_id_fkey",
+        "n|con|public.supervisory_board_member.supervisory_board_member_member_id_member_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.supervisory_board_member",
+        "n|sch|public",
+        "n|tbl|public.member",
+        "n|sch|public",
+        "n|col|public.supervisory_board_member.member_id",
+        "n|col|public.member.id",
+        "e|uniqueness|public.member.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "accrual_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_pledge",
+        "name": "project_pledge_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_member_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "member_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "accrual",
+        "name": "accrual_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "collection",
+        "name": "collection_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "committee_member",
+        "name": "committee_member_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "disciplinary_board_member",
+        "name": "disciplinary_board_member_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "honorary_board_member",
+        "name": "honorary_board_member_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "management_board_member",
+        "name": "management_board_member_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "project_pledge",
+        "name": "project_pledge_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "RESTRICT",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "supervisory_board_member",
+        "name": "supervisory_board_member_member_id_member_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "member_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "member",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"committee_member\",\"representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"disciplinary_board_member\",\"representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"management_board_member\",\"representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"supervisory_board_member\",\"representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"collection\",\"representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"project_pledge\",\"representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"accrual\",\"representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "columns\u0000[\"public\",\"honorary_board_member\",\"representative_id\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"committee_member_representative_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"disciplinary_board_member_representative_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"management_board_member_representative_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"supervisory_board_member_representative_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"collection_representative_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"project_pledge_representative_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"accrual_representative_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"honorary_board_member_representative_idx\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"committee_member\",\"committee_member_p5rmqB3xW1Vo_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"disciplinary_board_member\",\"disciplinary_board_member_smDewAypnqY5_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"management_board_member\",\"management_board_member_U4uqycajnB47_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"supervisory_board_member\",\"supervisory_board_member_VR4jv2rItHHf_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"collection\",\"collection_representative_id_authorized_representative_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"project_pledge\",\"project_pledge_l52OHdWenEY3_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"accrual\",\"accrual_representative_id_authorized_representative_id_fkey\"]"
+    },
+    {
+      "op": "drop",
+      "key": "fks\u0000[\"public\",\"honorary_board_member\",\"honorary_board_member_mx437RuDfwmI_fkey\"]"
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"member\",\"first_name\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"member\",\"last_name\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"accrual\",\"member_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"collection\",\"member_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"committee_member\",\"member_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"disciplinary_board_member\",\"member_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"honorary_board_member\",\"member_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"management_board_member\",\"member_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"project_pledge\",\"member_id\"]",
+      "set": {
+        "notNull": true
+      }
+    },
+    {
+      "op": "alter",
+      "key": "columns\u0000[\"public\",\"supervisory_board_member\",\"member_id\"]",
+      "set": {
+        "notNull": true
+      }
+    }
+  ]
+}

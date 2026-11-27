@@ -31,6 +31,8 @@ const RECORD_ACTIONS: Record<string, Record<string, string>> = {
     application_reject: "Başvuru reddedildi",
     application_reopen: "Başvuru tekrar adaya alındı",
     application_notice: "Başvuru bildirimi gönderildi",
+    // the one-time migration that turned yetkililer into members
+    conversion: "Dönüştürme",
   },
   representative: {
     create: "Yetkili eklendi",
