@@ -1,12 +1,17 @@
-import { and, eq, inArray, max } from "drizzle-orm";
-import type { Transaction } from "@/db";
-import { parameterTable } from "@/db/schema";
+import { and, asc, eq, inArray, max } from "drizzle-orm";
+import { db, type Executor, type Transaction } from "@/db";
+import { memberTable, parameterTable } from "@/db/schema";
 import { type AuditActor, recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
-import { ORGANIZATIONS, organizationPeopleText } from "@/lib/organizations";
-import type { OrganizationRowInput } from "@/lib/zod-schemas/authorized-representative";
+import { memberName } from "@/lib/member-name";
 import {
-  loadOrganizationGroup,
+  ORGANIZATION_INFO,
+  ORGANIZATIONS,
+  type Organization,
+} from "@/lib/organizations";
+import { compareTr } from "@/lib/turkish";
+import type { OrganizationRowInput } from "@/lib/zod-schemas/member";
+import {
   ORGANIZATION_TABLES,
   type OrganizationTables,
 } from "./organization-queries";
@@ -26,6 +31,107 @@ export class StaleOrganizationsError extends Error {
   }
 }
 
+/**
+ * The group's name and its "Ad Soyad: Görev, …" text in saved order, as the
+ * group's own page records it; null when the group is gone
+ */
+async function groupPeopleText(
+  executor: Executor,
+  { group, person }: OrganizationTables,
+  id: number,
+) {
+  const [found] = await executor
+    .select({ name: group.name })
+    .from(group)
+    .where(eq(group.id, id));
+  if (!found) return null;
+
+  const people = await executor
+    .select({
+      firstName: memberTable.firstName,
+      lastName: memberTable.lastName,
+      roleName: parameterTable.name,
+    })
+    .from(person)
+    .innerJoin(memberTable, eq(person.memberId, memberTable.id))
+    .innerJoin(parameterTable, eq(person.roleId, parameterTable.id))
+    .where(eq(person.groupId, id))
+    .orderBy(asc(person.position), asc(person.id));
+
+  return {
+    name: found.name,
+    text:
+      people.map((p) => `${memberName(p)}: ${p.roleName}`).join(", ") || "—",
+  };
+}
+
+export type MemberOrganization = {
+  organization: Organization;
+  /** The group row's id; unique only within its organization */
+  rowId: number;
+  groupId: number;
+  groupName: string;
+  roleId: number;
+  role: string;
+};
+
+/**
+ * Every group row the member is in, one entry per row (a member listed
+ * twice in a group appears twice): by page, then group name, then the
+ * row's place in the group.
+ */
+export async function selectMemberOrganizations(
+  memberId: number,
+  executor: Executor = db,
+): Promise<MemberOrganization[]> {
+  // one page at a time: inside a transaction they share one connection
+  const all: MemberOrganization[] = [];
+  for (const organization of ORGANIZATIONS) {
+    const { group, person } = ORGANIZATION_TABLES[organization];
+    const rows = await executor
+      .select({
+        rowId: person.id,
+        groupId: group.id,
+        groupName: group.name,
+        roleId: person.roleId,
+        role: parameterTable.name,
+        position: person.position,
+      })
+      .from(person)
+      .innerJoin(group, eq(person.groupId, group.id))
+      .innerJoin(parameterTable, eq(person.roleId, parameterTable.id))
+      .where(eq(person.memberId, memberId));
+
+    all.push(
+      ...rows
+        .toSorted(
+          (a, b) =>
+            compareTr(a.groupName, b.groupName) ||
+            a.groupId - b.groupId ||
+            a.position - b.position,
+        )
+        .map(({ position: _, ...row }) => ({ organization, ...row })),
+    );
+  }
+  return all;
+}
+
+/** "Komiteler › Eğitim Komitesi: Başkan, …" for the audit log */
+export async function memberOrganizationsText(
+  executor: Executor,
+  memberId: number,
+) {
+  const rows = await selectMemberOrganizations(memberId, executor);
+  return (
+    rows
+      .map(
+        (row) =>
+          `${ORGANIZATION_INFO[row.organization].title} › ${row.groupName}: ${row.role}`,
+      )
+      .join(", ") || "—"
+  );
+}
+
 /** The position after the group's last row */
 async function nextPosition(
   tx: Transaction,
@@ -40,26 +146,27 @@ async function nextPosition(
 }
 
 /**
- * Makes `rows` the yetkili's Organizasyon group rows, from the yetkili form.
+ * Makes `rows` the member's Organizasyon group rows, from the member form.
  * Unlike the group form, which saves a whole group, this touches only the
- * yetkili's own rows, so everyone else keeps their place: a row the form
+ * member's own rows, so everyone else keeps their place: a row the form
  * kept (`rowId`) stays where it is (a new görev is set in place), a new row
  * or one moved to another group goes to the end of that group, and rows
  * left out are removed. Each group that changed gets its own audit entry,
  * the same "Kişiler" change its page would record.
  *
- * `active` is the yetkili's state after the save: a Pasif yetkili can't be
- * put in a group they aren't already in, as on the group form.
+ * `active` is whether the member is Aktif after the save: anyone else
+ * (Pasif, Aday, Reddedildi) can't be put in a group they aren't already in,
+ * as on the group form.
  */
-export async function syncRepresentativeOrganizations(
+export async function syncMemberOrganizations(
   tx: Transaction,
   {
-    representativeId,
+    memberId,
     rows,
     active,
     actor,
   }: {
-    representativeId: number;
+    memberId: number;
     rows: OrganizationRowInput[];
     active: boolean;
     actor: AuditActor;
@@ -94,7 +201,7 @@ export async function syncRepresentativeOrganizations(
         roleId: person.roleId,
       })
       .from(person)
-      .where(eq(person.representativeId, representativeId));
+      .where(eq(person.memberId, memberId));
     if (wanted.length === 0 && current.length === 0) continue;
 
     const currentById = new Map(current.map((row) => [row.id, row]));
@@ -121,7 +228,7 @@ export async function syncRepresentativeOrganizations(
     const currentGroupIds = new Set(current.map((row) => row.groupId));
     if (!active && wanted.some((row) => !currentGroupIds.has(row.groupId))) {
       throw new InvalidOrganizationsError(
-        "Pasif yetkili yeni bir gruba eklenemez",
+        "Aktif olmayan üye yeni bir gruba eklenemez",
       );
     }
 
@@ -146,8 +253,8 @@ export async function syncRepresentativeOrganizations(
 
     const before = new Map<number, string>();
     for (const groupId of touchedGroupIds) {
-      const loaded = await loadOrganizationGroup(tx, tables, groupId);
-      before.set(groupId, organizationPeopleText(loaded?.people ?? []));
+      const loaded = await groupPeopleText(tx, tables, groupId);
+      before.set(groupId, loaded?.text ?? "—");
     }
 
     if (removed.length > 0) {
@@ -175,20 +282,16 @@ export async function syncRepresentativeOrganizations(
     for (const row of added) {
       await tx.insert(person).values({
         groupId: row.groupId,
-        representativeId,
+        memberId,
         roleId: row.roleId,
         position: await nextPosition(tx, tables, row.groupId),
       });
     }
 
     for (const groupId of touchedGroupIds) {
-      const loaded = await loadOrganizationGroup(tx, tables, groupId);
+      const loaded = await groupPeopleText(tx, tables, groupId);
       if (!loaded) continue;
-      const changes = change(
-        "Kişiler",
-        before.get(groupId),
-        organizationPeopleText(loaded.people),
-      );
+      const changes = change("Kişiler", before.get(groupId), loaded.text);
       if (changes.length === 0) continue;
       await recordAudit(tx, {
         actor,

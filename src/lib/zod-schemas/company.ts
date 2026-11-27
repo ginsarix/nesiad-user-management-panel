@@ -1,10 +1,30 @@
 import { z } from "zod";
-import { normalizeWebsite } from "./member";
 import {
   optionalDisplayDateSchema,
   optionalIsoDateSchema,
   optionalTextSchema,
 } from "./shared";
+
+/**
+ * A web address as an http(s) URL, adding https:// when no scheme is typed.
+ * Null for anything else (javascript:, mailto:, garbage), so a stored value
+ * is always safe to use as a link.
+ */
+export function normalizeWebsite(value: string): string | null {
+  const text = value.trim();
+  if (!text) return null;
+
+  // "ornek.com:8080" has a port, not a scheme
+  const hasScheme = /^[a-z][a-z0-9+.-]*:(?!\d)/i.test(text);
+  const withScheme = hasScheme ? text : `https://${text}`;
+
+  try {
+    const { protocol } = new URL(withScheme);
+    return protocol === "http:" || protocol === "https:" ? withScheme : null;
+  } catch {
+    return null;
+  }
+}
 
 const titleSchema = z.string().trim().min(1, "Ünvan boş olamaz");
 

@@ -23,10 +23,7 @@ import {
 } from "@/lib/fetches/representative";
 import { invalidateSmsQueries } from "@/lib/fetches/sms";
 import { listHref } from "@/lib/list-href";
-import {
-  hasRepresentativeRecords,
-  representativeRecordsText,
-} from "@/lib/representative-records";
+import { hasMemberRecords, memberRecordsText } from "@/lib/member-records";
 
 export function DeleteRepresentativeButton({
   representative,
@@ -78,14 +75,14 @@ export function DeleteRepresentativeButton({
         }
       />
       <AlertDialogContent>
-        {hasRepresentativeRecords(counts) ? (
+        {hasMemberRecords(counts) ? (
           <>
             <AlertDialogHeader>
               <AlertDialogTitle>Bu yetkili silinemez</AlertDialogTitle>
               <AlertDialogDescription>
                 “{representative.name}” adlı yetkiliye ait{" "}
-                {representativeRecordsText(counts)} var. Silmek yerine yetkiliyi
-                pasif yapabilirsiniz.
+                {memberRecordsText(counts)} var. Silmek yerine yetkiliyi pasif
+                yapabilirsiniz.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

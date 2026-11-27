@@ -1,234 +1,448 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, eq, getColumns } from "drizzle-orm";
-import { fileTypeFromBuffer } from "file-type";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { db, type Executor } from "@/db";
+import { db, type Executor, type Transaction } from "@/db";
 import {
-  authorizedRepresentativeTable,
-  membersRepresentativesTable,
+  type AuditChange,
+  type AuditField,
+  accrualTable,
+  collectionTable,
+  companyTable,
   memberTable,
+  projectPledgeTable,
   sectorTable,
 } from "@/db/schema";
 import { sendApplicationNotices } from "@/lib/application-notices";
-import { recordAudit } from "@/lib/audit";
+import { type AuditActor, recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
   change,
   describeFields,
+  describeRedacted,
   diffFields,
   diffRedacted,
   formatAudit,
 } from "@/lib/audit-diff";
-import { createFile, deleteFiles } from "@/lib/file-storage";
-import { logoOriginalKind } from "@/lib/logo-original";
+import { deleteFiles } from "@/lib/file-storage";
+import { memberName } from "@/lib/member-name";
+import {
+  hasMemberRecords,
+  type MemberRecordCounts,
+  memberRecordsText,
+} from "@/lib/member-records";
 import { isEstablished, type MemberStatus } from "@/lib/member-status";
 import { maskNationalId } from "@/lib/national-id";
 import { NOTICE_OUTCOME_LABELS } from "@/lib/notice-outcome";
 import { netgsmClient } from "@/lib/sms/netgsm";
-import {
-  DOCUMENT_MIME_TYPES,
-  storeLogoOriginal,
-  storeUpload,
-} from "@/lib/uploads";
+import { compareTr } from "@/lib/turkish";
 import {
   createMemberSchema,
-  MAX_REQUEST_SIZE,
+  MAX_MEMBER_REQUEST_SIZE,
   updateMemberSchema,
 } from "@/lib/zod-schemas/member";
 import {
   type MemberDecision,
   memberDecisionSchema,
 } from "@/lib/zod-schemas/member-decision";
+import {
+  applyMemberCompany,
+  CompanyNotFoundError,
+  companyRedactedLabels,
+  deleteCompanyIfOrphaned,
+  describeCompany,
+  sectorName,
+} from "./company-writes";
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import {
+  LOGO_ORIGINAL_ALONE_ERROR,
+  logoChangeSide,
+  photoAuditValue,
+  photoChangeSides,
+  requireMultipart,
+  type StoredFormFiles,
+  type StoredLogo,
+  storedFileNames,
+  storeFormFiles,
+} from "./member-files";
+import {
+  InvalidOrganizationsError,
+  memberOrganizationsText,
+  StaleOrganizationsError,
+  selectMemberOrganizations,
+  syncMemberOrganizations,
+} from "./member-organizations";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
-const {
-  nationalId: _nationalId,
-  identityDocument: _identityDocument,
-  activityDocument: _activityDocument,
-  ...listColumns
-} = getColumns(memberTable);
-
-/** Members with their sector's name next to its id; no TC number or documents */
-function selectMembers(executor: Executor = db) {
-  return executor
-    .select({ ...listColumns, sector: sectorTable.name })
-    .from(memberTable)
-    .leftJoin(sectorTable, eq(memberTable.sectorId, sectorTable.id));
-}
-
-/** Every column, TC number included: for the detail, PATCH and DELETE, never sent out whole */
-function selectFullMember(executor: Executor = db) {
-  return executor
-    .select({ ...getColumns(memberTable), sector: sectorTable.name })
-    .from(memberTable)
-    .leftJoin(sectorTable, eq(memberTable.sectorId, sectorTable.id));
-}
-
+const MEMBER_NOT_FOUND_ERROR = "Üye bulunamadı";
 const MISSING_SECTOR_ERROR = "Seçilen sektör bulunamadı";
+const MISSING_LINK_ERROR = "Seçilen grup veya görev bulunamadı";
+const NO_COMPANY_ERROR = "Üyenin firması yok";
+const STATUS_LOCKED_ERROR = "Bu üyenin durumu buradan değiştirilemez";
 
-/** Representatives joined to their member, optionally for a single member */
-function selectRepresentatives(memberId?: number, executor: Executor = db) {
-  return executor
-    .select({
-      memberId: membersRepresentativesTable.memberId,
-      id: authorizedRepresentativeTable.id,
-      name: authorizedRepresentativeTable.name,
-      photo: authorizedRepresentativeTable.photo,
-      phone: authorizedRepresentativeTable.phone,
-      active: authorizedRepresentativeTable.active,
-      role: membersRepresentativesTable.role,
-    })
-    .from(membersRepresentativesTable)
-    .innerJoin(
-      authorizedRepresentativeTable,
-      eq(
-        membersRepresentativesTable.authorizedRepresentativeId,
-        authorizedRepresentativeTable.id,
-      ),
-    )
-    .where(
-      memberId === undefined
-        ? undefined
-        : eq(membersRepresentativesTable.memberId, memberId),
-    )
-    .orderBy(asc(authorizedRepresentativeTable.name));
-}
+/** A logo, removeLogo or Faaliyet Belgesi for a member without a company (400) */
+class NoCompanyError extends Error {}
 
-/**
- * Stores a staff-uploaded logo after checking its actual contents are an
- * image. Resolves to null when the file is not an image.
- */
-async function saveLogo(logo: File) {
-  const buffer = await logo.arrayBuffer();
-  const fileType = await fileTypeFromBuffer(buffer);
-  if (!fileType?.mime.startsWith("image/")) return null;
-
-  return await createFile({
-    buffer: Buffer.from(buffer),
-    filename: logo.name,
-    ext: fileType.ext,
-  });
-}
-
-type StoredLogo = { logo: string; logoOriginal: string | null };
-
-/**
- * Stores a new logo and, for a PDF or SVG logo, the file it was drawn from. Resolves
- * to null, with nothing left stored, when either isn't what it should be.
- */
-async function saveLogoFiles(
-  logo: File,
-  logoOriginal: File | undefined,
-): Promise<StoredLogo | null> {
-  const image = await saveLogo(logo);
-  if (!image) return null;
-  if (!logoOriginal) return { logo: image, logoOriginal: null };
-
-  const original = await storeLogoOriginal(logoOriginal);
-  if (!original) {
-    await deleteFiles([image]);
-    return null;
-  }
-  return { logo: image, logoOriginal: original };
-}
-
-const NOT_A_LOGO_ERROR = "Sadece resim, PDF veya SVG dosyaları kabul edilir";
-// the panel always sends the PNG drawn from a PDF or SVG with it
-const LOGO_ORIGINAL_ALONE_ERROR =
-  "Logonun asıl dosyası, ondan çizilen resimle gönderilmeli";
-
-/** How a logo shows in create and delete entries */
-const logoAuditValue = (member: {
-  logo: string | null;
-  logoOriginal: string | null;
-}) => {
-  if (!member.logo) return "—";
-  return member.logoOriginal
-    ? `Var (${logoOriginalKind(member.logoOriginal)})`
-    : "Var";
+/** The member's own fields, logged with their values */
+const memberAuditSpec: AuditSpec = {
+  firstName: { label: "Adı", format: formatAudit.text },
+  lastName: { label: "Soyadı", format: formatAudit.text },
+  companyRole: { label: "Görev", format: formatAudit.text },
+  status: { label: "Durum", format: formatAudit.memberStatus },
+  memberLoginDate: { label: "Üye Giriş Tarihi", format: formatAudit.date },
+  email: { label: "E-posta", format: formatAudit.text },
+  mobilePhone: { label: "Cep Telefonu", format: formatAudit.text },
+  birthDate: { label: "Doğum Tarihi", format: formatAudit.date },
+  poPositiveCardNo: { label: "PO Positive Card No", format: formatAudit.text },
+  notes: { label: "Notlar", format: formatAudit.text },
 };
 
-const requestBodyLimit = bodyLimit({
-  // a logo (with its PDF) and two documents plus some room for the text fields
-  maxSize: MAX_REQUEST_SIZE,
-  onError: (c) => c.json({ error: "Dosyalar 5 MB'dan küçük olmalıdır" }, 413),
-});
-
-const NOT_A_DOCUMENT_ERROR = "Sadece PDF, PNG veya JPG dosyaları kabul edilir";
-
 /**
- * Applicant fields in the audit log. Their values are personal data: staff
- * edits record only that a value was set or cleared (see `diffRedacted`), and
- * none of them is in `memberAuditSpec`, so create and delete entries skip them.
+ * Data from the membership application. Its values are personal data: the
+ * log records only that a value was set or cleared ("•••", see
+ * `diffRedacted`), in changes and in create and delete entries alike.
  */
 const applicantAuditLabels: Record<string, string> = {
-  applicantFirstName: "Başvuran Adı",
-  applicantLastName: "Başvuran Soyadı",
-  applicantRole: "Başvuran Görevi",
-  employeeCount: "Çalışan Sayısı",
-  website: "Web Sitesi",
-  email: "E-posta",
-  mobilePhone: "Cep Telefonu",
-  birthDate: "Doğum Tarihi",
   birthPlace: "Doğum Yeri",
   nationalId: "TC Kimlik No",
   education: "Eğitim Durumu",
   otherAssociations: "Dernek, meslek grupları",
-  companyIntro: "Firma Tanıtımı",
   gender: "Cinsiyet",
   referenceName: "Referans",
   identityDocument: "Kimlik Belgesi",
-  activityDocument: "Faaliyet Belgesi",
 };
 
 /** Staff write the rejection note about the applicant, so it's redacted too */
 const REJECTION_NOTE_AUDIT_LABEL = { rejectionNote: "Ret Notu" };
 
-type DocumentField = "identityDocument" | "activityDocument";
-const DOCUMENT_FIELDS: DocumentField[] = [
-  "identityDocument",
-  "activityDocument",
-];
+/** Set only by the public application; never changed by staff */
+const CONSENT_AUDIT_LABEL = { consentedAt: "Açık Rıza Onayı" };
 
-/**
- * Stores the uploaded documents. When one isn't a PDF/PNG/JPG, the ones
- * already stored are deleted again and `rejected` is true.
- */
-async function storeDocuments(files: Partial<Record<DocumentField, File>>) {
-  const stored: Partial<Record<DocumentField, string>> = {};
-  for (const field of DOCUMENT_FIELDS) {
-    const file = files[field];
-    if (!file) continue;
-    const name = await storeUpload(file, DOCUMENT_MIME_TYPES, "document");
-    if (!name) {
-      await deleteFiles(Object.values(stored));
-      return { stored: {}, rejected: true };
-    }
-    stored[field] = name;
-  }
-  return { stored, rejected: false };
-}
+const requestBodyLimit = bodyLimit({
+  maxSize: MAX_MEMBER_REQUEST_SIZE,
+  onError: (c) => c.json({ error: "Dosyalar 5 MB'dan küçük olmalıdır" }, 413),
+});
 
-/** A member's own fields in the audit log; sector and logo are added apart */
-const memberAuditSpec: AuditSpec = {
-  title: { label: "Ünvan", format: formatAudit.text },
-  status: { label: "Durum", format: formatAudit.memberStatus },
-  phone: { label: "Telefon", format: formatAudit.text },
-  address: { label: "Adres", format: formatAudit.text },
-  memberLoginDate: { label: "Üye Giriş Tarihi", format: formatAudit.date },
-  foundingDate: { label: "Kuruluş Tarihi", format: formatAudit.date },
+/** The member's fields every list shows */
+const listColumns = {
+  id: memberTable.id,
+  firstName: memberTable.firstName,
+  lastName: memberTable.lastName,
+  status: memberTable.status,
+  memberLoginDate: memberTable.memberLoginDate,
+  birthDate: memberTable.birthDate,
+  mobilePhone: memberTable.mobilePhone,
+  email: memberTable.email,
+  photo: memberTable.photo,
+  companyRole: memberTable.companyRole,
+  poPositiveCardNo: memberTable.poPositiveCardNo,
+  notes: memberTable.notes,
+  createdAt: memberTable.createdAt,
 };
 
-async function sectorName(executor: Executor, id: number | null | undefined) {
-  if (id == null) return null;
-  const [sector] = await executor
-    .select({ name: sectorTable.name })
-    .from(sectorTable)
-    .where(eq(sectorTable.id, id));
-  return sector?.name ?? null;
+/** The application's fields; the TC number is masked before it's sent */
+const applicantColumns = {
+  birthPlace: memberTable.birthPlace,
+  education: memberTable.education,
+  otherAssociations: memberTable.otherAssociations,
+  gender: memberTable.gender,
+  referenceName: memberTable.referenceName,
+  identityDocument: memberTable.identityDocument,
+  consentedAt: memberTable.consentedAt,
+  rejectionNote: memberTable.rejectionNote,
+  updatedAt: memberTable.updatedAt,
+};
+
+const companySummaryColumns = {
+  id: companyTable.id,
+  title: companyTable.title,
+  logo: companyTable.logo,
+  sectorId: companyTable.sectorId,
+  phone: companyTable.phone,
+  address: companyTable.address,
+  foundingDate: companyTable.foundingDate,
+};
+
+const companyDetailColumns = {
+  ...companySummaryColumns,
+  logoOriginal: companyTable.logoOriginal,
+  website: companyTable.website,
+  companyIntro: companyTable.companyIntro,
+  activityDocument: companyTable.activityDocument,
+  employeeCount: companyTable.employeeCount,
+};
+
+/** How many members each company has */
+function companyMemberCounts() {
+  return db
+    .select({
+      companyId: memberTable.companyId,
+      memberCount: sql<number>`count(*)::int`.as("member_count"),
+    })
+    .from(memberTable)
+    .groupBy(memberTable.companyId)
+    .as("company_member_count");
+}
+
+/** Every member with their company's summary; no TC number or documents */
+async function listMembers() {
+  const counts = companyMemberCounts();
+  const rows = await db
+    .select({
+      ...listColumns,
+      company: companySummaryColumns,
+      sectorName: sectorTable.name,
+      memberCount: counts.memberCount,
+    })
+    .from(memberTable)
+    .leftJoin(companyTable, eq(memberTable.companyId, companyTable.id))
+    .leftJoin(sectorTable, eq(companyTable.sectorId, sectorTable.id))
+    .leftJoin(counts, eq(counts.companyId, companyTable.id));
+
+  return rows.map(({ company, sectorName, memberCount, ...member }) => ({
+    ...member,
+    name: memberName(member),
+    company: company && {
+      ...company,
+      sectorName,
+      memberCount: memberCount ?? 0,
+    },
+  }));
+}
+
+/**
+ * The tahsilatlar, taahhütler and tahakkuk rows of a member. One query at
+ * a time: inside a transaction they share one connection.
+ */
+async function recordCounts(executor: Executor, id: number) {
+  const collections = await executor.$count(
+    collectionTable,
+    eq(collectionTable.memberId, id),
+  );
+  const pledges = await executor.$count(
+    projectPledgeTable,
+    eq(projectPledgeTable.memberId, id),
+  );
+  const accruals = await executor.$count(
+    accrualTable,
+    eq(accrualTable.memberId, id),
+  );
+  return { collections, pledges, accruals };
+}
+
+/** null counts when a record added during the delete stopped it */
+function hasRecordsError(counts: MemberRecordCounts) {
+  return `Bu üyeye ait ${memberRecordsText(counts)} var. Silmek yerine pasif yapabilirsiniz.`;
+}
+
+/** The member with the application, company, groups and record counts */
+async function loadMemberDetail(id: number) {
+  const counts = companyMemberCounts();
+  const [row] = await db
+    .select({
+      ...listColumns,
+      ...applicantColumns,
+      nationalId: memberTable.nationalId,
+      company: companyDetailColumns,
+      sectorName: sectorTable.name,
+      memberCount: counts.memberCount,
+    })
+    .from(memberTable)
+    .leftJoin(companyTable, eq(memberTable.companyId, companyTable.id))
+    .leftJoin(sectorTable, eq(companyTable.sectorId, sectorTable.id))
+    .leftJoin(counts, eq(counts.companyId, companyTable.id))
+    .where(eq(memberTable.id, id));
+  if (!row) return null;
+
+  const { company, sectorName, memberCount, nationalId, ...member } = row;
+  const [otherMembers, organizations, records] = await Promise.all([
+    company
+      ? db
+          .select({
+            id: memberTable.id,
+            firstName: memberTable.firstName,
+            lastName: memberTable.lastName,
+            status: memberTable.status,
+          })
+          .from(memberTable)
+          .where(
+            and(eq(memberTable.companyId, company.id), ne(memberTable.id, id)),
+          )
+      : [],
+    selectMemberOrganizations(id),
+    // a member with any of these can't be deleted; the page says so
+    recordCounts(db, id),
+  ]);
+
+  return {
+    ...member,
+    name: memberName(member),
+    nationalIdMasked: nationalId ? maskNationalId(nationalId) : null,
+    company: company && {
+      ...company,
+      sectorName,
+      memberCount: memberCount ?? 0,
+      otherMembers: otherMembers
+        .map((other) => ({
+          id: other.id,
+          name: memberName(other),
+          status: other.status,
+        }))
+        .sort((a, b) => compareTr(a.name, b.name)),
+    },
+    organizations,
+    recordCounts: records,
+  };
+}
+
+type MemberRow = typeof memberTable.$inferSelect;
+type CompanyRow = typeof companyTable.$inferSelect;
+
+async function loadCompany(executor: Executor, id: number | null) {
+  if (id === null) return null;
+  const [company] = await executor
+    .select()
+    .from(companyTable)
+    .where(eq(companyTable.id, id));
+  return company ?? null;
+}
+
+/** The whole member for create and delete entries, personal data as "•••" */
+async function describeMember(
+  tx: Transaction,
+  member: MemberRow,
+  company: CompanyRow | null,
+): Promise<AuditField[]> {
+  return [
+    ...describeFields(memberAuditSpec, member),
+    { label: "Fotoğraf", value: photoAuditValue(member.photo) },
+    ...describeRedacted(
+      {
+        ...applicantAuditLabels,
+        ...REJECTION_NOTE_AUDIT_LABEL,
+        ...CONSENT_AUDIT_LABEL,
+      },
+      member,
+    ),
+    ...(company
+      ? await describeCompany(tx, company, "Firma: ")
+      : [{ label: "Firma", value: "—" }]),
+    {
+      label: "Organizasyonlar",
+      value: await memberOrganizationsText(tx, member.id),
+    },
+  ];
+}
+
+/**
+ * Puts an uploaded (or removed) logo and Faaliyet Belgesi on the company.
+ * Returns the "Firma: …" changes and the files they replaced, which are
+ * deleted only after the commit.
+ */
+async function applyCompanyFiles(
+  tx: Transaction,
+  companyId: number,
+  files: { logo?: StoredLogo | null; activityDocument?: string },
+) {
+  if (files.logo === undefined && files.activityDocument === undefined) {
+    return { changes: [], replaced: [] };
+  }
+  const [before] = await tx
+    .select({
+      logo: companyTable.logo,
+      logoOriginal: companyTable.logoOriginal,
+      activityDocument: companyTable.activityDocument,
+    })
+    .from(companyTable)
+    .where(eq(companyTable.id, companyId))
+    .for("update");
+
+  const logoValues =
+    files.logo === undefined
+      ? {}
+      : {
+          logo: files.logo?.logo ?? null,
+          logoOriginal: files.logo?.logoOriginal ?? null,
+        };
+  const documentValues =
+    files.activityDocument === undefined
+      ? {}
+      : { activityDocument: files.activityDocument };
+  await tx
+    .update(companyTable)
+    .set({ ...logoValues, ...documentValues })
+    .where(eq(companyTable.id, companyId));
+
+  const changes: AuditChange[] = [
+    ...(files.logo === undefined
+      ? []
+      : change(
+          "Firma: Logo",
+          logoChangeSide("Eski", before),
+          logoChangeSide("Yeni", files.logo),
+        )),
+    ...diffRedacted(
+      { activityDocument: `Firma: ${companyRedactedLabels.activityDocument}` },
+      before,
+      documentValues,
+    ),
+  ];
+  const replaced = [
+    ...(files.logo === undefined ? [] : [before.logo, before.logoOriginal]),
+    ...(files.activityDocument === undefined ? [] : [before.activityDocument]),
+  ];
+  return { changes, replaced };
+}
+
+/** A recorded company deletion when the member was the company's last one */
+function removeIfOrphaned(
+  tx: Transaction,
+  companyId: number | null,
+  actor: AuditActor,
+) {
+  if (companyId === null) return { files: [] };
+  return deleteCompanyIfOrphaned(tx, companyId, { actor });
+}
+
+/** The response for a refused save, or null when `error` isn't one */
+function refusedSaveResponse(error: unknown) {
+  if (error instanceof CompanyNotFoundError) {
+    return { body: { error: error.message }, status: 400 as const };
+  }
+  if (error instanceof NoCompanyError) {
+    return { body: { error: NO_COMPANY_ERROR }, status: 400 as const };
+  }
+  if (error instanceof InvalidOrganizationsError) {
+    return { body: { error: error.message }, status: 400 as const };
+  }
+  if (error instanceof StaleOrganizationsError) {
+    return { body: { error: error.message }, status: 409 as const };
+  }
+  // a sector, group or görev deleted while the form was open
+  if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+    return {
+      body: {
+        error: violatedConstraint(error).includes("sector")
+          ? MISSING_SECTOR_ERROR
+          : MISSING_LINK_ERROR,
+      },
+      status: 400 as const,
+    };
+  }
+  return null;
+}
+
+function violatedConstraint(error: unknown) {
+  const cause = (error as { cause?: { constraint?: unknown } }).cause;
+  return typeof cause?.constraint === "string" ? cause.constraint : "";
+}
+
+/** Fields an update leaves alone are undefined; drizzle wants them gone */
+function definedValues<T extends Record<string, unknown>>(values: T) {
+  return Object.fromEntries(
+    Object.entries(values).filter(([, value]) => value !== undefined),
+  ) as Partial<T>;
 }
 
 /** What each decision needs, where it leads and which notice it sends */
@@ -273,25 +487,23 @@ const STALE_DECISION_ERROR =
 type DecisionResult =
   | { kind: "missing" }
   | { kind: "stale" }
-  | { kind: "done"; member: typeof memberTable.$inferSelect };
+  | { kind: "done"; member: MemberRow; companyTitle: string | null };
 
 /**
  * The status change and its audit entry, in one transaction. The update only
  * matches while the member still has the status the decision starts from, so
- * of two simultaneous decisions exactly one gets through.
+ * of two simultaneous decisions exactly one gets through. Kabul Et and Pasif
+ * olarak ekle also set the sector, which is the company's.
  */
 async function applyDecision(
   id: number,
   decision: MemberDecision,
-  actor: ReturnType<typeof actorOf>,
+  actor: AuditActor,
 ): Promise<DecisionResult> {
   const rule = DECISIONS[decision.decision];
-  const details =
+  const loginDate =
     "memberLoginDate" in decision
-      ? {
-          memberLoginDate: decision.memberLoginDate,
-          sectorId: decision.sectorId,
-        }
+      ? { memberLoginDate: decision.memberLoginDate }
       : {};
   // a rejection note belongs to the rejection only: Tekrar Aday yap clears it
   const rejectionNote =
@@ -302,94 +514,72 @@ async function applyDecision(
         : {};
 
   return await db.transaction(async (tx) => {
-    const [existing] = await selectFullMember(tx).where(eq(memberTable.id, id));
+    const [existing] = await tx
+      .select()
+      .from(memberTable)
+      .where(eq(memberTable.id, id));
     if (!existing) return { kind: "missing" } as const;
 
     const [member] = await tx
       .update(memberTable)
-      .set({ status: rule.to, ...details, ...rejectionNote })
+      .set({ status: rule.to, ...loginDate, ...rejectionNote })
       .where(and(eq(memberTable.id, id), eq(memberTable.status, rule.from)))
       .returning();
     if (!member) return { kind: "stale" } as const;
+
+    let company = await loadCompany(tx, member.companyId);
+    let sectorChanges: AuditChange[] = [];
+    if ("sectorId" in decision) {
+      if (!company && decision.sectorId !== null) throw new NoCompanyError();
+      if (company) {
+        const before = await sectorName(tx, company.sectorId);
+        [company] = await tx
+          .update(companyTable)
+          .set({ sectorId: decision.sectorId })
+          .where(eq(companyTable.id, company.id))
+          .returning();
+        sectorChanges = change(
+          "Firma: Sektör",
+          before,
+          await sectorName(tx, decision.sectorId),
+        );
+      }
+    }
 
     await recordAudit(tx, {
       actor,
       action: rule.action,
       entityType: "member",
       entityId: id,
-      entityLabel: member.title,
+      entityLabel: memberName(member),
       changes: [
         ...diffFields(memberAuditSpec, existing, {
           status: rule.to,
-          ...("memberLoginDate" in details && {
-            memberLoginDate: details.memberLoginDate,
-          }),
+          ...loginDate,
         }),
-        ...("sectorId" in details
-          ? change(
-              "Sektör",
-              existing.sector,
-              await sectorName(tx, details.sectorId),
-            )
-          : []),
+        ...sectorChanges,
         // written about the applicant, so kept out of the log like their own data
         ...diffRedacted(REJECTION_NOTE_AUDIT_LABEL, existing, rejectionNote),
       ],
     });
-    return { kind: "done", member } as const;
+    return {
+      kind: "done",
+      member,
+      companyTitle: company?.title ?? null,
+    } as const;
   });
 }
 
-type MemberRepresentative = Omit<
-  Awaited<ReturnType<typeof selectRepresentatives>>[number],
-  "memberId"
->;
-
 export const membersRoute = new Hono<AppEnv>()
-  .get("/", async (c) => {
-    const [members, representatives] = await Promise.all([
-      selectMembers(),
-      selectRepresentatives(),
-    ]);
-
-    const representativesByMember = new Map<number, MemberRepresentative[]>();
-    for (const { memberId, ...representative } of representatives) {
-      const list = representativesByMember.get(memberId) ?? [];
-      list.push(representative);
-      representativesByMember.set(memberId, list);
-    }
-
-    return c.json(
-      members.map((member) => ({
-        ...member,
-        representatives: representativesByMember.get(member.id) ?? [],
-      })),
-    );
-  })
+  .get("/", async (c) => c.json(await listMembers()))
   .get(
     "/:id",
     zValidator("param", idParamSchema, respondWithFirstIssue),
     async (c) => {
       const { id } = c.req.valid("param");
-
-      const [full] = await selectFullMember().where(eq(memberTable.id, id));
-
-      if (!full) return c.json({ error: "Üye bulunamadı" }, 404);
-
-      const linked = await selectRepresentatives(id);
-      const representatives = linked.map(
-        ({ memberId: _, ...representative }) => representative,
-      );
-
-      const { nationalId, ...member } = full;
-      return c.json(
-        {
-          ...member,
-          nationalIdMasked: nationalId ? maskNationalId(nationalId) : null,
-          representatives,
-        },
-        200,
-      );
+      const member = await loadMemberDetail(id);
+      if (!member) return c.json({ error: MEMBER_NOT_FOUND_ERROR }, 404);
+      return c.json(member, 200);
     },
   )
   .get(
@@ -403,7 +593,7 @@ export const membersRoute = new Hono<AppEnv>()
         .from(memberTable)
         .where(eq(memberTable.id, id));
 
-      if (!member) return c.json({ error: "Üye bulunamadı" }, 404);
+      if (!member) return c.json({ error: MEMBER_NOT_FOUND_ERROR }, 404);
 
       return c.json({ nationalId: member.nationalId }, 200, {
         "Cache-Control": "no-store",
@@ -412,10 +602,14 @@ export const membersRoute = new Hono<AppEnv>()
   )
   .post(
     "/",
+    requireMultipart,
     requestBodyLimit,
     zValidator("form", createMemberSchema, respondWithFirstIssue),
     async (c) => {
       const {
+        company = { mode: "none" },
+        organizations = [],
+        photo,
         logo,
         logoOriginal,
         identityDocument,
@@ -426,69 +620,91 @@ export const membersRoute = new Hono<AppEnv>()
       if (logoOriginal && !logo) {
         return c.json({ error: LOGO_ORIGINAL_ALONE_ERROR }, 400);
       }
-      const storedLogo = logo ? await saveLogoFiles(logo, logoOriginal) : null;
-      if (logo && !storedLogo) {
-        return c.json({ error: NOT_A_LOGO_ERROR }, 415);
+      if ((logo || activityDocument) && company.mode === "none") {
+        return c.json({ error: NO_COMPANY_ERROR }, 400);
       }
-      const logoFiles = [storedLogo?.logo, storedLogo?.logoOriginal];
 
-      const documents = await storeDocuments({
+      const files = await storeFormFiles({
+        photo,
+        logo,
+        logoOriginal,
         identityDocument,
         activityDocument,
       });
-      if (documents.rejected) {
-        await deleteFiles(logoFiles);
-        return c.json({ error: NOT_A_DOCUMENT_ERROR }, 415);
-      }
+      if ("error" in files) return c.json({ error: files.error }, 415);
+      const { stored } = files;
+      const actor = actorOf(c);
 
       try {
-        const id = await db.transaction(async (tx) => {
+        const { id, replaced } = await db.transaction(async (tx) => {
+          const applied = await applyMemberCompany(tx, company, null);
+          const companyFiles =
+            applied.companyId === null
+              ? { changes: [], replaced: [] }
+              : await applyCompanyFiles(tx, applied.companyId, {
+                  logo: stored.logo,
+                  activityDocument: stored.activityDocument,
+                });
+
           const [member] = await tx
             .insert(memberTable)
             .values({
               ...fields,
-              ...documents.stored,
-              logo: storedLogo?.logo ?? null,
-              logoOriginal: storedLogo?.logoOriginal ?? null,
+              companyId: applied.companyId,
+              photo: stored.photo ?? null,
+              identityDocument: stored.identityDocument ?? null,
             })
             .returning();
 
+          await syncMemberOrganizations(tx, {
+            memberId: member.id,
+            rows: organizations,
+            active: member.status === "active",
+            actor,
+          });
+
           await recordAudit(tx, {
-            actor: actorOf(c),
+            actor,
             action: "create",
             entityType: "member",
             entityId: member.id,
-            entityLabel: member.title,
-            details: [
-              ...describeFields(memberAuditSpec, member),
-              {
-                label: "Sektör",
-                value: (await sectorName(tx, member.sectorId)) ?? "—",
-              },
-              { label: "Logo", value: logoAuditValue(member) },
-            ],
+            entityLabel: memberName(member),
+            details: await describeMember(
+              tx,
+              member,
+              await loadCompany(tx, applied.companyId),
+            ),
+            // an existing company edited from the form; a new one is in details
+            changes: applied.createdCompany
+              ? []
+              : [...applied.changes, ...companyFiles.changes],
           });
-          return member.id;
+          return { id: member.id, replaced: companyFiles.replaced };
         });
 
+        await deleteFiles(replaced);
         return c.json({ id, message: "Üye başarıyla kaydedildi" }, 201);
       } catch (error) {
-        await deleteFiles([...logoFiles, ...Object.values(documents.stored)]);
-        if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
-          return c.json({ error: MISSING_SECTOR_ERROR }, 400);
-        }
+        await deleteFiles(storedFileNames(stored));
+        const refused = refusedSaveResponse(error);
+        if (refused) return c.json(refused.body, refused.status);
         throw error;
       }
     },
   )
   .patch(
     "/:id",
+    requireMultipart,
     requestBodyLimit,
     zValidator("param", idParamSchema, respondWithFirstIssue),
     zValidator("form", updateMemberSchema, respondWithFirstIssue),
     async (c) => {
       const { id } = c.req.valid("param");
       const {
+        company,
+        organizations,
+        photo,
+        removePhoto,
         logo,
         logoOriginal,
         removeLogo,
@@ -497,114 +713,159 @@ export const membersRoute = new Hono<AppEnv>()
         ...fields
       } = c.req.valid("form");
 
-      const [existing] = await selectFullMember().where(eq(memberTable.id, id));
-
-      if (!existing) return c.json({ error: "Üye bulunamadı" }, 404);
-
-      if (fields.status !== undefined && !isEstablished(existing.status)) {
-        return c.json(
-          { error: "Bu üyenin durumu buradan değiştirilemez" },
-          409,
-        );
-      }
-
       if (logoOriginal && !logo) {
         return c.json({ error: LOGO_ORIGINAL_ALONE_ERROR }, 400);
       }
-      // undefined keeps the current logo, null removes it
-      let newLogo: StoredLogo | null | undefined;
-      if (logo) {
-        newLogo = await saveLogoFiles(logo, logoOriginal);
-        if (!newLogo) return c.json({ error: NOT_A_LOGO_ERROR }, 415);
-      } else if (removeLogo) {
-        newLogo = null;
-      }
-      const newLogoFiles = [newLogo?.logo, newLogo?.logoOriginal];
 
-      const documents = await storeDocuments({
+      const files = await storeFormFiles({
+        photo,
+        logo,
+        logoOriginal,
         identityDocument,
         activityDocument,
       });
-      if (documents.rejected) {
-        await deleteFiles(newLogoFiles);
-        return c.json({ error: NOT_A_DOCUMENT_ERROR }, 415);
-      }
-      const newDocuments = documents.stored;
+      if ("error" in files) return c.json({ error: files.error }, 415);
+      const { stored } = files;
+      const actor = actorOf(c);
 
       try {
-        await db.transaction(async (tx) => {
-          const values = {
+        const result = await db.transaction(async (tx) => {
+          const [existing] = await tx
+            .select()
+            .from(memberTable)
+            .where(eq(memberTable.id, id))
+            .for("update");
+          if (!existing) return { kind: "missing" } as const;
+
+          if (fields.status !== undefined && !isEstablished(existing.status)) {
+            return { kind: "status_locked" } as const;
+          }
+
+          const oldCompany = await loadCompany(tx, existing.companyId);
+          const applied = company
+            ? await applyMemberCompany(tx, company, existing.companyId)
+            : { companyId: existing.companyId, changes: [] };
+          const { companyId } = applied;
+          const movedCompany = companyId !== existing.companyId;
+
+          // undefined keeps the current logo, null removes it
+          const newLogo: StoredLogo | null | undefined =
+            stored.logo ?? (removeLogo ? null : undefined);
+          if (
+            companyId === null &&
+            (newLogo !== undefined || stored.activityDocument)
+          ) {
+            throw new NoCompanyError();
+          }
+          const companyFiles =
+            companyId === null
+              ? { changes: [], replaced: [] }
+              : await applyCompanyFiles(tx, companyId, {
+                  logo: newLogo,
+                  activityDocument: stored.activityDocument,
+                });
+
+          const newPhoto = photoUpdate(stored, removePhoto);
+          const values = definedValues({
             ...fields,
-            ...newDocuments,
-            ...(newLogo !== undefined && {
-              logo: newLogo?.logo ?? null,
-              logoOriginal: newLogo?.logoOriginal ?? null,
-            }),
-          };
-          // a blank TC number alone leaves nothing to set
-          if (Object.values(values).every((v) => v === undefined)) return;
+            ...(movedCompany && { companyId }),
+            ...(newPhoto !== undefined && { photo: newPhoto }),
+            identityDocument: stored.identityDocument,
+          });
+          if (Object.keys(values).length > 0) {
+            await tx
+              .update(memberTable)
+              .set(values)
+              .where(eq(memberTable.id, id));
+          }
 
-          await tx
-            .update(memberTable)
-            .set(values)
-            .where(eq(memberTable.id, id));
+          let organizationChanges: AuditChange[] = [];
+          if (organizations) {
+            const before = await memberOrganizationsText(tx, id);
+            await syncMemberOrganizations(tx, {
+              memberId: id,
+              rows: organizations,
+              active: (fields.status ?? existing.status) === "active",
+              actor,
+            });
+            organizationChanges = change(
+              "Organizasyonlar",
+              before,
+              await memberOrganizationsText(tx, id),
+            );
+          }
 
+          // the member's audit entry first, then the company's deletion
+          const companyChanges = movedCompany
+            ? change(
+                "Firma",
+                oldCompany?.title,
+                (await loadCompany(tx, companyId))?.title,
+              )
+            : [];
           const changes = [
             ...diffFields(memberAuditSpec, existing, fields),
             ...diffRedacted(applicantAuditLabels, existing, {
               ...fields,
-              ...newDocuments,
+              identityDocument: stored.identityDocument,
             }),
-            ...(fields.sectorId !== undefined
-              ? change(
-                  "Sektör",
-                  existing.sector,
-                  await sectorName(tx, fields.sectorId),
-                )
-              : []),
-            ...(newLogo !== undefined
-              ? change(
-                  "Logo",
-                  existing.logo &&
-                    (existing.logoOriginal
-                      ? `Eski logo (${logoOriginalKind(existing.logoOriginal)})`
-                      : "Eski logo"),
-                  newLogo &&
-                    (newLogo.logoOriginal
-                      ? `Yeni logo (${logoOriginalKind(newLogo.logoOriginal)})`
-                      : "Yeni logo"),
-                )
-              : []),
+            ...(newPhoto === undefined
+              ? []
+              : change(
+                  "Fotoğraf",
+                  ...photoChangeSides(existing.photo, newPhoto),
+                )),
+            ...companyChanges,
+            ...applied.changes,
+            ...companyFiles.changes,
+            ...organizationChanges,
           ];
-          if (changes.length === 0) return;
+          if (changes.length > 0) {
+            await recordAudit(tx, {
+              actor,
+              action: "update",
+              entityType: "member",
+              entityId: id,
+              entityLabel: memberName({
+                firstName: fields.firstName ?? existing.firstName,
+                lastName: fields.lastName ?? existing.lastName,
+              }),
+              changes,
+            });
+          }
 
-          await recordAudit(tx, {
-            actor: actorOf(c),
-            action: "update",
-            entityType: "member",
-            entityId: id,
-            entityLabel: fields.title ?? existing.title,
-            changes,
-          });
+          const orphan = movedCompany
+            ? await removeIfOrphaned(tx, existing.companyId, actor)
+            : { files: [] };
+
+          return {
+            kind: "done" as const,
+            replaced: [
+              ...(newPhoto === undefined ? [] : [existing.photo]),
+              ...(stored.identityDocument ? [existing.identityDocument] : []),
+              ...companyFiles.replaced,
+              ...orphan.files,
+            ],
+          };
         });
-      } catch (error) {
-        await deleteFiles([...newLogoFiles, ...Object.values(newDocuments)]);
-        if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
-          return c.json({ error: MISSING_SECTOR_ERROR }, 400);
+
+        if (result.kind !== "done") {
+          await deleteFiles(storedFileNames(stored));
+          if (result.kind === "missing") {
+            return c.json({ error: MEMBER_NOT_FOUND_ERROR }, 404);
+          }
+          return c.json({ error: STATUS_LOCKED_ERROR }, 409);
         }
+
+        // only now: a failed save keeps the old files
+        await deleteFiles(result.replaced);
+        return c.json({ id, message: "Üye güncellendi" }, 200);
+      } catch (error) {
+        await deleteFiles(storedFileNames(stored));
+        const refused = refusedSaveResponse(error);
+        if (refused) return c.json(refused.body, refused.status);
         throw error;
       }
-
-      await deleteFiles([
-        ...(newLogo !== undefined
-          ? [existing.logo, existing.logoOriginal]
-          : []),
-        ...DOCUMENT_FIELDS.map((field) =>
-          newDocuments[field] ? existing[field] : null,
-        ),
-      ]);
-
-      return c.json({ id, message: "Üye güncellendi" }, 200);
     },
   )
   .delete(
@@ -612,48 +873,58 @@ export const membersRoute = new Hono<AppEnv>()
     zValidator("param", idParamSchema, respondWithFirstIssue),
     async (c) => {
       const { id } = c.req.valid("param");
+      const actor = actorOf(c);
 
-      const deleted = await db.transaction(async (tx) => {
-        const [member] = await selectFullMember(tx).where(
-          eq(memberTable.id, id),
-        );
-        if (!member) return null;
+      const result = await db
+        .transaction(async (tx) => {
+          // tahsilatlar, taahhütler and tahakkuk rows keep their member:
+          // refuse while it has any
+          const counts = await recordCounts(tx, id);
+          if (hasMemberRecords(counts)) return { refused: counts };
 
-        // the links cascade away with the member, so name them now
-        const representatives = await selectRepresentatives(id, tx);
+          const [member] = await tx
+            .select()
+            .from(memberTable)
+            .where(eq(memberTable.id, id))
+            .for("update");
+          if (!member) return null;
 
-        await tx.delete(memberTable).where(eq(memberTable.id, id));
-        await recordAudit(tx, {
-          actor: actorOf(c),
-          action: "delete",
-          entityType: "member",
-          entityId: id,
-          entityLabel: member.title,
-          details: [
-            ...describeFields(memberAuditSpec, member),
-            { label: "Sektör", value: member.sector ?? "—" },
-            { label: "Logo", value: logoAuditValue(member) },
-            {
-              label: "Yetkililer",
-              value:
-                representatives
-                  .map((r) => (r.role ? `${r.name} (${r.role})` : r.name))
-                  .join(", ") || "—",
-            },
-          ],
+          // its Organizasyon rows cascade away with it, so name them now
+          const details = await describeMember(
+            tx,
+            member,
+            await loadCompany(tx, member.companyId),
+          );
+
+          await tx.delete(memberTable).where(eq(memberTable.id, id));
+          await recordAudit(tx, {
+            actor,
+            action: "delete",
+            entityType: "member",
+            entityId: id,
+            entityLabel: memberName(member),
+            details,
+          });
+          const orphan = await removeIfOrphaned(tx, member.companyId, actor);
+
+          return {
+            files: [member.photo, member.identityDocument, ...orphan.files],
+          };
+        })
+        .catch((error) => {
+          // a tahsilat or taahhüt added between the count and the delete
+          if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
+            return { refused: null };
+          }
+          throw error;
         });
-        return member;
-      });
 
-      if (!deleted) return c.json({ error: "Üye bulunamadı" }, 404);
-
+      if (!result) return c.json({ error: MEMBER_NOT_FOUND_ERROR }, 404);
+      if ("refused" in result) {
+        return c.json({ error: hasRecordsError(result.refused ?? null) }, 409);
+      }
       // after the commit, so a failed delete keeps the member's files
-      await deleteFiles([
-        deleted.logo,
-        deleted.logoOriginal,
-        deleted.identityDocument,
-        deleted.activityDocument,
-      ]);
+      await deleteFiles(result.files);
 
       return c.json({ message: "Üye silindi" }, 200);
     },
@@ -671,13 +942,16 @@ export const membersRoute = new Hono<AppEnv>()
       try {
         result = await applyDecision(id, decision, actorOf(c));
       } catch (error) {
+        if (error instanceof NoCompanyError) {
+          return c.json({ error: NO_COMPANY_ERROR }, 400);
+        }
         if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
           return c.json({ error: MISSING_SECTOR_ERROR }, 400);
         }
         throw error;
       }
       if (result.kind === "missing") {
-        return c.json({ error: "Üye bulunamadı" }, 404);
+        return c.json({ error: MEMBER_NOT_FOUND_ERROR }, 404);
       }
       if (result.kind === "stale") {
         return c.json({ error: STALE_DECISION_ERROR }, 409);
@@ -686,15 +960,21 @@ export const membersRoute = new Hono<AppEnv>()
       // the decision is committed; from here on nothing may undo it
       if (!rule.notice) return c.json({ status: rule.to, notices: null }, 200);
 
-      const { member } = result;
-      const notices = await sendApplicationNotices(rule.notice, member);
+      const { member, companyTitle } = result;
+      const notices = await sendApplicationNotices(rule.notice, {
+        title: companyTitle ?? "",
+        applicantFirstName: member.firstName,
+        applicantLastName: member.lastName,
+        email: member.email,
+        mobilePhone: member.mobilePhone,
+      });
       try {
         await recordAudit(db, {
           actor: actorOf(c),
           action: "application_notice",
           entityType: "member",
           entityId: id,
-          entityLabel: member.title,
+          entityLabel: memberName(member),
           details: [
             { label: "E-posta", value: NOTICE_OUTCOME_LABELS[notices.email] },
             { label: "SMS", value: NOTICE_OUTCOME_LABELS[notices.sms] },
@@ -710,3 +990,9 @@ export const membersRoute = new Hono<AppEnv>()
       return c.json({ status: rule.to, notices }, 200);
     },
   );
+
+/** undefined keeps the current photo, null removes it */
+function photoUpdate(stored: StoredFormFiles, removePhoto?: boolean) {
+  if (stored.photo) return stored.photo;
+  return removePhoto ? null : undefined;
+}

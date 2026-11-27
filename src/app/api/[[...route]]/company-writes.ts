@@ -1,17 +1,23 @@
 import { eq } from "drizzle-orm";
-import type { Transaction } from "@/db";
+import type { Executor, Transaction } from "@/db";
 import {
   type AuditChange,
+  type AuditField,
   companyTable,
   memberTable,
   sectorTable,
 } from "@/db/schema";
+import { type AuditActor, recordAudit } from "@/lib/audit";
 import {
   type AuditSpec,
   change,
+  describeFields,
+  describeRedacted,
   diffFields,
+  diffRedacted,
   formatAudit,
 } from "@/lib/audit-diff";
+import { logoOriginalKind } from "@/lib/logo-original";
 import { foldTr } from "@/lib/turkish";
 import type {
   CompanyFields,
@@ -23,14 +29,56 @@ export const companyAuditSpec: AuditSpec = {
   title: { label: "Ünvan", format: formatAudit.text },
   address: { label: "Adres", format: formatAudit.text },
   phone: { label: "Telefon", format: formatAudit.text },
-  website: { label: "Web Sitesi", format: formatAudit.text },
-  companyIntro: { label: "Firma Tanıtımı", format: formatAudit.text },
   foundingDate: { label: "Kuruluş Tarihi", format: formatAudit.date },
-  employeeCount: {
-    label: "Çalışan Sayısı",
-    format: (value) => (value == null ? "—" : String(value)),
-  },
 };
+
+/**
+ * Company fields that came from the membership application: like the
+ * applicant's own data, the log records only whether they are set (•••)
+ */
+export const companyRedactedLabels: Record<string, string> = {
+  employeeCount: "Çalışan Sayısı",
+  website: "Web Sitesi",
+  companyIntro: "Firma Tanıtımı",
+  activityDocument: "Faaliyet Belgesi",
+};
+
+type CompanyRow = typeof companyTable.$inferSelect;
+
+/** How a logo shows in create and delete entries */
+export function logoAuditValue(company: {
+  logo: string | null;
+  logoOriginal: string | null;
+}) {
+  if (!company.logo) return "—";
+  return company.logoOriginal
+    ? `Var (${logoOriginalKind(company.logoOriginal)})`
+    : "Var";
+}
+
+/**
+ * The whole company for create and delete entries, redacted fields as
+ * "•••". `prefix` is "Firma: " on a member's entry.
+ */
+export async function describeCompany(
+  executor: Executor,
+  company: CompanyRow,
+  prefix = "",
+): Promise<AuditField[]> {
+  const fields = [
+    ...describeFields(companyAuditSpec, company),
+    {
+      label: "Sektör",
+      value: (await sectorName(executor, company.sectorId)) ?? "—",
+    },
+    ...describeRedacted(companyRedactedLabels, company),
+    { label: "Logo", value: logoAuditValue(company) },
+  ];
+  return fields.map((field) => ({
+    ...field,
+    label: `${prefix}${field.label}`,
+  }));
+}
 
 /** An "existing" company id that no company has: the route answers 400 */
 export class CompanyNotFoundError extends Error {
@@ -58,9 +106,13 @@ function newCompanyValues(fields: CompanyFields) {
   return { ...fields, title, titleKey: titleKeyOf(title) };
 }
 
-async function sectorName(tx: Transaction, id: number | null | undefined) {
+/** The sector's name, for audit entries; null for none or a missing one */
+export async function sectorName(
+  executor: Executor,
+  id: number | null | undefined,
+) {
   if (id == null) return null;
-  const [row] = await tx
+  const [row] = await executor
     .select({ name: sectorTable.name })
     .from(sectorTable)
     .where(eq(sectorTable.id, id));
@@ -106,6 +158,7 @@ export async function applyMemberCompany(
   const { fields } = input;
   const diffs = [
     ...diffFields(companyAuditSpec, before, fields),
+    ...diffRedacted(companyRedactedLabels, before, fields),
     ...("sectorId" in fields && fields.sectorId !== undefined
       ? change(
           "Sektör",
@@ -127,11 +180,13 @@ export async function applyMemberCompany(
 
 /**
  * Deletes the company when no member points to it. Returns its stored files,
- * which the caller deletes after the transaction commits.
+ * which the caller deletes after the transaction commits. With `audit`, a
+ * deletion is recorded as its own company entry with the whole company.
  */
 export async function deleteCompanyIfOrphaned(
   tx: Transaction,
   companyId: number,
+  audit?: { actor: AuditActor },
 ): Promise<{ deleted: boolean; files: string[] }> {
   // the row lock serializes with applyMemberCompany and other deletes
   const [company] = await tx
@@ -147,7 +202,19 @@ export async function deleteCompanyIfOrphaned(
   );
   if (members > 0) return { deleted: false, files: [] };
 
+  // read before the delete: the sector's name is looked up by id
+  const details = audit ? await describeCompany(tx, company) : [];
   await tx.delete(companyTable).where(eq(companyTable.id, companyId));
+  if (audit) {
+    await recordAudit(tx, {
+      actor: audit.actor,
+      action: "delete",
+      entityType: "company",
+      entityId: companyId,
+      entityLabel: company.title,
+      details,
+    });
+  }
   const files = [
     company.logo,
     company.logoOriginal,

@@ -1,21 +1,18 @@
 import { z } from "zod";
 import { ORGANIZATIONS } from "../organizations";
 import {
+  jsonTextSchema,
+  MAX_PHOTO_SIZE,
+  organizationRowsTextSchema,
+  PHOTO_TOO_LARGE_MESSAGE,
+  photoFileSchema,
+} from "./member";
+import {
   emailTextSchema,
   optionalDisplayDateSchema,
   optionalIsoDateSchema,
   optionalTextSchema,
 } from "./shared";
-
-export const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MiB
-
-export const PHOTO_TOO_LARGE_MESSAGE = "Fotoğraf 5 MB'dan küçük olmalıdır";
-
-/** A yetkili photo as the API receives it; contents are checked when stored */
-export const photoFileSchema = z
-  .instanceof(File)
-  .refine((f) => f.size > 0, "Dosya boş olamaz")
-  .refine((f) => f.size <= MAX_PHOTO_SIZE, PHOTO_TOO_LARGE_MESSAGE);
 
 const nameSchema = z.string().trim().min(1, "Ad soyad boş olamaz");
 
@@ -27,21 +24,6 @@ function hasDuplicateMembers(links: { memberId: number | null }[]) {
 }
 
 const INVALID_MEMBERS_MESSAGE = "Geçersiz üye listesi";
-
-/** Multipart carries the member links and group rows as JSON text */
-function jsonTextSchema<T extends z.ZodType>(schema: T, message: string) {
-  return z
-    .string()
-    .transform((text, ctx) => {
-      try {
-        return JSON.parse(text) as unknown;
-      } catch {
-        ctx.addIssue({ code: "custom", message });
-        return z.NEVER;
-      }
-    })
-    .pipe(schema);
-}
 
 const memberLinksTextSchema = jsonTextSchema(
   z
@@ -55,30 +37,6 @@ const memberLinksTextSchema = jsonTextSchema(
     .refine((links) => !hasDuplicateMembers(links), DUPLICATE_MEMBER_MESSAGE),
   INVALID_MEMBERS_MESSAGE,
 );
-
-const INVALID_ORGANIZATIONS_MESSAGE = "Geçersiz organizasyon listesi";
-
-/**
- * The yetkili's Organizasyon group rows. `rowId` names a row the yetkili
- * already has (it keeps its place in the group); a row without one is new
- * and goes to the end of its group.
- */
-const organizationRowsTextSchema = jsonTextSchema(
-  z.array(
-    z.object({
-      organization: z.enum(ORGANIZATIONS),
-      rowId: z.number().int().positive().nullable(),
-      groupId: z.number().int().positive(),
-      roleId: z.number().int().positive(),
-    }),
-    { error: INVALID_ORGANIZATIONS_MESSAGE },
-  ),
-  INVALID_ORGANIZATIONS_MESSAGE,
-);
-
-export type OrganizationRowInput = z.output<
-  typeof organizationRowsTextSchema
->[number];
 
 /** API schema; the yetkili form is sent as multipart form data */
 export const createRepresentativeSchema = z.object({

@@ -87,3 +87,15 @@ export function diffRedacted(
     return [{ label, from, to }];
   });
 }
+
+/** Personal data in create and delete entries: "•••" when set, never the value */
+export function describeRedacted(
+  labels: Record<string, string>,
+  record: Record<string, unknown>,
+): AuditField[] {
+  return Object.entries(labels).map(([key, label]) => {
+    const value = record[key];
+    const set = value != null && !(typeof value === "string" && !value.trim());
+    return { label, value: set ? REDACTED : EMPTY };
+  });
+}

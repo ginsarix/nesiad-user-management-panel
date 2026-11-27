@@ -2,7 +2,6 @@ import { zValidator } from "@hono/zod-validator";
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { createMiddleware } from "hono/factory";
 import { db, type Executor, type Transaction } from "@/db";
 import {
   accrualTable,
@@ -21,31 +20,38 @@ import {
   formatAudit,
 } from "@/lib/audit-diff";
 import { deleteFiles } from "@/lib/file-storage";
-import { isEstablished } from "@/lib/member-status";
 import {
-  hasRepresentativeRecords,
-  type RepresentativeRecordCounts,
-  representativeRecordsText,
-} from "@/lib/representative-records";
+  hasMemberRecords,
+  type MemberRecordCounts,
+  memberRecordsText,
+} from "@/lib/member-records";
+import { isEstablished } from "@/lib/member-status";
 import { compareTr } from "@/lib/turkish";
-import { PHOTO_MIME_TYPES, storeUpload } from "@/lib/uploads";
 import {
   createRepresentativeSchema,
-  MAX_PHOTO_SIZE,
-  PHOTO_TOO_LARGE_MESSAGE,
   updateRepresentativeSchema,
 } from "@/lib/zod-schemas/authorized-representative";
+import {
+  MAX_PHOTO_SIZE,
+  PHOTO_TOO_LARGE_MESSAGE,
+} from "@/lib/zod-schemas/member";
 import { FOREIGN_KEY_VIOLATION, pgErrorCode } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import {
+  NOT_A_PHOTO_ERROR,
+  photoAuditValue,
+  requireMultipart,
+  storePhoto,
+} from "./member-files";
+import {
+  InvalidOrganizationsError,
+  StaleOrganizationsError,
+  syncMemberOrganizations,
+} from "./member-organizations";
 import {
   representativeOrganizationsText,
   selectRepresentativeOrganizations,
 } from "./organization-queries";
-import {
-  InvalidOrganizationsError,
-  StaleOrganizationsError,
-  syncRepresentativeOrganizations,
-} from "./representative-organizations";
 import { idParamSchema, respondWithFirstIssue } from "./validation";
 
 const MISSING_LINK_ERROR = "Seçilen üye, grup veya görev bulunamadı";
@@ -71,8 +77,8 @@ async function recordCounts(executor: Executor, id: number) {
 }
 
 /** null counts when a record added during the delete stopped it */
-function hasRecordsError(counts: RepresentativeRecordCounts) {
-  return `Bu yetkiliye ait ${representativeRecordsText(counts)} var. Silmek yerine pasif yapabilirsiniz.`;
+function hasRecordsError(counts: MemberRecordCounts) {
+  return `Bu yetkiliye ait ${memberRecordsText(counts)} var. Silmek yerine pasif yapabilirsiniz.`;
 }
 
 /** Members joined to their yetkili, optionally for a single yetkili */
@@ -135,37 +141,11 @@ async function linkedMembersText(executor: Executor, representativeId: number) {
   );
 }
 
-const NOT_A_PHOTO_ERROR = "Sadece JPG veya PNG fotoğraflar kabul edilir";
-
 const requestBodyLimit = bodyLimit({
   // the photo plus room for the text fields
   maxSize: MAX_PHOTO_SIZE + 1024 * 1024,
   onError: (c) => c.json({ error: PHOTO_TOO_LARGE_MESSAGE }, 413),
 });
-
-/**
- * The form validator reads a non-multipart body as `{}`, which an update
- * accepts: a page loaded before the switch from JSON would see its save
- * succeed with nothing changed. Refuse it so the user reloads instead.
- */
-const requireMultipart = createMiddleware<AppEnv>(async (c, next) => {
-  const type = c.req.header("Content-Type") ?? "";
-  if (!type.startsWith("multipart/form-data")) {
-    return c.json(
-      { error: "Panel güncellendi. Sayfayı yenileyip tekrar deneyin." },
-      415,
-    );
-  }
-  await next();
-});
-
-/** Stores an uploaded photo; null when its contents aren't JPEG or PNG */
-function storePhoto(photo: File) {
-  return storeUpload(photo, PHOTO_MIME_TYPES, "photo");
-}
-
-/** How a photo shows in create and delete entries; never the filename */
-const photoAuditValue = (photo: string | null) => (photo ? "Var" : "—");
 
 const UNLINKABLE_MEMBER_ERROR =
   "Aday veya reddedilmiş üyeye yetkili bağlanamaz";
@@ -323,8 +303,8 @@ export const representativesRoute = new Hono<AppEnv>()
 
           await assertLinkable(tx, members);
           await replaceLinks(tx, representative.id, members);
-          await syncRepresentativeOrganizations(tx, {
-            representativeId: representative.id,
+          await syncMemberOrganizations(tx, {
+            memberId: representative.id,
             rows: organizations,
             active: representative.active,
             actor: actorOf(c),
@@ -418,8 +398,8 @@ export const representativesRoute = new Hono<AppEnv>()
           let organizationChanges: ReturnType<typeof change> = [];
           if (organizations) {
             const before = await representativeOrganizationsText(tx, id);
-            await syncRepresentativeOrganizations(tx, {
-              representativeId: id,
+            await syncMemberOrganizations(tx, {
+              memberId: id,
               rows: organizations,
               active: fields.active ?? existing.active,
               actor: actorOf(c),
@@ -482,7 +462,7 @@ export const representativesRoute = new Hono<AppEnv>()
           // tahsilatlar, taahhütler and tahakkuk rows keep their yetkili:
           // refuse while it has any
           const counts = await recordCounts(tx, id);
-          if (hasRepresentativeRecords(counts)) return { refused: counts };
+          if (hasMemberRecords(counts)) return { refused: counts };
 
           const [representative] = await tx
             .select()

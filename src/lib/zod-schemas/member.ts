@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { isValidNationalId } from "../national-id";
+import { ORGANIZATIONS } from "../organizations";
 import { checkPhone } from "../sms/recipients";
+import { memberCompanyInputSchema } from "./company";
 import {
   optionalDisplayDateSchema,
   optionalIsoDateSchema,
@@ -21,26 +23,8 @@ export const documentFileSchema = z
     "Sadece PDF, PNG veya JPG dosyaları kabul edilir",
   );
 
-/**
- * A web address as an http(s) URL, adding https:// when no scheme is typed.
- * Null for anything else (javascript:, mailto:, garbage), so a stored value
- * is always safe to use as a link.
- */
-export function normalizeWebsite(value: string): string | null {
-  const text = value.trim();
-  if (!text) return null;
-
-  // "ornek.com:8080" has a port, not a scheme
-  const hasScheme = /^[a-z][a-z0-9+.-]*:(?!\d)/i.test(text);
-  const withScheme = hasScheme ? text : `https://${text}`;
-
-  try {
-    const { protocol } = new URL(withScheme);
-    return protocol === "http:" || protocol === "https:" ? withScheme : null;
-  } catch {
-    return null;
-  }
-}
+// lives with the company now; re-exported for the application schema
+export { normalizeWebsite } from "./company";
 
 /** The logo image the API stores; a PDF/SVG logo arrives already drawn as PNG */
 export const logoFileSchema = z
@@ -71,21 +55,6 @@ export const logoFormFileSchema = z
 
 const titleSchema = z.string().trim().min(1, "Ünvan boş olamaz");
 
-/** A sector id sent as form text; blank clears the sector */
-const optionalSectorIdSchema = z
-  .string()
-  .trim()
-  .transform((value, ctx) => {
-    if (!value) return null;
-    const id = Number(value);
-    if (!Number.isSafeInteger(id) || id <= 0) {
-      ctx.addIssue({ code: "custom", message: "Geçersiz sektör" });
-      return z.NEVER;
-    }
-    return id;
-  })
-  .optional();
-
 const optionalEmailSchema = z
   .string()
   .trim()
@@ -109,41 +78,6 @@ const optionalMobilePhoneSchema = z
     }
   })
   .transform((value) => value || null)
-  .optional();
-
-const optionalWebsiteSchema = z
-  .string()
-  .trim()
-  .transform((value, ctx) => {
-    if (!value) return null;
-    const website = normalizeWebsite(value);
-    if (!website) {
-      ctx.addIssue({ code: "custom", message: "Geçerli bir web adresi girin" });
-      return z.NEVER;
-    }
-    return website;
-  })
-  .optional();
-
-/** Largest Postgres integer */
-const MAX_EMPLOYEE_COUNT = 2_147_483_647;
-
-const optionalEmployeeCountSchema = z
-  .string()
-  .trim()
-  .transform((value, ctx) => {
-    if (!value) return null;
-    // digits only (no 1e3, 0x10, -1) and within Postgres integer
-    const count = /^\d+$/.test(value) ? Number(value) : Number.NaN;
-    if (!(count <= MAX_EMPLOYEE_COUNT)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Çalışan sayısı sıfır veya daha büyük bir tam sayı olmalıdır",
-      });
-      return z.NEVER;
-    }
-    return count;
-  })
   .optional();
 
 /** Blank leaves the stored number as it is (it is never shown back to staff) */
@@ -176,44 +110,113 @@ const optionalGenderSchema = z
   })
   .optional();
 
+export const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MiB
+
+export const PHOTO_TOO_LARGE_MESSAGE = "Fotoğraf 5 MB'dan küçük olmalıdır";
+
+/** A member's photo as the API receives it; contents are checked when stored */
+export const photoFileSchema = z
+  .instanceof(File)
+  .refine((f) => f.size > 0, "Dosya boş olamaz")
+  .refine((f) => f.size <= MAX_PHOTO_SIZE, PHOTO_TOO_LARGE_MESSAGE);
+
+/** Room for the member form's files (photo, logo with its PDF/SVG, two documents) */
+export const MAX_MEMBER_REQUEST_SIZE = MAX_REQUEST_SIZE + MAX_PHOTO_SIZE;
+
+/** Multipart carries lists and the company choice as JSON text */
+export function jsonTextSchema<T extends z.ZodType>(
+  schema: T,
+  message: string,
+) {
+  return z
+    .string()
+    .transform((text, ctx) => {
+      try {
+        return JSON.parse(text) as unknown;
+      } catch {
+        ctx.addIssue({ code: "custom", message });
+        return z.NEVER;
+      }
+    })
+    .pipe(schema);
+}
+
+const INVALID_ORGANIZATIONS_MESSAGE = "Geçersiz organizasyon listesi";
+
+/**
+ * The member's Organizasyon group rows. `rowId` names a row the member
+ * already has (it keeps its place in the group); a row without one is new
+ * and goes to the end of its group.
+ */
+export const organizationRowsTextSchema = jsonTextSchema(
+  z.array(
+    z.object({
+      organization: z.enum(ORGANIZATIONS),
+      rowId: z.number().int().positive().nullable(),
+      groupId: z.number().int().positive(),
+      roleId: z.number().int().positive(),
+    }),
+    { error: INVALID_ORGANIZATIONS_MESSAGE },
+  ),
+  INVALID_ORGANIZATIONS_MESSAGE,
+);
+
+export type OrganizationRowInput = z.output<
+  typeof organizationRowsTextSchema
+>[number];
+
+const firstNameSchema = z.string().trim().min(1, "Adı boş olamaz");
+const lastNameSchema = z.string().trim().min(1, "Soyadı boş olamaz");
+
+/**
+ * API schema; the member form is sent as multipart form data. `company` is
+ * the Firma section's choice as JSON text (left out: no company); the logo
+ * and Faaliyet Belgesi belong to that company.
+ */
 export const createMemberSchema = z.object({
-  title: titleSchema,
+  firstName: firstNameSchema,
+  lastName: lastNameSchema,
+  companyRole: optionalTextSchema,
 
   memberLoginDate: optionalIsoDateSchema,
 
   /** Defaults to aktif when left out; candidates come from the public application */
   status: z.enum(["active", "passive"]).optional(),
 
-  logo: logoFileSchema.optional(),
-  /** Only together with `logo`, which is drawn from it */
-  logoOriginal: logoOriginalFileSchema.optional(),
-
-  address: optionalTextSchema,
-  phone: optionalTextSchema,
-  sectorId: optionalSectorIdSchema,
-  foundingDate: optionalIsoDateSchema,
-
-  applicantFirstName: optionalTextSchema,
-  applicantLastName: optionalTextSchema,
-  applicantRole: optionalTextSchema,
-  employeeCount: optionalEmployeeCountSchema,
-  website: optionalWebsiteSchema,
   email: optionalEmailSchema,
   mobilePhone: optionalMobilePhoneSchema,
   birthDate: optionalIsoDateSchema,
+  notes: optionalTextSchema,
+  poPositiveCardNo: optionalTextSchema,
+  photo: photoFileSchema.optional(),
+
   birthPlace: optionalTextSchema,
   nationalId: nationalIdInputSchema,
   education: optionalTextSchema,
   otherAssociations: optionalTextSchema,
-  companyIntro: optionalTextSchema,
   gender: optionalGenderSchema,
   referenceName: optionalTextSchema,
   identityDocument: documentFileSchema.optional(),
+
+  company: memberCompanyInputSchema.optional(),
+
+  /** The Organizasyon group rows this member is in */
+  organizations: organizationRowsTextSchema.optional(),
+
+  logo: logoFileSchema.optional(),
+  /** Only together with `logo`, which is drawn from it */
+  logoOriginal: logoOriginalFileSchema.optional(),
   activityDocument: documentFileSchema.optional(),
 });
 
+/**
+ * Fields left out are kept: no `company` leaves the member's company as it
+ * is, no `organizations` leaves their group rows
+ */
 export const updateMemberSchema = createMemberSchema.partial().extend({
-  /** Clears the current logo when no new one is uploaded */
+  /** Clears the current photo when no new one is uploaded */
+  removePhoto: z.stringbool().optional(),
+  /** Clears the company's logo when no new one is uploaded */
   removeLogo: z.stringbool().optional(),
 });
 

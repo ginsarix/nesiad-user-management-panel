@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "@/db";
-import { memberTable, sectorTable } from "@/db/schema";
+import { companyTable, memberTable, sectorTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
 import { compareTr } from "@/lib/turkish";
@@ -127,11 +127,11 @@ export const sectorsRoute = new Hono<AppEnv>()
           .where(eq(sectorTable.id, id));
         if (!sector) return null;
 
-        // the foreign key clears the sector of its members; name them now
-        const members = await tx
-          .select({ title: memberTable.title })
-          .from(memberTable)
-          .where(eq(memberTable.sectorId, id));
+        // the foreign key clears the sector of its companies; name them now
+        const companies = await tx
+          .select({ title: companyTable.title })
+          .from(companyTable)
+          .where(eq(companyTable.sectorId, id));
 
         await tx.delete(sectorTable).where(eq(sectorTable.id, id));
         await recordAudit(tx, {
@@ -143,10 +143,10 @@ export const sectorsRoute = new Hono<AppEnv>()
           details: [
             { label: "Sektör Adı", value: sector.name },
             {
-              label: "Sektörü boşaltılan üyeler",
+              label: "Sektörü boşaltılan firmalar",
               value:
-                members
-                  .map((m) => m.title)
+                companies
+                  .map((company) => company.title)
                   .sort(compareTr)
                   .join(", ") || "—",
             },
