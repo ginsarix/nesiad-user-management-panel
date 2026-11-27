@@ -15,7 +15,7 @@ function toGroupJson({ name, people }: OrganizationGroupFormValues) {
   return {
     name,
     people: people.map((person) => ({
-      representativeId: person.representativeId as number,
+      memberId: person.memberId as number,
       roleId: person.roleId as number,
     })),
   };

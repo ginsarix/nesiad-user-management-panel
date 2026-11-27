@@ -1,17 +1,18 @@
-import { and, asc, eq, inArray, max } from "drizzle-orm";
+import { and, eq, inArray, max } from "drizzle-orm";
 import { db, type Executor, type Transaction } from "@/db";
-import { memberTable, parameterTable } from "@/db/schema";
+import { parameterTable } from "@/db/schema";
 import { type AuditActor, recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
-import { memberName } from "@/lib/member-name";
 import {
   ORGANIZATION_INFO,
   ORGANIZATIONS,
   type Organization,
+  organizationPeopleText,
 } from "@/lib/organizations";
 import { compareTr } from "@/lib/turkish";
 import type { OrganizationRowInput } from "@/lib/zod-schemas/member";
 import {
+  loadOrganizationGroup,
   ORGANIZATION_TABLES,
   type OrganizationTables,
 } from "./organization-queries";
@@ -31,38 +32,15 @@ export class StaleOrganizationsError extends Error {
   }
 }
 
-/**
- * The group's name and its "Ad Soyad: Görev, …" text in saved order, as the
- * group's own page records it; null when the group is gone
- */
+/** The group's name and its "Ad Soyad: Görev, …" text; null when it is gone */
 async function groupPeopleText(
   executor: Executor,
-  { group, person }: OrganizationTables,
+  tables: OrganizationTables,
   id: number,
 ) {
-  const [found] = await executor
-    .select({ name: group.name })
-    .from(group)
-    .where(eq(group.id, id));
-  if (!found) return null;
-
-  const people = await executor
-    .select({
-      firstName: memberTable.firstName,
-      lastName: memberTable.lastName,
-      roleName: parameterTable.name,
-    })
-    .from(person)
-    .innerJoin(memberTable, eq(person.memberId, memberTable.id))
-    .innerJoin(parameterTable, eq(person.roleId, parameterTable.id))
-    .where(eq(person.groupId, id))
-    .orderBy(asc(person.position), asc(person.id));
-
-  return {
-    name: found.name,
-    text:
-      people.map((p) => `${memberName(p)}: ${p.roleName}`).join(", ") || "—",
-  };
+  const group = await loadOrganizationGroup(executor, tables, id);
+  if (!group) return null;
+  return { name: group.name, text: organizationPeopleText(group.people) };
 }
 
 export type MemberOrganization = {

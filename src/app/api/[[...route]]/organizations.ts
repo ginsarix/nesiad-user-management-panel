@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { db, type Transaction } from "@/db";
-import { authorizedRepresentativeTable, parameterTable } from "@/db/schema";
+import { parameterTable } from "@/db/schema";
 import { recordAudit } from "@/lib/audit";
 import { change } from "@/lib/audit-diff";
 import {
@@ -21,6 +21,7 @@ import {
   UNIQUE_VIOLATION,
 } from "./db-errors";
 import { type AppEnv, actorOf } from "./env";
+import { assertUsableMembers, InvalidRowError } from "./member-rows";
 import {
   loadOrganizationGroup,
   ORGANIZATION_TABLES,
@@ -33,10 +34,7 @@ const DUPLICATE_NAME_ERROR = "Bu isimde bir kayıt zaten var";
 
 const groupParamSchema = organizationParamSchema.extend(idParamSchema.shape);
 
-type PersonInput = { representativeId: number; roleId: number };
-
-/** A refused save; `message` is the response's error */
-class InvalidPeopleError extends Error {}
+type PersonInput = { memberId: number; roleId: number };
 
 /** The slug was validated, so it always names an organization */
 function organizationOf(slug: string): Organization {
@@ -50,33 +48,15 @@ function nameValues(name: string) {
 }
 
 /**
- * Throws InvalidPeopleError unless every yetkili exists, every görev is a
- * Dernek Görevi, and each Pasif yetkili was already in the group
- * (`currentIds`, matched by yetkili since one may appear twice).
+ * Throws InvalidRowError unless every member exists and is Aktif or already
+ * in the group (`currentIds`), and every görev is a Dernek Görevi
  */
 async function assertValidPeople(
   tx: Transaction,
   people: PersonInput[],
-  currentIds: ReadonlySet<number>,
+  currentIds: readonly number[],
 ) {
   if (people.length === 0) return;
-
-  const representatives = await tx
-    .select({
-      id: authorizedRepresentativeTable.id,
-      active: authorizedRepresentativeTable.active,
-    })
-    .from(authorizedRepresentativeTable)
-    .where(
-      inArray(
-        authorizedRepresentativeTable.id,
-        people.map((p) => p.representativeId),
-      ),
-    );
-  const activeById = new Map(representatives.map((r) => [r.id, r.active]));
-  if (people.some((p) => !activeById.has(p.representativeId))) {
-    throw new InvalidPeopleError("Seçilen yetkili bulunamadı");
-  }
 
   const roles = await tx
     .select({ id: parameterTable.id })
@@ -91,18 +71,15 @@ async function assertValidPeople(
       ),
     );
   const roleIds = new Set(roles.map((r) => r.id));
-  if (people.some((p) => !roleIds.has(p.roleId))) {
-    throw new InvalidPeopleError("Seçilen görev bulunamadı");
-  }
+  const roleIndex = people.findIndex((p) => !roleIds.has(p.roleId));
 
-  if (
-    people.some(
-      (p) =>
-        !activeById.get(p.representativeId) &&
-        !currentIds.has(p.representativeId),
-    )
-  ) {
-    throw new InvalidPeopleError("Pasif yetkili eklenemez");
+  await assertUsableMembers(
+    tx,
+    people.map((p) => p.memberId),
+    currentIds,
+  );
+  if (roleIndex !== -1) {
+    throw new InvalidRowError("Seçilen görev bulunamadı", roleIndex, "roleId");
   }
 }
 
@@ -119,7 +96,7 @@ async function replacePeople(
   await tx.insert(person).values(
     people.map((p, position) => ({
       groupId,
-      representativeId: p.representativeId,
+      memberId: p.memberId,
       roleId: p.roleId,
       position,
     })),
@@ -128,8 +105,14 @@ async function replacePeople(
 
 /** Maps a refused save to its response; anything else is rethrown */
 function saveError(error: unknown) {
-  if (error instanceof InvalidPeopleError) {
-    return { body: { error: error.message }, status: 400 as const };
+  if (error instanceof InvalidRowError) {
+    return {
+      body: {
+        error: error.message,
+        field: `people.${error.index}.${error.field}`,
+      },
+      status: 400 as const,
+    };
   }
   if (pgErrorCode(error) === UNIQUE_VIOLATION) {
     return {
@@ -137,10 +120,10 @@ function saveError(error: unknown) {
       status: 409 as const,
     };
   }
-  // a yetkili or görev deleted while the form was open
+  // a member or görev deleted while the form was open
   if (pgErrorCode(error) === FOREIGN_KEY_VIOLATION) {
     return {
-      body: { error: "Seçilen yetkili veya görev bulunamadı" },
+      body: { error: "Seçilen üye veya görev bulunamadı" },
       status: 400 as const,
     };
   }
@@ -192,7 +175,7 @@ export const organizationsRoute = new Hono<AppEnv>()
 
       try {
         const id = await db.transaction(async (tx) => {
-          await assertValidPeople(tx, people, new Set());
+          await assertValidPeople(tx, people, []);
 
           const [created] = await tx
             .insert(tables.group)
@@ -244,7 +227,7 @@ export const organizationsRoute = new Hono<AppEnv>()
           await assertValidPeople(
             tx,
             people,
-            new Set(before.people.map((p) => p.representativeId)),
+            before.people.map((p) => p.memberId),
           );
 
           await tx

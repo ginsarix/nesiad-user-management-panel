@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
   auditLogTable,
-  authorizedRepresentativeTable,
   committeeTable,
   managementBoardTable,
+  memberTable,
   parameterTable,
 } from "@/db/schema";
 import { organizationsRoute } from "./organizations";
@@ -15,30 +15,32 @@ const suffix = crypto.randomUUID().slice(0, 8);
 
 const committeeIds: number[] = [];
 const managementBoardIds: number[] = [];
-const representativeIds: number[] = [];
+const memberIds: number[] = [];
 const parameterIds: number[] = [];
 
 let ahmet: { id: number; name: string };
 let ayse: { id: number; name: string };
 let pasif: { id: number; name: string };
+let aday: { id: number; name: string };
 let baskan: { id: number; name: string };
 let uye: { id: number; name: string };
 let nakit: { id: number; name: string };
 
 beforeAll(async () => {
-  const representatives = await db
-    .insert(authorizedRepresentativeTable)
+  const members = await db
+    .insert(memberTable)
     .values([
-      { name: `__test__ Ahmet ${suffix}` },
-      { name: `__test__ Ayşe ${suffix}` },
-      { name: `__test__ Pasif ${suffix}`, active: false },
+      { firstName: "__test__ Ahmet", lastName: suffix },
+      { firstName: "__test__ Ayşe", lastName: suffix },
+      { firstName: "__test__ Pasif", lastName: suffix, status: "passive" },
+      { firstName: "__test__ Aday", lastName: suffix, status: "candidate" },
     ])
-    .returning({
-      id: authorizedRepresentativeTable.id,
-      name: authorizedRepresentativeTable.name,
-    });
-  representativeIds.push(...representatives.map((r) => r.id));
-  [ahmet, ayse, pasif] = representatives;
+    .returning({ id: memberTable.id });
+  memberIds.push(...members.map((m) => m.id));
+  [ahmet, ayse, pasif, aday] = members.map((m, i) => ({
+    id: m.id,
+    name: `__test__ ${["Ahmet", "Ayşe", "Pasif", "Aday"][i]} ${suffix}`,
+  }));
 
   const parameters = await db
     .insert(parameterTable)
@@ -71,9 +73,7 @@ afterAll(async () => {
       .delete(managementBoardTable)
       .where(inArray(managementBoardTable.id, managementBoardIds));
   }
-  await db
-    .delete(authorizedRepresentativeTable)
-    .where(inArray(authorizedRepresentativeTable.id, representativeIds));
+  await db.delete(memberTable).where(inArray(memberTable.id, memberIds));
   await db
     .delete(parameterTable)
     .where(inArray(parameterTable.id, parameterIds));
@@ -87,7 +87,7 @@ function json(method: string, body: unknown) {
   };
 }
 
-type Person = { representativeId: number; roleId: number };
+type Person = { memberId: number; roleId: number };
 
 async function createGroup(
   name: string,
@@ -128,8 +128,8 @@ describe("POST /api/organizations/:organization", () => {
   it("creates a group with people in order", async () => {
     const name = `__test__ Eğitim ${suffix}`;
     const { res, body } = await createGroup(name, [
-      { representativeId: ahmet.id, roleId: baskan.id },
-      { representativeId: ayse.id, roleId: uye.id },
+      { memberId: ahmet.id, roleId: baskan.id },
+      { memberId: ayse.id, roleId: uye.id },
     ]);
     expect(res.status).toBe(201);
 
@@ -139,16 +139,16 @@ describe("POST /api/organizations/:organization", () => {
       name,
       people: [
         {
-          representativeId: ahmet.id,
-          representativeName: ahmet.name,
-          representativeActive: true,
+          memberId: ahmet.id,
+          memberName: ahmet.name,
+          memberActive: true,
           roleId: baskan.id,
           roleName: baskan.name,
         },
         {
-          representativeId: ayse.id,
-          representativeName: ayse.name,
-          representativeActive: true,
+          memberId: ayse.id,
+          memberName: ayse.name,
+          memberActive: true,
           roleId: uye.id,
           roleName: uye.name,
         },
@@ -166,10 +166,10 @@ describe("POST /api/organizations/:organization", () => {
     ]);
   });
 
-  it("allows the same yetkili twice", async () => {
+  it("allows the same member twice", async () => {
     const { res, body } = await createGroup(`__test__ İkili ${suffix}`, [
-      { representativeId: ahmet.id, roleId: baskan.id },
-      { representativeId: ahmet.id, roleId: uye.id },
+      { memberId: ahmet.id, roleId: baskan.id },
+      { memberId: ahmet.id, roleId: uye.id },
     ]);
     expect(res.status).toBe(201);
     expect((await getGroup(body.id)).body.people).toHaveLength(2);
@@ -208,7 +208,7 @@ describe("POST /api/organizations/:organization", () => {
   it("refuses a görev from another list", async () => {
     const name = `__test__ Yanlış Görev ${suffix}`;
     const { res, body } = await createGroup(name, [
-      { representativeId: ahmet.id, roleId: nakit.id },
+      { memberId: ahmet.id, roleId: nakit.id },
     ]);
     expect(res.status).toBe(400);
     expect(body.error).toBe("Seçilen görev bulunamadı");
@@ -218,20 +218,28 @@ describe("POST /api/organizations/:organization", () => {
     expect(groups.some((g) => g.name === name)).toBe(false);
   });
 
-  it("refuses an unknown yetkili", async () => {
+  it("refuses an unknown member", async () => {
     const { res, body } = await createGroup(`__test__ Bilinmeyen ${suffix}`, [
-      { representativeId: 2147483000, roleId: baskan.id },
+      { memberId: 2147483000, roleId: baskan.id },
     ]);
     expect(res.status).toBe(400);
-    expect(body.error).toBe("Seçilen yetkili bulunamadı");
+    expect(body.error).toBe("Seçilen üye bulunamadı");
   });
 
-  it("refuses a Pasif yetkili not already in the group", async () => {
-    const { res, body } = await createGroup(`__test__ Pasifli ${suffix}`, [
-      { representativeId: pasif.id, roleId: uye.id },
+  it("refuses an Aday member", async () => {
+    const { res, body } = await createGroup(`__test__ Adaylı ${suffix}`, [
+      { memberId: aday.id, roleId: uye.id },
     ]);
     expect(res.status).toBe(400);
-    expect(body.error).toBe("Pasif yetkili eklenemez");
+    expect(body.error).toBe("Aktif olmayan üye eklenemez");
+  });
+
+  it("refuses a Pasif member not already in the group", async () => {
+    const { res, body } = await createGroup(`__test__ Pasifli ${suffix}`, [
+      { memberId: pasif.id, roleId: uye.id },
+    ]);
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("Aktif olmayan üye eklenemez");
   });
 });
 
@@ -239,8 +247,8 @@ describe("GET /api/organizations/:organization", () => {
   it("lists groups with their person count", async () => {
     const name = `__test__ Sayılı ${suffix}`;
     const { body } = await createGroup(name, [
-      { representativeId: ahmet.id, roleId: baskan.id },
-      { representativeId: ahmet.id, roleId: uye.id },
+      { memberId: ahmet.id, roleId: baskan.id },
+      { memberId: ahmet.id, roleId: uye.id },
     ]);
 
     const res = await organizationsRoute.request("/committees");
@@ -263,20 +271,20 @@ describe("GET /api/organizations/:organization", () => {
 });
 
 describe("PATCH /api/organizations/:organization/:id", () => {
-  it("keeps a yetkili that became Pasif", async () => {
+  it("keeps a member that became Pasif", async () => {
     const [temp] = await db
-      .insert(authorizedRepresentativeTable)
-      .values({ name: `__test__ Sonra Pasif ${suffix}` })
-      .returning({ id: authorizedRepresentativeTable.id });
-    representativeIds.push(temp.id);
+      .insert(memberTable)
+      .values({ firstName: "__test__ Sonra Pasif", lastName: suffix })
+      .returning({ id: memberTable.id });
+    memberIds.push(temp.id);
 
-    const people = [{ representativeId: temp.id, roleId: baskan.id }];
+    const people = [{ memberId: temp.id, roleId: baskan.id }];
     const { body } = await createGroup(`__test__ Değişen ${suffix}`, people);
 
     await db
-      .update(authorizedRepresentativeTable)
-      .set({ active: false })
-      .where(eq(authorizedRepresentativeTable.id, temp.id));
+      .update(memberTable)
+      .set({ status: "passive" })
+      .where(eq(memberTable.id, temp.id));
 
     const name = `__test__ Değişen ${suffix}`;
     const same = await organizationsRoute.request(
@@ -285,37 +293,37 @@ describe("PATCH /api/organizations/:organization/:id", () => {
     );
     expect(same.status).toBe(200);
 
-    // matched by yetkili, so a second row for them is fine too
+    // matched by member, so a second row for them is fine too
     const twice = await organizationsRoute.request(
       `/committees/${body.id}`,
       json("PATCH", {
         name,
-        people: [...people, { representativeId: temp.id, roleId: uye.id }],
+        people: [...people, { memberId: temp.id, roleId: uye.id }],
       }),
     );
     expect(twice.status).toBe(200);
 
     const group = await getGroup(body.id);
     expect(group.body.people).toHaveLength(2);
-    expect(group.body.people[0].representativeActive).toBe(false);
+    expect(group.body.people[0].memberActive).toBe(false);
   });
 
-  it("refuses a Pasif yetkili not already in the group", async () => {
+  it("refuses a Pasif member not already in the group", async () => {
     const { body } = await createGroup(`__test__ Pasif Ekleme ${suffix}`, []);
     const res = await organizationsRoute.request(
       `/committees/${body.id}`,
       json("PATCH", {
         name: `__test__ Pasif Ekleme ${suffix}`,
-        people: [{ representativeId: pasif.id, roleId: uye.id }],
+        people: [{ memberId: pasif.id, roleId: uye.id }],
       }),
     );
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("Pasif yetkili eklenemez");
+    expect((await res.json()).error).toBe("Aktif olmayan üye eklenemez");
   });
 
   it("records only what changed", async () => {
     const name = `__test__ Kayıtlı ${suffix}`;
-    const people = [{ representativeId: ahmet.id, roleId: baskan.id }];
+    const people = [{ memberId: ahmet.id, roleId: baskan.id }];
     const { body } = await createGroup(name, people);
 
     const unchanged = await organizationsRoute.request(
@@ -329,7 +337,7 @@ describe("PATCH /api/organizations/:organization/:id", () => {
       `/committees/${body.id}`,
       json("PATCH", {
         name,
-        people: [{ representativeId: ahmet.id, roleId: uye.id }],
+        people: [{ memberId: ahmet.id, roleId: uye.id }],
       }),
     );
     const updates = await auditEntries("update", body.id);
@@ -356,7 +364,7 @@ describe("DELETE /api/organizations/:organization/:id", () => {
   it("deletes a group with its people", async () => {
     const name = `__test__ Silinen ${suffix}`;
     const { body } = await createGroup(name, [
-      { representativeId: ayse.id, roleId: uye.id },
+      { memberId: ayse.id, roleId: uye.id },
     ]);
 
     const res = await organizationsRoute.request(`/committees/${body.id}`, {

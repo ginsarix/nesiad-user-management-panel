@@ -32,8 +32,8 @@ describe("organizationPeopleText", () => {
   it("lists each person with their görev", () => {
     expect(
       organizationPeopleText([
-        { representativeName: "Ahmet Yılmaz", roleName: "Başkan" },
-        { representativeName: "Ayşe Demir", roleName: "Üye" },
+        { memberName: "Ahmet Yılmaz", roleName: "Başkan" },
+        { memberName: "Ayşe Demir", roleName: "Üye" },
       ]),
     ).toBe("Ahmet Yılmaz: Başkan, Ayşe Demir: Üye");
   });

@@ -92,10 +92,7 @@ export function organizationHref(organization: Organization, path?: string) {
 
 /** "Ahmet Yılmaz: Başkan, Ayşe Demir: Üye" for the audit log */
 export function organizationPeopleText(
-  people: { representativeName: string; roleName: string }[],
+  people: { memberName: string; roleName: string }[],
 ) {
-  return (
-    people.map((p) => `${p.representativeName}: ${p.roleName}`).join(", ") ||
-    "—"
-  );
+  return people.map((p) => `${p.memberName}: ${p.roleName}`).join(", ") || "—";
 }

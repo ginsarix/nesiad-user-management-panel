@@ -10,13 +10,13 @@ export const organizationParamSchema = z.object({
 
 /**
  * A group with all its people, in order. Create and update both send the
- * whole group; `people` replaces the rows. The same yetkili may appear twice.
+ * whole group; `people` replaces the rows. The same üye may appear twice.
  */
 export const organizationGroupSchema = z.object({
   name: nameSchema,
   people: z.array(
     z.object({
-      representativeId: z.number().int().positive(),
+      memberId: z.number().int().positive(),
       roleId: z.number().int().positive(),
     }),
   ),
@@ -27,10 +27,10 @@ export const organizationGroupFormSchema = z.object({
   name: nameSchema,
   people: z.array(
     z.object({
-      representativeId: z
+      memberId: z
         .number()
         .nullable()
-        .refine((id) => id !== null, "Yetkili seçin"),
+        .refine((id) => id !== null, "Üye seçin"),
       roleId: z
         .number()
         .nullable()
