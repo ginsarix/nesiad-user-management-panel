@@ -18,7 +18,7 @@
 - Deploy 1 must leave `authorized_representative`, `members_representatives` and the legacy company columns on `member` (`title`, `logo`, `logo_original`, `address`, `phone`, `sector_id`, `founding_date`, `employee_count`, `website`, `company_intro`, `activity_document`) in the database with their data. Only the cleanup PR (Task 17) drops them.
 - `representative_member_map` is kept forever (old-link redirect, audit history lookups).
 - Every Hono mutation writes `recordAudit(tx, …)` in the same transaction with `actorOf(c)`; updates use `diffFields` / `change`; creates/deletes store the whole record.
-- Applicant-side fields keep today's redaction (`diffRedacted`, "•••"): national id, birth place, education, gender, reference, other associations, identity document, consent, Ret Notu. Name, E-posta, Cep Telefonu, Doğum Tarihi, Notlar, PO card and photo are logged plainly as yetkili fields were. *(Pending user confirmation, see handoff.)*
+- Applicant-side fields keep today's redaction (`diffRedacted`, "•••"): national id, birth place, education, gender, reference, other associations, identity document, consent, Ret Notu. Name, E-posta, Cep Telefonu, Doğum Tarihi, Notlar, PO card and photo are logged plainly as yetkili fields were. (Confirmed by the user 2026-11-27.)
 - Money travels as strings; sums in Postgres or `sumAmounts` (BigInt kuruş), never JS number addition.
 - Turkish-aware matching uses `foldTr` (TS) or the SQL fold `regexp_replace(lower(translate(trim(x), 'İIıŞşĞğÜüÖöÇçÂâÎîÛû', 'iiiSsGgUuOoCcAaIiUu')), '\s+', ' ', 'g')`.
 - Forms: react-hook-form + zodResolver. Tables: TanStack Table v9 API. Base UI `render` props, not `asChild`.
@@ -156,7 +156,7 @@ Conversion SQL (in `member_person_convert`), in order, one transaction (the migr
 
 - [ ] **Step 1: Failing tests** (rewrite `members.test.ts` around people; keep the existing application/decision/national-id/logo/document tests, adjusted): `creates a member with a new company`; `creates a member without a company`; `creates a member on an existing company`; `updates shared company fields for every member of it` (A and B on one company; PATCH A's company title; GET B shows it; A's audit entry has a "Firma: Ünvan" change); `moving a member to no company deletes the orphaned company`; `logo upload sets the company logo`; `logo upload without a company is refused`; `photo upload and removal`; `organizations sent with the member replace only its rows`; `refuses to delete a member with tahsilat, taahhüt or tahakkuk rows`; `deleting a member removes its Organizasyon rows and names them in the audit entry`.
 - [ ] **Step 2:** `pnpm test --run "api/.*/members"` → FAIL.
-- [ ] **Step 3:** Implement. Reuse the yetkili route's photo handling (moved code, not copied) and the organizations sync with `memberId`.
+- [ ] **Step 3:** Implement. Move (not copy) the yetkili photo pieces: `photoFileSchema`, `MAX_PHOTO_SIZE`, `PHOTO_TOO_LARGE_MESSAGE` into `src/lib/zod-schemas/member.ts`, and the yetkili route's photo store/replace/delete code into a module the members route imports (`representatives.ts` may import it from there until Task 9 deletes it). Organizations sync uses `memberId`.
 - [ ] **Step 4:** Tests → PASS.
 - [ ] **Step 5:** Commit `feat: members API for people with a company`.
 
@@ -208,7 +208,7 @@ Conversion SQL (in `member_person_convert`), in order, one transaction (the migr
 ### Task 9: Remove the yetkili API and keep old links working
 
 **Files:**
-- Delete: `representatives.ts`, `representatives.test.ts`, `src/lib/fetches/representative.ts`, `src/lib/zod-schemas/authorized-representative.ts` (move `photoFileSchema`, `MAX_PHOTO_SIZE`, `PHOTO_TOO_LARGE_MESSAGE` to `member.ts` schemas first), all of `src/app/(panel)/representatives/**` except the two redirect pages below.
+- Delete: `representatives.ts`, `representatives.test.ts`, `src/lib/fetches/representative.ts`, `src/lib/zod-schemas/authorized-representative.ts` (its photo pieces already moved in Task 4), all of `src/app/(panel)/representatives/**` except the two redirect pages below.
 - Create: `src/app/(panel)/representatives/page.tsx` (`redirect("/members")`), `src/app/(panel)/representatives/[id]/page.tsx` (looks up `representative_member_map` server-side through a small `GET /api/members/by-representative/:id` → `{ id }`, then `redirect("/members/<id>")`, `notFound()` when missing).
 - Modify: `app.ts`, `sectors.ts` (counts: Aktif members through `company.sector_id`), `src/lib/audit-filters.ts` (keep the "representative" entity type filterable as "Yetkili (eski)" for history).
 
